@@ -31,7 +31,7 @@ func TestClientIP(t *testing.T) {
 }
 
 func TestClientIPCloudflare(t *testing.T) {
-	trust := ProxyTrust{Hops: 2, SiteHost: "dogear.fyi"}
+	trust := ProxyTrust{Hops: 2, SiteHost: "dogear.fyi", OriginSecret: "s3cret"}
 	mk := func(host, xff, secret string) *http.Request {
 		r := httptest.NewRequest("GET", "https://"+host+"/", nil)
 		r.RemoteAddr = "10.0.0.5:1234"
@@ -43,16 +43,23 @@ func TestClientIPCloudflare(t *testing.T) {
 		return r
 	}
 	viaCF := "172.70.1.2, 10.1.1.1"
-	if got := ClientIPWith(mk("dogear.fyi", viaCF, ""), trust); got != "198.51.100.7" {
+	if got := ClientIPWith(mk("dogear.fyi", viaCF, "s3cret"), trust); got != "198.51.100.7" {
 		t.Fatalf("own zone via cloudflare: %s", got)
 	}
-	if got := ClientIPWith(mk("web-production.up.railway.app", viaCF, ""), trust); got != "172.70.1.2" {
+	// A WARP user hitting Railway's edge directly: Cloudflare peer, right
+	// Host, forged header, but no secret.
+	if got := ClientIPWith(mk("dogear.fyi", viaCF, ""), trust); got != "172.70.1.2" {
+		t.Fatalf("no secret must not trust the header: %s", got)
+	}
+	if got := ClientIPWith(mk("dogear.fyi", viaCF, "s3cret"), ProxyTrust{Hops: 2, SiteHost: "dogear.fyi"}); got != "172.70.1.2" {
+		t.Fatalf("unconfigured secret must not trust the header: %s", got)
+	}
+	if got := ClientIPWith(mk("web-production.up.railway.app", viaCF, "s3cret"), trust); got != "172.70.1.2" {
 		t.Fatalf("another host via cloudflare must not trust the header: %s", got)
 	}
-	if got := ClientIPWith(mk("dogear.fyi", "203.0.113.9, 10.1.1.1", ""), trust); got != "203.0.113.9" {
+	if got := ClientIPWith(mk("dogear.fyi", "203.0.113.9, 10.1.1.1", "s3cret"), trust); got != "203.0.113.9" {
 		t.Fatalf("non-cloudflare peer: %s", got)
 	}
-	trust.OriginSecret = "s3cret"
 	if got := ClientIPWith(mk("dogear.fyi", viaCF, "wrong"), trust); got != "172.70.1.2" {
 		t.Fatalf("wrong secret: %s", got)
 	}

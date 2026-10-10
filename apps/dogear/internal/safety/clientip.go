@@ -24,9 +24,10 @@ type ProxyTrust struct {
 	// CF-Connecting-IP is only trusted for requests to this host, so another
 	// Cloudflare zone pointed at the origin cannot choose its own address.
 	SiteHost string
-	// OriginSecret, when set, must arrive in the X-Origin-Secret header,
-	// added by a Cloudflare request rule on the site's own zone. It proves
-	// the request came through that zone rather than any Cloudflare account.
+	// OriginSecret must arrive in the X-Origin-Secret header, added by a
+	// Cloudflare request rule on the site's own zone. It is the only proof
+	// a request came through that zone; when empty, CF-Connecting-IP is
+	// ignored and visitors behind one Cloudflare server share a bucket.
 	OriginSecret string
 }
 
@@ -45,15 +46,17 @@ func ClientIPWith(r *http.Request, t ProxyTrust) string {
 	return peer
 }
 
+// trustsCloudflare requires the zone's secret header: Railway's edge is
+// shared and routes by Host, and Cloudflare WARP exits sit inside
+// Cloudflare's ranges, so a Cloudflare peer plus a matching Host is not proof
+// the request came through this site's zone. Without the secret configured,
+// CF-Connecting-IP is never trusted.
 func (t ProxyTrust) trustsCloudflare(r *http.Request) bool {
-	if t.SiteHost == "" || !strings.EqualFold(stripPort(r.Host), t.SiteHost) {
+	if t.OriginSecret == "" || t.SiteHost == "" || !strings.EqualFold(stripPort(r.Host), t.SiteHost) {
 		return false
 	}
-	if t.OriginSecret != "" {
-		got := r.Header.Get("X-Origin-Secret")
-		return subtle.ConstantTimeCompare([]byte(got), []byte(t.OriginSecret)) == 1
-	}
-	return true
+	got := r.Header.Get("X-Origin-Secret")
+	return subtle.ConstantTimeCompare([]byte(got), []byte(t.OriginSecret)) == 1
 }
 
 func stripPort(host string) string {
