@@ -98,7 +98,11 @@ func (q *Queries) Feed(ctx context.Context, p FeedParams) ([]Item, error) {
 			// The cursor carries only the last id; its sort key is looked up
 			// here so it always matches the index expression exactly.
 			id := arg(p.AfterID)
-			where = append(where, "("+fmt.Sprintf(key, "i.title")+", i.id) > ((SELECT "+fmt.Sprintf(key, "t.title")+" FROM items t WHERE t.id = "+id+"), "+id+")")
+			where = append(where, "("+fmt.Sprintf(key, "i.title")+", i.id) > ((SELECT "+fmt.Sprintf(key, "t.title")+" FROM items t WHERE t.id = "+id+
+				// Only publicly visible items can anchor a cursor, so a crafted
+				// cursor cannot probe the titles of pending or hidden items.
+				" AND t.status = 'live' AND (t.created_by IS NULL OR NOT EXISTS (SELECT 1 FROM users tu WHERE tu.id = t.created_by"+
+				" AND (tu.banned_at IS NOT NULL OR tu.shadow_banned_at IS NOT NULL)))), "+id+")")
 		}
 	default:
 		if p.AfterScore != nil {

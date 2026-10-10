@@ -566,3 +566,37 @@ ul.index li {
 .meta a.out {
   color: var(--accent);
 }
+
+/* ⌘K search dialog */
+kbd {
+  font: inherit;
+  font-size: 10px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 0 3px;
+  color: var(--muted);
+}
+dialog.cmdk {
+  width: min(640px, calc(100vw - 32px));
+  max-height: 80vh;
+  margin: 12vh auto auto;
+  padding: 16px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--ink);
+}
+dialog.cmdk::backdrop {
+  background: rgb(0 0 0 / 35%);
+}
+dialog.cmdk input[type='search'] {
+  font-size: 16px;
+}
+dialog.cmdk #cmdk-results {
+  max-height: 55vh;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+dialog.cmdk .small {
+  margin: 8px 0 0;
+}

@@ -266,7 +266,14 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if r.Header.Get("HX-Request") != "" && r.Header.Get("HX-Target") == "results" {
+	if t := r.Header.Get("HX-Target"); r.Header.Get("HX-Request") != "" && (t == "results" || t == "cmdk-results") {
+		if t == "cmdk-results" {
+			// The ⌘K dialog shows a short, compact result list.
+			if len(sp.Feed.Items) > 8 {
+				sp.Feed.Items = sp.Feed.Items[:8]
+			}
+			sp.Feed.Next, sp.Feed.NextPage, sp.Feed.Compact = "", "", true
+		}
 		s.fragment(w, http.StatusOK, "search", "results", sp)
 		return
 	}
