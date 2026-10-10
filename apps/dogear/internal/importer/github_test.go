@@ -185,7 +185,7 @@ func TestRetryAfter429(t *testing.T) {
 	}
 }
 
-func TestRateLimitResetGivesUpAfterThreeAttempts(t *testing.T) {
+func TestRateLimitResetGivesUpAfterMaxAttempts(t *testing.T) {
 	calls := 0
 	g, waits := newTestGitHub(t, func(w http.ResponseWriter, r *http.Request) {
 		calls++
@@ -197,7 +197,7 @@ func TestRateLimitResetGivesUpAfterThreeAttempts(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "403") {
 		t.Fatalf("err = %v, want 403 error", err)
 	}
-	if calls != 3 || len(*waits) != 2 {
+	if calls != maxAttempts || len(*waits) != maxAttempts-1 {
 		t.Errorf("calls=%d waits=%v", calls, *waits)
 	}
 	for _, d := range *waits {

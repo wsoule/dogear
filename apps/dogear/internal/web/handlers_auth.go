@@ -103,7 +103,7 @@ func (s *Server) authCallback(w http.ResponseWriter, r *http.Request) {
 		s.notFound(w, r)
 		return
 	}
-	if ok, _, retry := s.svc.Limiter.Allow("oauth:"+ClientIP(r), service.OAuthCallbackRules...); !ok {
+	if ok, _, retry := s.svc.Limiter.Allow("oauth:"+s.clientIP(r), service.OAuthCallbackRules...); !ok {
 		w.Header().Set("Retry-After", retryHeader(retry))
 		s.errorPage(w, r, http.StatusTooManyRequests, "Too many sign-in attempts. Wait a minute and try again.")
 		return
@@ -246,7 +246,7 @@ func (s *Server) welcome(w http.ResponseWriter, r *http.Request) {
 		wp.Error = msg
 		s.render(w, r, http.StatusBadRequest, "welcome", &Page{Title: "welcome", NoIndex: true, Data: wp, TurnstileSiteKey: s.turnstileSignupKey()})
 	}
-	if !s.turnstile.Verify(r.Context(), r.FormValue("cf-turnstile-response"), ClientIP(r)) {
+	if !s.turnstile.Verify(r.Context(), r.FormValue("cf-turnstile-response"), s.clientIP(r)) {
 		fail("Please complete the human check.")
 		return
 	}
@@ -256,7 +256,7 @@ func (s *Server) welcome(w http.ResponseWriter, r *http.Request) {
 			invite = c.Value
 		}
 	}
-	u, err := s.svc.SignUp(r.Context(), p.Ext, wp.Username, invite, ClientIP(r))
+	u, err := s.svc.SignUp(r.Context(), p.Ext, wp.Username, invite, s.clientIP(r))
 	if err != nil {
 		if e, ok := service.AsError(err); ok {
 			fail(e.Message)

@@ -73,7 +73,7 @@ func (s *Server) submit(w http.ResponseWriter, r *http.Request) {
 		sp.Error, sp.DupID = msg, dup
 		s.render(w, r, status, "submit", &Page{Title: "post", Nav: "submit", NoIndex: true, Data: sp, TurnstileSiteKey: s.turnstileKey(r)})
 	}
-	if key := s.turnstileKey(r); key != "" && !s.turnstile.Verify(r.Context(), r.FormValue("cf-turnstile-response"), ClientIP(r)) {
+	if key := s.turnstileKey(r); key != "" && !s.turnstile.Verify(r.Context(), r.FormValue("cf-turnstile-response"), s.clientIP(r)) {
 		fail(http.StatusBadRequest, "Please complete the human check.", 0)
 		return
 	}

@@ -22,7 +22,8 @@ var ErrNotFound = errors.New("not found")
 const (
 	defaultGitHubBaseURL = "https://api.github.com"
 	defaultUserAgent     = "DogearBot/1.0"
-	maxAttempts          = 3
+	maxAttempts          = 6
+	starsPause           = time.Second
 	maxRateLimitWait     = 15 * time.Minute
 	starsBatchSize       = 100
 )
@@ -98,7 +99,9 @@ func (g *GitHub) Stars(ctx context.Context, repos []string) (map[string]int, err
 		uniq = append(uniq, r)
 	}
 
-	// Batches run four at a time. A failed batch (for example a repo that
+	// Batches run one at a time with a short pause between them: GitHub's
+	// secondary rate limits trip quickly on parallel GraphQL queries that
+	// each resolve 100 repositories. A failed batch (for example a repo that
 	// GitHub blocks) only loses its own counts; the rest are still returned
 	// alongside the joined errors.
 	out := make(map[string]int, len(uniq))
@@ -106,7 +109,7 @@ func (g *GitHub) Stars(ctx context.Context, repos []string) (map[string]int, err
 		mu   sync.Mutex
 		errs []error
 		wg   sync.WaitGroup
-		sem  = make(chan struct{}, 4)
+		sem  = make(chan struct{}, 1)
 	)
 	for start := 0; start < len(uniq); start += starsBatchSize {
 		batch := uniq[start:min(start+starsBatchSize, len(uniq))]
@@ -117,6 +120,7 @@ func (g *GitHub) Stars(ctx context.Context, repos []string) (map[string]int, err
 			defer func() { <-sem }()
 			part := map[string]int{}
 			err := g.starsBatch(ctx, batch, part)
+			_ = g.wait(ctx, starsPause)
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {
@@ -179,7 +183,7 @@ func (g *GitHub) starsBatch(ctx context.Context, batch []string, out map[string]
 // do performs one API request with auth and rate-limit handling: on a 403 or
 // 429 that carries Retry-After, or X-RateLimit-Remaining "0" with
 // X-RateLimit-Reset, it waits (at most 15 minutes, honoring ctx) and retries,
-// up to 3 attempts. A 404 maps to ErrNotFound; other non-2xx are errors.
+// up to 6 attempts. A 404 maps to ErrNotFound; other non-2xx are errors.
 func (g *GitHub) do(ctx context.Context, method, path, accept string, payload []byte) ([]byte, error) {
 	base := strings.TrimRight(g.BaseURL, "/")
 	if base == "" {

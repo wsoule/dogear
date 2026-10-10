@@ -31,7 +31,9 @@ type API struct {
 	session SessionFunc
 	signer  auth.Signer
 	baseURL string
-	mux     *http.ServeMux
+	// proxyHops is TRUSTED_PROXY_HOPS; see safety.ClientIP.
+	proxyHops int
+	mux       *http.ServeMux
 	// Routes lists every registered pattern, used by the spec-coverage test.
 	Routes []string
 }
@@ -41,8 +43,8 @@ var (
 	tokenReadRules = []safety.Rule{{Limit: 600, Per: time.Minute}}
 )
 
-func New(svc *service.Service, session SessionFunc, signer auth.Signer, baseURL string) *API {
-	a := &API{svc: svc, session: session, signer: signer, baseURL: baseURL, mux: http.NewServeMux()}
+func New(svc *service.Service, session SessionFunc, signer auth.Signer, baseURL string, proxyHops int) *API {
+	a := &API{svc: svc, session: session, signer: signer, baseURL: baseURL, proxyHops: proxyHops, mux: http.NewServeMux()}
 	a.handle("GET /categories", a.categories)
 	a.handle("GET /items", a.listItems)
 	a.handle("GET /items/{id}", a.getItem)
@@ -83,7 +85,7 @@ func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// bearer token is sent, otherwise per client IP. An invalid or junk
 	// Authorization header falls back to the IP bucket, so it cannot be used
 	// to skip the limit.
-	key, rules := "read:ip:"+safety.ClientIP(r), readRules
+	key, rules := "read:ip:"+safety.ClientIP(r, a.proxyHops), readRules
 	if raw, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
 		if act, err := a.svc.TokenActor(r.Context(), strings.TrimSpace(raw), "api"); err == nil && act.TokenID != nil {
 			key, rules = "read:tok:"+strconv.FormatInt(*act.TokenID, 10), tokenReadRules

@@ -421,7 +421,7 @@ dl.kv {
   display: grid;
   grid-template-columns: max-content 1fr;
   gap: 4px 16px;
-  margin: 0;
+  margin: 8px 0 12px;
 }
 dl.kv dt {
   color: var(--muted);

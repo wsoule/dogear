@@ -6,16 +6,25 @@ import (
 	"strings"
 )
 
-// ClientIP returns the caller's address for rate limiting. Behind Railway's
-// proxy the client address is the rightmost X-Forwarded-For entry (the one
-// the proxy appended); leftmost entries are client-controlled and spoofable.
-// Without the header it falls back to the socket address.
-func ClientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		parts := strings.Split(xff, ",")
-		for i := len(parts) - 1; i >= 0; i-- {
-			if ip := strings.TrimSpace(parts[i]); ip != "" {
-				return ip
+// ClientIP returns the caller's address for rate limiting. X-Forwarded-For
+// is trusted only when trustedHops proxies are known to sit in front of the
+// app (TRUSTED_PROXY_HOPS): each proxy appends one entry, so the client is
+// the trustedHops-th entry from the right and anything further left is
+// client-controlled. With trustedHops = 0 the header is ignored and the
+// socket address is used.
+func ClientIP(r *http.Request, trustedHops int) string {
+	if trustedHops > 0 {
+		var parts []string
+		for _, h := range r.Header.Values("X-Forwarded-For") {
+			for _, p := range strings.Split(h, ",") {
+				if p = strings.TrimSpace(p); p != "" {
+					parts = append(parts, p)
+				}
+			}
+		}
+		if i := len(parts) - trustedHops; i >= 0 && i < len(parts) {
+			if ip := net.ParseIP(parts[i]); ip != nil {
+				return ip.String()
 			}
 		}
 	}

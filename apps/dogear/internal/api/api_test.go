@@ -12,7 +12,7 @@ import (
 // TestSpecCoversRoutes fails when a registered route is missing from
 // openapi.yaml, so the published spec never drifts from the server.
 func TestSpecCoversRoutes(t *testing.T) {
-	a := New(&service.Service{}, nil, auth.Signer{}, "https://dogear.fyi")
+	a := New(&service.Service{}, nil, auth.Signer{}, "https://dogear.fyi", 0)
 	paths := map[string]map[string]bool{}
 	var current string
 	pathRe := regexp.MustCompile(`^  (/\S*):\s*$`)

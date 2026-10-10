@@ -1,5 +1,8 @@
-# Multi-stage build: a static Go binary on a distroless base, running as non-root.
-FROM golang:1.27 AS build
+# Multi-stage build: a static Go binary on a small Alpine base (CA certs for
+# GitHub and OAuth calls), running as a non-root user. There is no ENTRYPOINT
+# so each Railway service can set its own start command, e.g.
+# "/app/dogear import" for the weekly importer cron.
+FROM golang:1.27-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -9,9 +12,9 @@ COPY . .
 ARG BUILD_TAGS=""
 RUN CGO_ENABLED=0 go build -tags "${BUILD_TAGS}" -trimpath -ldflags="-s -w" -o /out/dogear ./cmd/dogear
 
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM alpine:3
+RUN apk add --no-cache ca-certificates && adduser -D -H -u 10001 dogear
 COPY --from=build /out/dogear /app/dogear
-USER nonroot:nonroot
+USER dogear
 EXPOSE 8080
-ENTRYPOINT ["/app/dogear"]
-CMD ["serve"]
+CMD ["/app/dogear", "serve"]

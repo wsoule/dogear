@@ -41,8 +41,11 @@ type Config struct {
 	GitHubAppWebhookSecret string
 	GitHubAppSlug          string
 
-	IPHashSalt   string
-	ContactEmail string
+	IPHashSalt string
+	// TrustedProxyHops is how many proxies append to X-Forwarded-For in
+	// front of the app (1 on Railway). 0 ignores the header.
+	TrustedProxyHops int
+	ContactEmail     string
 }
 
 func (c *Config) Production() bool { return c.Env == "production" }
@@ -89,6 +92,13 @@ func Load(need ...string) (*Config, error) {
 		ContactEmail:           env("CONTACT_EMAIL", "hello@dogear.fyi"),
 	}
 	var errs []error
+	if v := os.Getenv("TRUSTED_PROXY_HOPS"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			errs = append(errs, fmt.Errorf("TRUSTED_PROXY_HOPS must be a non-negative integer"))
+		}
+		c.TrustedProxyHops = n
+	}
 	if v := os.Getenv("GITHUB_APP_ID"); v != "" {
 		id, err := strconv.ParseInt(v, 10, 64)
 		if err != nil {

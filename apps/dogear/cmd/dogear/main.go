@@ -163,7 +163,7 @@ func serve(ctx context.Context) error {
 	}
 	go svc.RunBackground(ctx)
 
-	apiHandler := api.New(svc, web.SessionActor, auth.Signer{Secret: cfg.SessionSecret}, cfg.BaseURL)
+	apiHandler := api.New(svc, web.SessionActor, auth.Signer{Secret: cfg.SessionSecret}, cfg.BaseURL, cfg.TrustedProxyHops)
 	site, err := web.New(web.Options{Service: svc, Config: cfg, Log: log, Providers: providers, App: app,
 		API: apiHandler, MCP: mcp.Handler(svc, cfg.BaseURL)})
 	if err != nil {

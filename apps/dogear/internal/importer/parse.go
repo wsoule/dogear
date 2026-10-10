@@ -252,7 +252,9 @@ func (p *listParser) underSkippedHeading() bool {
 // normalization, plus "Related ..." variants such as "Related lists".
 func isSkippedListHeading(h string) bool {
 	n := normalizeHeading(h)
-	return listSkipHeadings[n] || strings.HasPrefix(n, "related ")
+	// "List of Licenses" style sections hold license pages, not recommendations.
+	return listSkipHeadings[n] || strings.HasPrefix(n, "related ") ||
+		n == "licenses" || strings.HasPrefix(n, "list of licenses") || n == "sponsors"
 }
 
 // headingPath joins the active H2..H4 headings with " > ".

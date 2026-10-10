@@ -27,7 +27,7 @@ func init() {
 			if u == nil {
 				signups := s.cfg.Signups
 				s.cfg.Signups = "open"
-				nu, err := s.svc.SignUp(ctx, ext, name, "", ClientIP(r))
+				nu, err := s.svc.SignUp(ctx, ext, name, "", s.clientIP(r))
 				s.cfg.Signups = signups
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)

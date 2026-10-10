@@ -1,12 +1,6 @@
 {
   "items": [
     {
-      "title": "iPulse AI",
-      "url": "https://ipulseai.com",
-      "description": "Open Agentic Investment Research Platform. Inspect deep multi-agent market forecasts and stock picks.",
-      "heading_path": "Sponsors"
-    },
-    {
       "title": "django-ai-plugins",
       "url": "https://github.com/vintasoftware/django-ai-plugins",
       "description": "Django backend agent skills for Django, DRF, Celery, and Django-specific code review.",
@@ -3156,6 +3150,7 @@
   ],
   "skips": {
     "anchor_section": 74,
-    "no_link": 129
+    "no_link": 129,
+    "skipped_heading": 1
   }
 }

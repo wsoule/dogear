@@ -251,7 +251,13 @@ func (im *Importer) importList(ctx context.Context, l IndexList, catID int32, fo
 			continue
 		}
 		kind := "site"
-		if _, _, ok := safety.GitHubRepo(norm); ok {
+		if _, repo, ok := safety.GitHubRepo(norm); ok {
+			// Links to other awesome lists are lists, not recommendations;
+			// they already appear as categories.
+			if strings.HasPrefix(repo, "awesome") {
+				extra["awesome_list"]++
+				continue
+			}
 			kind = "tool"
 		}
 		blurb := ""
