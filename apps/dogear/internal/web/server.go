@@ -301,7 +301,7 @@ func (s *Server) logRequests(next http.Handler) http.Handler {
 			hops = strings.Count(xff, ",") + 1
 		}
 		s.log.Info("http", "method", r.Method, "path", r.URL.Path, "status", sw.status,
-			"ms", time.Since(start).Milliseconds(), "xff_hops", hops, "real_ip_set", r.Header.Get("X-Real-IP") != "")
+			"ms", time.Since(start).Milliseconds(), "xff_hops", hops, "via_cf", r.Header.Get("CF-Connecting-IP") != "" && s.clientIP(r) == strings.TrimSpace(r.Header.Get("CF-Connecting-IP")))
 	})
 }
 

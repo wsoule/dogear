@@ -13,6 +13,23 @@ import (
 // client-controlled. With trustedHops = 0 the header is ignored and the
 // socket address is used.
 func ClientIP(r *http.Request, trustedHops int) string {
+	peer := proxiedPeer(r, trustedHops)
+	// Behind Cloudflare, the peer the proxies report is a Cloudflare server;
+	// the visitor is in CF-Connecting-IP. That header is trusted only when
+	// the peer really is in Cloudflare's published ranges, because anyone
+	// can reach the origin directly and set it themselves.
+	if ip := net.ParseIP(peer); ip != nil && isCloudflare(ip) {
+		if cf := net.ParseIP(strings.TrimSpace(r.Header.Get("CF-Connecting-IP"))); cf != nil {
+			return cf.String()
+		}
+	}
+	return peer
+}
+
+// proxiedPeer is the address of whoever connected to the trusted proxies:
+// the trustedHops-th X-Forwarded-For entry from the right, or the socket
+// address when there are no trusted proxies.
+func proxiedPeer(r *http.Request, trustedHops int) string {
 	if trustedHops > 0 {
 		var parts []string
 		for _, h := range r.Header.Values("X-Forwarded-For") {
@@ -33,4 +50,33 @@ func ClientIP(r *http.Request, trustedHops int) string {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+// cloudflareRanges are Cloudflare's published edge ranges
+// (https://www.cloudflare.com/ips/, checked 2026-10-09).
+var cloudflareRanges = func() []*net.IPNet {
+	var out []*net.IPNet
+	for _, c := range []string{
+		"173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18",
+		"108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17",
+		"162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22",
+		"2400:cb00::/32", "2606:4700::/32", "2803:f800::/32", "2405:b500::/32", "2405:8100::/32",
+		"2a06:98c0::/29", "2c0f:f248::/32",
+	} {
+		_, n, err := net.ParseCIDR(c)
+		if err == nil {
+			out = append(out, n)
+		}
+	}
+	return out
+}()
+
+// isCloudflare reports whether ip belongs to Cloudflare's edge.
+func isCloudflare(ip net.IP) bool {
+	for _, n := range cloudflareRanges {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
