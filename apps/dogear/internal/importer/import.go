@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
 
@@ -180,9 +181,27 @@ func (im *Importer) importLists(ctx context.Context, q *db.Queries, opt Options)
 	return g.Wait()
 }
 
-// importList fetches one awesome list and upserts its items in a single
-// transaction. Unchanged READMEs (same sha) are skipped unless forced.
+// importList imports one list, retrying when Postgres aborts the
+// transaction as a deadlock victim (another worker touched the same items).
 func (im *Importer) importList(ctx context.Context, l IndexList, catID int32, force bool) error {
+	var err error
+	for attempt := 0; attempt < 4; attempt++ {
+		if err = im.importListOnce(ctx, l, catID, force); err == nil || !isDeadlock(err) {
+			return err
+		}
+		time.Sleep(time.Duration(attempt+1) * 500 * time.Millisecond)
+	}
+	return err
+}
+
+func isDeadlock(err error) bool {
+	var pg *pgconn.PgError
+	return errors.As(err, &pg) && (pg.Code == "40P01" || pg.Code == "40001")
+}
+
+// importListOnce fetches one awesome list and upserts its items in a single
+// transaction. Unchanged READMEs (same sha) are skipped unless forced.
+func (im *Importer) importListOnce(ctx context.Context, l IndexList, catID int32, force bool) error {
 	q := db.New(im.Pool)
 	repo, err := im.GH.Repo(ctx, l.Repo)
 	if err != nil {
@@ -234,79 +253,77 @@ func (im *Importer) importList(ctx context.Context, l IndexList, catID int32, fo
 	}
 
 	items, skips := ParseList(md)
-	permissive := slices.Contains(permissiveLicenses, repo.License)
-	var touched []int64
-	var parsed, created, deduped int
-	extra := map[string]int{}
-	for _, it := range items {
-		parsed++
-		norm, err := safety.NormalizeURL(it.URL)
-		if err != nil {
-			extra["bad_url"]++
-			continue
-		}
-		domain := safety.Domain(norm)
-		if safety.IsShortener(domain) {
-			extra["shortener"]++
-			continue
-		}
-		kind := "site"
-		if _, repo, ok := safety.GitHubRepo(norm); ok {
-			// Links to other awesome lists are lists, not recommendations;
-			// they already appear as categories.
-			if strings.HasPrefix(repo, "awesome") {
-				extra["awesome_list"]++
-				continue
-			}
-			kind = "tool"
-		}
-		blurb := ""
-		if permissive {
-			blurb = safety.Truncate(safety.SanitizeText(it.Description), 280)
-		}
-		itemTitle := safety.Truncate(safety.SanitizeText(it.Title), 120)
-		if itemTitle == "" {
-			extra["no_title"]++
-			continue
-		}
-		id, err := tq.InsertImportedItem(ctx, db.InsertImportedItemParams{Url: norm, UrlNorm: norm, Domain: domain, Title: itemTitle, Blurb: blurb, Kind: kind})
-		if errors.Is(err, pgx.ErrNoRows) {
-			ex, err := tq.ImportedItemByNorm(ctx, norm)
-			if err != nil {
-				return fmt.Errorf("existing item: %w", err)
-			}
-			id = ex.ID
-			deduped++
-			// Never overwrite user-posted or voted items; fill in a blurb
-			// for imported ones when this list is permissive and it lacked one.
-			if ex.Via == "import" && ex.Blurb == "" && blurb != "" {
-				n, err := tq.UpdateImportedText(ctx, db.UpdateImportedTextParams{ID: id, Title: ex.Title, Blurb: blurb})
-				if err != nil {
-					return fmt.Errorf("update text: %w", err)
-				}
-				changed += int(n)
-			}
-		} else if err != nil {
-			return fmt.Errorf("insert item %s: %w", norm, err)
-		} else {
-			created++
-			changed++
-		}
-		n, err := tq.InsertItemSource(ctx, db.InsertItemSourceParams{ItemID: id, SourceListID: srcID,
-			HeadingPath: safety.Truncate(it.HeadingPath, 300), OriginalDescription: it.Description})
-		if err != nil {
-			return fmt.Errorf("item source: %w", err)
-		}
-		changed += int(n)
-		n, err = tq.InsertItemCategory(ctx, db.InsertItemCategoryParams{ItemID: id, CategoryID: catID})
-		if err != nil {
-			return fmt.Errorf("item category: %w", err)
-		}
-		changed += int(n)
-		touched = append(touched, id)
+	rows, extra := prepareRows(items, slices.Contains(permissiveLicenses, repo.License))
+	parsed := len(items)
+
+	// The whole list is written with a few set-based statements rather than
+	// several queries per item, so imports stay fast even over a
+	// high-latency connection. rows is sorted by url_norm, so concurrent
+	// workers lock shared item rows in the same order.
+	var b db.BulkInsertImportedItemsParams
+	norms := make([]string, len(rows))
+	for i, r := range rows {
+		norms[i] = r.norm
+		b.Urls = append(b.Urls, r.norm)
+		b.Domains = append(b.Domains, r.domain)
+		b.Titles = append(b.Titles, r.title)
+		b.Blurbs = append(b.Blurbs, r.blurb)
+		b.Kinds = append(b.Kinds, r.kind)
 	}
-	if len(touched) > 0 {
-		n, err := tq.RecountListCount(ctx, touched)
+	newIDs, err := tq.BulkInsertImportedItems(ctx, b)
+	if err != nil {
+		return fmt.Errorf("insert items: %w", err)
+	}
+	created := len(newIDs)
+	deduped := len(rows) - created
+	changed += created
+	idRows, err := tq.ItemIDsByNorm(ctx, norms)
+	if err != nil {
+		return fmt.Errorf("item ids: %w", err)
+	}
+	idByNorm := make(map[string]int64, len(idRows))
+	for _, r := range idRows {
+		idByNorm[r.UrlNorm] = r.ID
+	}
+	var ids []int64
+	var src db.BulkInsertItemSourcesParams
+	var fill db.BulkFillImportedBlurbsParams
+	for _, r := range rows {
+		id, ok := idByNorm[r.norm]
+		if !ok {
+			continue
+		}
+		ids = append(ids, id)
+		src.Ids = append(src.Ids, id)
+		src.Headings = append(src.Headings, r.heading)
+		src.Descs = append(src.Descs, r.desc)
+		if r.blurb != "" {
+			fill.Ids = append(fill.Ids, id)
+			fill.Blurbs = append(fill.Blurbs, r.blurb)
+		}
+	}
+	src.SourceListID = srcID
+	// Never overwrite user-posted or voted items; only fill a missing blurb
+	// on imported ones when this list is permissively licensed.
+	if len(fill.Ids) > 0 {
+		n, err := tq.BulkFillImportedBlurbs(ctx, fill)
+		if err != nil {
+			return fmt.Errorf("fill blurbs: %w", err)
+		}
+		changed += int(n)
+	}
+	n, err := tq.BulkInsertItemSources(ctx, src)
+	if err != nil {
+		return fmt.Errorf("item sources: %w", err)
+	}
+	changed += int(n)
+	n, err = tq.BulkInsertItemCategories(ctx, db.BulkInsertItemCategoriesParams{Ids: ids, CategoryID: catID})
+	if err != nil {
+		return fmt.Errorf("item categories: %w", err)
+	}
+	changed += int(n)
+	if len(ids) > 0 {
+		n, err := tq.RecountListCount(ctx, ids)
 		if err != nil {
 			return fmt.Errorf("list count: %w", err)
 		}
@@ -400,6 +417,60 @@ func Rescore(ctx context.Context, q *db.Queries, changed *int) error {
 		}
 	}
 	return nil
+}
+
+// importRow is one parsed item after normalization and filtering.
+type importRow struct {
+	norm, domain, title, blurb, kind, heading, desc string
+}
+
+// prepareRows normalizes and filters parsed items, keeps the first
+// occurrence of each URL, and sorts by normalized URL. Blurbs are kept only
+// when the source list is permissively licensed.
+func prepareRows(items []ParsedItem, permissive bool) ([]importRow, map[string]int) {
+	extra := map[string]int{}
+	seen := map[string]bool{}
+	var rows []importRow
+	for _, it := range items {
+		norm, err := safety.NormalizeURL(it.URL)
+		if err != nil {
+			extra["bad_url"]++
+			continue
+		}
+		domain := safety.Domain(norm)
+		if safety.IsShortener(domain) {
+			extra["shortener"]++
+			continue
+		}
+		kind := "site"
+		if _, repo, ok := safety.GitHubRepo(norm); ok {
+			// Links to other awesome lists are lists, not recommendations;
+			// they already appear as categories.
+			if strings.HasPrefix(repo, "awesome") {
+				extra["awesome_list"]++
+				continue
+			}
+			kind = "tool"
+		}
+		title := safety.Truncate(safety.SanitizeText(it.Title), 120)
+		if title == "" {
+			extra["no_title"]++
+			continue
+		}
+		if seen[norm] {
+			extra["duplicate_in_list"]++
+			continue
+		}
+		seen[norm] = true
+		blurb := ""
+		if permissive {
+			blurb = safety.Truncate(safety.SanitizeText(it.Description), 280)
+		}
+		rows = append(rows, importRow{norm: norm, domain: domain, title: title, blurb: blurb, kind: kind,
+			heading: safety.Truncate(it.HeadingPath, 300), desc: it.Description})
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].norm < rows[j].norm })
+	return rows, extra
 }
 
 func ptr32(v int32) *int32 { return &v }

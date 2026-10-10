@@ -1,13 +1,9 @@
 // Minimal service worker: caches static assets and an offline page only.
 // Feeds and API responses are never cached.
-const CACHE = 'dogear-v1';
-const ASSETS = [
-  '/static/app.css',
-  '/static/htmx.min.js',
-  '/static/app.js',
-  '/static/favicon.svg',
-  '/offline',
-];
+// Static URLs carry a ?v=<content hash>, so each version is cached under its
+// own URL; bumping CACHE clears entries from older service workers.
+const CACHE = 'dogear-v2';
+const ASSETS = ['/offline'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
@@ -38,7 +34,14 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== location.origin) return;
   if (url.pathname.startsWith('/static/')) {
     e.respondWith(
-      caches.match(req).then((hit) => (hit === undefined ? fetch(req) : hit))
+      caches.match(req).then((hit) => {
+        if (hit !== undefined) return hit;
+        return fetch(req).then((resp) => {
+          const copy = resp.clone();
+          void caches.open(CACHE).then((c) => c.put(req, copy));
+          return resp;
+        });
+      })
     );
     return;
   }

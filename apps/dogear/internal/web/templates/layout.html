@@ -9,16 +9,16 @@
 <meta name="htmx-config" content='{"includeIndicatorStyles":false,"historyCacheSize":0}'>
 <meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)">
-<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/static/icon-192.png">
+<link rel="icon" href="{{asset "favicon.svg"}}" type="image/svg+xml">
+<link rel="apple-touch-icon" href="{{asset "icon-192.png"}}">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="stylesheet" href="/static/app.css">
-<script src="/static/htmx.min.js" defer></script>
-<script src="/static/app.js" defer></script>
+<link rel="stylesheet" href="{{asset "app.css"}}">
+<script src="{{asset "htmx.min.js"}}" defer></script>
+<script src="{{asset "app.js"}}" defer></script>
 {{if .TurnstileSiteKey}}<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>{{end}}
 </head>
 <body{{if .CSRF}} hx-headers='{"X-CSRF-Token":"{{.CSRF}}"}'{{end}}>
-<a class="dogear" href="/" aria-label="Dogear home"><svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path class="flap" d="M0 0H48V48Z"/><line x1="0" y1="0" x2="48" y2="48" stroke="currentColor" stroke-width="1.25" vector-effect="non-scaling-stroke"/></svg></a>
+<a class="dogear" href="/" aria-label="Dogear home"><svg viewBox="0 0 48 48" overflow="visible" aria-hidden="true" focusable="false"><path class="cut" d="M0.6 0 H48 V47.4 Z"/><path class="flap" d="M0.6 0 V47.4 H48 Z" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="miter" vector-effect="non-scaling-stroke"/></svg></a>
 <div class="wrap">
 <header class="top">
   <a class="wordmark" href="/">dogear</a>

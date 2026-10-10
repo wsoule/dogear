@@ -9,6 +9,120 @@ import (
 	"context"
 )
 
+const bulkFillImportedBlurbs = `-- name: BulkFillImportedBlurbs :execrows
+UPDATE items i SET blurb = x.b, updated_at = now()
+FROM (SELECT unnest($1::bigint[]) AS id, unnest($2::text[]) AS b) AS x
+WHERE i.id = x.id AND i.via = 'import' AND i.created_by IS NULL AND i.blurb = '' AND x.b <> ''
+  AND i.like_count = 0 AND i.dislike_count = 0
+`
+
+type BulkFillImportedBlurbsParams struct {
+	Ids    []int64
+	Blurbs []string
+}
+
+// Fill in a blurb for imported, unvoted items that lack one. User-posted or
+// voted items are never touched.
+func (q *Queries) BulkFillImportedBlurbs(ctx context.Context, arg BulkFillImportedBlurbsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, bulkFillImportedBlurbs, arg.Ids, arg.Blurbs)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const bulkInsertImportedItems = `-- name: BulkInsertImportedItems :many
+INSERT INTO items (url, url_norm, domain, title, blurb, via, status, kind)
+SELECT x.u, x.u, x.d, x.t, x.b, 'import', 'live', x.k
+FROM (SELECT unnest($1::text[]) AS u, unnest($2::text[]) AS d, unnest($3::text[]) AS t,
+             unnest($4::text[]) AS b, unnest($5::text[]) AS k) AS x
+ON CONFLICT (url_norm) DO NOTHING
+RETURNING id
+`
+
+type BulkInsertImportedItemsParams struct {
+	Urls    []string
+	Domains []string
+	Titles  []string
+	Blurbs  []string
+	Kinds   []string
+}
+
+// One statement per list: new items are inserted, existing url_norms are
+// left alone. Arrays are sorted by url_norm so concurrent lists lock rows in
+// the same order.
+func (q *Queries) BulkInsertImportedItems(ctx context.Context, arg BulkInsertImportedItemsParams) ([]int64, error) {
+	rows, err := q.db.Query(ctx, bulkInsertImportedItems,
+		arg.Urls,
+		arg.Domains,
+		arg.Titles,
+		arg.Blurbs,
+		arg.Kinds,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const bulkInsertItemCategories = `-- name: BulkInsertItemCategories :execrows
+INSERT INTO item_categories (item_id, category_id)
+SELECT unnest($1::bigint[]), $2::int
+ON CONFLICT DO NOTHING
+`
+
+type BulkInsertItemCategoriesParams struct {
+	Ids        []int64
+	CategoryID int32
+}
+
+func (q *Queries) BulkInsertItemCategories(ctx context.Context, arg BulkInsertItemCategoriesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, bulkInsertItemCategories, arg.Ids, arg.CategoryID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const bulkInsertItemSources = `-- name: BulkInsertItemSources :execrows
+INSERT INTO item_sources (item_id, source_list_id, heading_path, original_description)
+SELECT x.i, $1::int, x.h, x.d
+FROM (SELECT unnest($2::bigint[]) AS i, unnest($3::text[]) AS h, unnest($4::text[]) AS d) AS x
+ON CONFLICT DO NOTHING
+`
+
+type BulkInsertItemSourcesParams struct {
+	SourceListID int32
+	Ids          []int64
+	Headings     []string
+	Descs        []string
+}
+
+func (q *Queries) BulkInsertItemSources(ctx context.Context, arg BulkInsertItemSourcesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, bulkInsertItemSources,
+		arg.SourceListID,
+		arg.Ids,
+		arg.Headings,
+		arg.Descs,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const categoryChildren = `-- name: CategoryChildren :many
 SELECT id FROM categories WHERE parent_id = $1
 `
@@ -241,6 +355,35 @@ func (q *Queries) InsertItemSource(ctx context.Context, arg InsertItemSourcePara
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const itemIDsByNorm = `-- name: ItemIDsByNorm :many
+SELECT id, url_norm FROM items WHERE url_norm = ANY($1::text[])
+`
+
+type ItemIDsByNormRow struct {
+	ID      int64
+	UrlNorm string
+}
+
+func (q *Queries) ItemIDsByNorm(ctx context.Context, norms []string) ([]ItemIDsByNormRow, error) {
+	rows, err := q.db.Query(ctx, itemIDsByNorm, norms)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ItemIDsByNormRow
+	for rows.Next() {
+		var i ItemIDsByNormRow
+		if err := rows.Scan(&i.ID, &i.UrlNorm); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listCategories = `-- name: ListCategories :many

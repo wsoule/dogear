@@ -2,7 +2,9 @@ package web
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -59,7 +61,29 @@ type feedData struct {
 	Viewer   *service.Actor
 }
 
+// assetVersions maps a static file name to a short content hash. Pages link
+// to /static/<name>?v=<hash>, so a deploy that changes a file changes its URL
+// and browsers (and the service worker cache) never keep a stale copy.
+var assetVersions = func() map[string]string {
+	out := map[string]string{}
+	entries, _ := fs.ReadDir(staticFS, "static")
+	for _, e := range entries {
+		b, err := staticFS.ReadFile("static/" + e.Name())
+		if err != nil {
+			continue
+		}
+		sum := sha256.Sum256(b)
+		out[e.Name()] = hex.EncodeToString(sum[:4])
+	}
+	return out
+}()
+
+func assetURL(name string) string {
+	return "/static/" + name + "?v=" + assetVersions[name]
+}
+
 var funcs = template.FuncMap{
+	"asset": assetURL,
 	"rowData": func(it service.Item, note, csrf string, v *service.Actor) rowData {
 		return rowData{Item: it, Note: note, CSRF: csrf, Viewer: v}
 	},

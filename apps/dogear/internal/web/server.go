@@ -359,7 +359,13 @@ func gzipMiddleware(next http.Handler) http.Handler {
 
 func cacheForever(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "public, max-age=3600")
+		// Fingerprinted URLs (?v=<hash>) never change content, so they can be
+		// cached for a year; bare URLs get a short lifetime.
+		if r.URL.Query().Get("v") != "" {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			w.Header().Set("Cache-Control", "public, max-age=300")
+		}
 		h.ServeHTTP(w, r)
 	})
 }

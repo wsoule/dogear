@@ -79,6 +79,10 @@ a:hover {
   height: 100%;
   display: block;
 }
+/* the cut-away corner shows the desk behind the page; the flap is one stroke */
+.dogear .cut {
+  fill: var(--desk);
+}
 .dogear .flap {
   fill: transparent;
   transition: fill 150ms ease;
@@ -91,7 +95,7 @@ a:hover {
 }
 .dogear:hover .flap,
 .dogear:focus-visible .flap {
-  fill: var(--desk);
+  fill: var(--paper);
 }
 .dogear:focus-visible {
   outline-offset: -4px;

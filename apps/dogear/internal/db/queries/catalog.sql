@@ -77,3 +77,36 @@ UPDATE items SET github_stars = $2 WHERE id = $1 AND github_stars IS DISTINCT FR
 
 -- name: SetPriorAndScore :exec
 UPDATE items SET prior_score = $2, score = $3 WHERE id = $1;
+
+-- name: BulkInsertImportedItems :many
+-- One statement per list: new items are inserted, existing url_norms are
+-- left alone. Arrays are sorted by url_norm so concurrent lists lock rows in
+-- the same order.
+INSERT INTO items (url, url_norm, domain, title, blurb, via, status, kind)
+SELECT x.u, x.u, x.d, x.t, x.b, 'import', 'live', x.k
+FROM (SELECT unnest(@urls::text[]) AS u, unnest(@domains::text[]) AS d, unnest(@titles::text[]) AS t,
+             unnest(@blurbs::text[]) AS b, unnest(@kinds::text[]) AS k) AS x
+ON CONFLICT (url_norm) DO NOTHING
+RETURNING id;
+
+-- name: ItemIDsByNorm :many
+SELECT id, url_norm FROM items WHERE url_norm = ANY(@norms::text[]);
+
+-- name: BulkFillImportedBlurbs :execrows
+-- Fill in a blurb for imported, unvoted items that lack one. User-posted or
+-- voted items are never touched.
+UPDATE items i SET blurb = x.b, updated_at = now()
+FROM (SELECT unnest(@ids::bigint[]) AS id, unnest(@blurbs::text[]) AS b) AS x
+WHERE i.id = x.id AND i.via = 'import' AND i.created_by IS NULL AND i.blurb = '' AND x.b <> ''
+  AND i.like_count = 0 AND i.dislike_count = 0;
+
+-- name: BulkInsertItemSources :execrows
+INSERT INTO item_sources (item_id, source_list_id, heading_path, original_description)
+SELECT x.i, @source_list_id::int, x.h, x.d
+FROM (SELECT unnest(@ids::bigint[]) AS i, unnest(@headings::text[]) AS h, unnest(@descs::text[]) AS d) AS x
+ON CONFLICT DO NOTHING;
+
+-- name: BulkInsertItemCategories :execrows
+INSERT INTO item_categories (item_id, category_id)
+SELECT unnest(@ids::bigint[]), @category_id::int
+ON CONFLICT DO NOTHING;

@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 1024 1024">
-  <!-- Dogear mark: a paper square whose top-right corner is cut by one diagonal accent stroke. -->
-  <rect x="64" y="64" width="896" height="896" rx="48" fill="#ffffff"/>
-  <line x1="592" y1="64" x2="960" y2="432" stroke="#c2410c" stroke-width="80"/>
-  <rect x="64" y="64" width="896" height="896" rx="48" fill="none" stroke="#111111" stroke-width="64"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 64 64">
+  <!-- Dogear mark: a page whose top-right corner is folded over, drawn in single strokes. -->
+  <rect width="64" height="64" rx="12" fill="#fbfaf7"/>
+  <path d="M14 8H39L52 21V56H14Z" fill="#fbfaf7" stroke="#1b1b1a" stroke-width="3.5" stroke-linejoin="round"/>
+  <path d="M39 8V21H52" fill="none" stroke="#c2410c" stroke-width="3.5" stroke-linejoin="round"/>
 </svg>
