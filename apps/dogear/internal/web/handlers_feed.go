@@ -31,11 +31,19 @@ func (s *Server) setView(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, &http.Cookie{Name: viewCookie, Value: mode, Path: "/", MaxAge: int((365 * 24 * time.Hour).Seconds()),
 		HttpOnly: true, Secure: s.secureCookies(), SameSite: http.SameSiteLaxMode})
-	next := r.URL.Query().Get("next")
-	if !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") || strings.HasPrefix(next, "/\\") {
-		next = "/"
+	http.Redirect(w, r, localPath(r.URL.Query().Get("next")), http.StatusSeeOther)
+}
+
+// localPath returns next only when it is a plain same-site path, else "/".
+// Browsers drop tabs and newlines and treat backslashes as slashes, so
+// "/\t/evil.com" or "/\\evil.com" could otherwise become "//evil.com".
+func localPath(next string) string {
+	u, err := url.Parse(next)
+	if err != nil || next == "" || next[0] != '/' || strings.HasPrefix(next, "//") ||
+		strings.ContainsAny(next, "\\\t\r\n") || u.Scheme != "" || u.Host != "" {
+		return "/"
 	}
-	http.Redirect(w, r, next, http.StatusSeeOther)
+	return next
 }
 
 type listsPage struct {
