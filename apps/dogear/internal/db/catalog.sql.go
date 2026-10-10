@@ -123,6 +123,45 @@ func (q *Queries) BulkInsertItemSources(ctx context.Context, arg BulkInsertItemS
 	return result.RowsAffected(), nil
 }
 
+const bulkSetPriorAndScore = `-- name: BulkSetPriorAndScore :execrows
+UPDATE items i SET prior_score = x.p, score = x.sc
+FROM (SELECT unnest($1::bigint[]) AS id, unnest($2::real[]) AS p, unnest($3::float8[]) AS sc) AS x
+WHERE i.id = x.id
+`
+
+type BulkSetPriorAndScoreParams struct {
+	Ids    []int64
+	Priors []float32
+	Scores []float64
+}
+
+func (q *Queries) BulkSetPriorAndScore(ctx context.Context, arg BulkSetPriorAndScoreParams) (int64, error) {
+	result, err := q.db.Exec(ctx, bulkSetPriorAndScore, arg.Ids, arg.Priors, arg.Scores)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const bulkSetStars = `-- name: BulkSetStars :execrows
+UPDATE items i SET github_stars = x.s
+FROM (SELECT unnest($1::bigint[]) AS id, unnest($2::int[]) AS s) AS x
+WHERE i.id = x.id AND i.github_stars IS DISTINCT FROM x.s
+`
+
+type BulkSetStarsParams struct {
+	Ids   []int64
+	Stars []int32
+}
+
+func (q *Queries) BulkSetStars(ctx context.Context, arg BulkSetStarsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, bulkSetStars, arg.Ids, arg.Stars)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const categoryChildren = `-- name: CategoryChildren :many
 SELECT id FROM categories WHERE parent_id = $1
 `

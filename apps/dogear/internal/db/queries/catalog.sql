@@ -110,3 +110,13 @@ ON CONFLICT DO NOTHING;
 INSERT INTO item_categories (item_id, category_id)
 SELECT unnest(@ids::bigint[]), @category_id::int
 ON CONFLICT DO NOTHING;
+
+-- name: BulkSetStars :execrows
+UPDATE items i SET github_stars = x.s
+FROM (SELECT unnest(@ids::bigint[]) AS id, unnest(@stars::int[]) AS s) AS x
+WHERE i.id = x.id AND i.github_stars IS DISTINCT FROM x.s;
+
+-- name: BulkSetPriorAndScore :execrows
+UPDATE items i SET prior_score = x.p, score = x.sc
+FROM (SELECT unnest(@ids::bigint[]) AS id, unnest(@priors::real[]) AS p, unnest(@scores::float8[]) AS sc) AS x
+WHERE i.id = x.id;

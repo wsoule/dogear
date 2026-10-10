@@ -376,11 +376,16 @@ func (im *Importer) seedPriors(ctx context.Context, q *db.Queries) error {
 		if err != nil {
 			im.Log.Warn("stars", "err", err)
 		}
+		var set db.BulkSetStarsParams
 		for repo, n := range stars {
 			for _, id := range byRepo[repo] {
-				if err := q.SetStars(ctx, db.SetStarsParams{ID: id, GithubStars: ptr32(int32(n))}); err != nil {
-					return fmt.Errorf("set stars: %w", err)
-				}
+				set.Ids = append(set.Ids, id)
+				set.Stars = append(set.Stars, int32(n))
+			}
+		}
+		if len(set.Ids) > 0 {
+			if _, err := q.BulkSetStars(ctx, set); err != nil {
+				return fmt.Errorf("set stars: %w", err)
 			}
 		}
 		im.Log.Info("stars progress", "done", min(start+chunk, len(repos)), "total", len(repos))
@@ -391,12 +396,27 @@ func (im *Importer) seedPriors(ctx context.Context, q *db.Queries) error {
 	return Rescore(ctx, q, &im.sum.RowsChanged)
 }
 
-// Rescore recomputes prior_score and score for imported items, writing only
-// rows whose values changed.
+// Rescore recomputes prior_score and score for imported items and writes the
+// rows whose values changed, in bulk chunks.
 func Rescore(ctx context.Context, q *db.Queries, changed *int) error {
 	rows, err := q.ImportedItemsForRescore(ctx)
 	if err != nil {
 		return fmt.Errorf("rescore rows: %w", err)
+	}
+	var upd db.BulkSetPriorAndScoreParams
+	flush := func() error {
+		if len(upd.Ids) == 0 {
+			return nil
+		}
+		n, err := q.BulkSetPriorAndScore(ctx, upd)
+		if err != nil {
+			return fmt.Errorf("set scores: %w", err)
+		}
+		if changed != nil {
+			*changed += int(n)
+		}
+		upd = db.BulkSetPriorAndScoreParams{}
+		return nil
 	}
 	for _, r := range rows {
 		var stars *int
@@ -409,14 +429,16 @@ func Rescore(ctx context.Context, q *db.Queries, changed *int) error {
 		if prior == r.PriorScore && abs(score-r.Score) < 1e-9 {
 			continue
 		}
-		if err := q.SetPriorAndScore(ctx, db.SetPriorAndScoreParams{ID: r.ID, PriorScore: prior, Score: score}); err != nil {
-			return fmt.Errorf("set score: %w", err)
-		}
-		if changed != nil {
-			*changed++
+		upd.Ids = append(upd.Ids, r.ID)
+		upd.Priors = append(upd.Priors, prior)
+		upd.Scores = append(upd.Scores, score)
+		if len(upd.Ids) >= 5000 {
+			if err := flush(); err != nil {
+				return err
+			}
 		}
 	}
-	return nil
+	return flush()
 }
 
 // importRow is one parsed item after normalization and filtering.
