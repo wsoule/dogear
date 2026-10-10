@@ -27,6 +27,9 @@ const (
 	thumbMaxW     = 480
 	thumbMaxH     = 360
 	imageMaxBytes = 6 << 20
+	// maxPixels bounds decoded image memory (16M px is 64 MB as RGBA); with
+	// at most 3 concurrent decodes that caps image memory near 200 MB.
+	maxPixels = 16_000_000
 )
 
 // ErrNoImage means an item has no usable preview image.
@@ -73,26 +76,43 @@ func resolveImageURL(pageURL, raw string) string {
 
 // thumbSem bounds concurrent image fetches so a page full of new thumbnails
 // cannot exhaust the server.
-var thumbSem = make(chan struct{}, 6)
+var thumbSem = make(chan struct{}, 3)
 
-// thumbFlight collapses concurrent requests for the same thumbnail.
-var thumbFlight sync.Map // item id -> *sync.Mutex
+// thumbLocks collapse concurrent requests for the same thumbnail. A fixed,
+// striped set keeps memory constant no matter how many ids are requested.
+var thumbLocks [64]sync.Mutex
+
+// thumbFetchRules limits how many uncached thumbnails one client can make
+// the server fetch, so nobody can force a crawl of every image.
+var thumbFetchRules = []safety.Rule{{Limit: 120, Per: time.Minute}}
 
 // Thumb returns an item's cached thumbnail, fetching, resizing, and storing
 // it on first use. Images are fetched by the server through the SSRF-safe
 // client and re-encoded as JPEG, so visitors never contact third parties.
-func (s *Service) Thumb(ctx context.Context, itemID int64) (string, []byte, error) {
-	if t, err := s.Q.GetThumb(ctx, itemID); err == nil {
-		return t.Mime, t.Data, nil
-	}
-	mu, _ := thumbFlight.LoadOrStore(itemID, &sync.Mutex{})
-	mu.(*sync.Mutex).Lock()
-	defer mu.(*sync.Mutex).Unlock()
-	if t, err := s.Q.GetThumb(ctx, itemID); err == nil {
-		return t.Mime, t.Data, nil
-	}
+func (s *Service) Thumb(ctx context.Context, itemID int64, clientKey string) (string, []byte, error) {
+	// Visibility is checked on every request, cached or not, with the same
+	// rules as the item page: removed, pending, banned, or shadow-banned
+	// posters' items never serve an image.
 	it, err := s.Q.GetItem(ctx, itemID)
-	if err != nil || it.Status != "live" || !hasImage(it) {
+	if err != nil {
+		return "", nil, ErrNoImage
+	}
+	if ok, err := s.visibleTo(ctx, nil, it); err != nil || !ok || it.Status != "live" {
+		return "", nil, ErrNoImage
+	}
+	if t, err := s.Q.GetThumb(ctx, itemID); err == nil {
+		return t.Mime, t.Data, nil
+	}
+	if err := s.limit("thumb:"+clientKey, thumbFetchRules...); err != nil {
+		return "", nil, err
+	}
+	mu := &thumbLocks[uint64(itemID)%uint64(len(thumbLocks))]
+	mu.Lock()
+	defer mu.Unlock()
+	if t, err := s.Q.GetThumb(ctx, itemID); err == nil {
+		return t.Mime, t.Data, nil
+	}
+	if !hasImage(it) {
 		return "", nil, ErrNoImage
 	}
 	select {
@@ -147,7 +167,7 @@ func (s *Service) fetchThumb(ctx context.Context, src string) ([]byte, int, int,
 		return nil, 0, 0, fmt.Errorf("decode config: %w", err)
 	}
 	// Refuse decompression bombs before allocating pixels.
-	if cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width*cfg.Height > 40_000_000 || cfg.Width < 16 || cfg.Height < 16 {
+	if cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width*cfg.Height > maxPixels || cfg.Width < 16 || cfg.Height < 16 {
 		return nil, 0, 0, fmt.Errorf("unusable dimensions %dx%d", cfg.Width, cfg.Height)
 	}
 	img, _, err := image.Decode(bytes.NewReader(body))

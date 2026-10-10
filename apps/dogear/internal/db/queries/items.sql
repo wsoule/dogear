@@ -197,3 +197,17 @@ WHERE image_checked_at IS NULL AND status = 'live'
   AND domain NOT IN ('github.com', 'youtube.com')
 ORDER BY score DESC
 LIMIT $1;
+
+-- name: GetTranscript :one
+SELECT lang, text FROM item_transcripts WHERE item_id = $1 AND ok;
+
+-- name: SaveTranscript :exec
+INSERT INTO item_transcripts (item_id, lang, text, ok) VALUES ($1, $2, $3, $4)
+ON CONFLICT (item_id) DO UPDATE SET lang = EXCLUDED.lang, text = EXCLUDED.text, ok = EXCLUDED.ok, fetched_at = now();
+
+-- name: VideosNeedingTranscript :many
+SELECT i.id, i.url_norm FROM items i
+WHERE i.status = 'live' AND i.url_norm LIKE 'https://youtube.com/watch?v=%'
+  AND NOT EXISTS (SELECT 1 FROM item_transcripts t WHERE t.item_id = i.id)
+ORDER BY i.score DESC
+LIMIT $1;

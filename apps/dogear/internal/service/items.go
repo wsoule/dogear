@@ -55,7 +55,8 @@ type Item struct {
 	MyVote     *int         `json:"my_vote,omitempty"`
 	Sources    []Source     `json:"sources,omitempty"`
 	Poster     string       `json:"posted_by,omitempty"`
-	Image      string       `json:"image,omitempty"` // /img/{id} thumbnail path when one is available
+	Image      string       `json:"image,omitempty"`      // /img/{id} thumbnail path when one is available
+	Transcript string       `json:"transcript,omitempty"` // video captions, item detail only
 	Flags      []string     `json:"-"`
 	createdBy  *int64
 	listCount  int
@@ -429,6 +430,9 @@ func (s *Service) GetItem(ctx context.Context, viewer *Actor, id int64) (Item, e
 		if u, err := s.Q.GetUser(ctx, *r.CreatedBy); err == nil {
 			it.Poster = u.Username
 		}
+	}
+	if t, err := s.Q.GetTranscript(ctx, id); err == nil {
+		it.Transcript = t.Text
 	}
 	return it, nil
 }

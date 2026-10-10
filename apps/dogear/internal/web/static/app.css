@@ -642,3 +642,18 @@ dialog.cmdk .small {
     height: 48px;
   }
 }
+
+details.transcript {
+  margin: 12px 0;
+}
+details.transcript summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+details.transcript p {
+  max-height: 360px;
+  overflow-y: auto;
+  font-size: 12px;
+  border-left: 2px solid var(--rule);
+  padding-left: 10px;
+}

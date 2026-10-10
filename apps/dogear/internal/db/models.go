@@ -128,6 +128,14 @@ type ItemThumb struct {
 	FetchedAt time.Time
 }
 
+type ItemTranscript struct {
+	ItemID    int64
+	Lang      string
+	Text      string
+	Ok        bool
+	FetchedAt time.Time
+}
+
 type List struct {
 	ID          int64
 	UserID      int64

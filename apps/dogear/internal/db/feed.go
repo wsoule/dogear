@@ -62,7 +62,9 @@ func (q *Queries) Feed(ctx context.Context, p FeedParams) ([]Item, error) {
 		where = append(where, "i.created_by = "+arg(*p.CreatedBy))
 	}
 	if q := strings.TrimSpace(p.Query); q != "" {
-		where = append(where, "(i.title || ' ' || i.blurb || ' ' || i.domain) ILIKE "+arg("%"+escapeLike(q)+"%"))
+		pat := arg("%" + escapeLike(q) + "%")
+		where = append(where, "((i.title || ' ' || i.blurb || ' ' || i.domain) ILIKE "+pat+
+			" OR EXISTS (SELECT 1 FROM item_transcripts t WHERE t.item_id = i.id AND t.ok AND t.text ILIKE "+pat+"))")
 	}
 	if p.Sort == "new" {
 		where = append(where, "i.via <> 'import'")

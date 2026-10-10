@@ -392,6 +392,22 @@ func (q *Queries) GetThumb(ctx context.Context, itemID int64) (GetThumbRow, erro
 	return i, err
 }
 
+const getTranscript = `-- name: GetTranscript :one
+SELECT lang, text FROM item_transcripts WHERE item_id = $1 AND ok
+`
+
+type GetTranscriptRow struct {
+	Lang string
+	Text string
+}
+
+func (q *Queries) GetTranscript(ctx context.Context, itemID int64) (GetTranscriptRow, error) {
+	row := q.db.QueryRow(ctx, getTranscript, itemID)
+	var i GetTranscriptRow
+	err := row.Scan(&i.Lang, &i.Text)
+	return i, err
+}
+
 const getVote = `-- name: GetVote :one
 SELECT user_id, item_id, value, counted, via, created_at, updated_at FROM votes WHERE user_id = $1 AND item_id = $2
 `
@@ -1062,6 +1078,28 @@ func (q *Queries) SaveThumb(ctx context.Context, arg SaveThumbParams) error {
 	return err
 }
 
+const saveTranscript = `-- name: SaveTranscript :exec
+INSERT INTO item_transcripts (item_id, lang, text, ok) VALUES ($1, $2, $3, $4)
+ON CONFLICT (item_id) DO UPDATE SET lang = EXCLUDED.lang, text = EXCLUDED.text, ok = EXCLUDED.ok, fetched_at = now()
+`
+
+type SaveTranscriptParams struct {
+	ItemID int64
+	Lang   string
+	Text   string
+	Ok     bool
+}
+
+func (q *Queries) SaveTranscript(ctx context.Context, arg SaveTranscriptParams) error {
+	_, err := q.db.Exec(ctx, saveTranscript,
+		arg.ItemID,
+		arg.Lang,
+		arg.Text,
+		arg.Ok,
+	)
+	return err
+}
+
 const setImageState = `-- name: SetImageState :exec
 UPDATE items SET image_state = $2 WHERE id = $1
 `
@@ -1346,6 +1384,39 @@ func (q *Queries) UserVotesExport(ctx context.Context, userID int64) ([]UserVote
 			&i.Url,
 			&i.Title,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const videosNeedingTranscript = `-- name: VideosNeedingTranscript :many
+SELECT i.id, i.url_norm FROM items i
+WHERE i.status = 'live' AND i.url_norm LIKE 'https://youtube.com/watch?v=%'
+  AND NOT EXISTS (SELECT 1 FROM item_transcripts t WHERE t.item_id = i.id)
+ORDER BY i.score DESC
+LIMIT $1
+`
+
+type VideosNeedingTranscriptRow struct {
+	ID      int64
+	UrlNorm string
+}
+
+func (q *Queries) VideosNeedingTranscript(ctx context.Context, limit int32) ([]VideosNeedingTranscriptRow, error) {
+	rows, err := q.db.Query(ctx, videosNeedingTranscript, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []VideosNeedingTranscriptRow
+	for rows.Next() {
+		var i VideosNeedingTranscriptRow
+		if err := rows.Scan(&i.ID, &i.UrlNorm); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

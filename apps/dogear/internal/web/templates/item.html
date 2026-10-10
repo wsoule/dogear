@@ -9,6 +9,7 @@
   <dt>score</dt><dd>{{printf "%.3f" .Item.Score}}</dd>
   {{if .Item.Sources}}<dt>also in</dt><dd>{{range $i, $s := .Item.Sources}}{{if $i}}, {{end}}<a href="https://github.com/{{$s.Repo}}" rel="nofollow noopener">{{$s.Title}}</a>{{end}}</dd>{{end}}
 </dl>
+{{if .Item.Transcript}}<details class="transcript"><summary>transcript</summary><p>{{.Item.Transcript}}</p></details>{{end}}
 {{range .Item.Sources}}{{if .Description}}<p class="small muted">{{.Title}}{{if .HeadingPath}} › {{.HeadingPath}}{{end}}: “{{.Description}}”</p>{{end}}{{end}}
 
 {{if $.Viewer}}

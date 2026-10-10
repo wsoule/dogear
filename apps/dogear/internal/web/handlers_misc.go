@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"dogear/internal/service"
 )
 
 // thumb serves an item's cached preview image, fetching it on first use.
@@ -17,7 +19,12 @@ func (s *Server) thumb(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	mime, data, err := s.svc.Thumb(r.Context(), id)
+	mime, data, err := s.svc.Thumb(r.Context(), id, s.clientIP(r))
+	if e, ok := service.AsError(err); ok && e.Code == "rate_limited" {
+		w.Header().Set("Retry-After", retryHeader(e.RetryAfter))
+		http.Error(w, "slow down", http.StatusTooManyRequests)
+		return
+	}
 	if err != nil {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 		http.NotFound(w, r)
