@@ -1,0 +1,14 @@
+{{define "content"}}
+{{with .Data}}
+{{if .Heading}}<h1>{{.Heading}}</h1>{{if .Sub}}<p class="lede">{{.Sub}}</p>{{end}}{{end}}
+{{if .Chips}}<nav class="chips" aria-label="Categories">{{range .Chips}}<a href="/c/{{.Slug}}">{{.Slug}}</a>{{end}}<a href="/categories">all…</a></nav>{{end}}
+{{if .Children}}<nav class="chips" aria-label="Subcategories">{{range .Children}}{{if not .Hidden}}<a href="/c/{{.Slug}}">{{.Slug}}</a>{{end}}{{end}}</nav>{{end}}
+{{if .Tabs}}<nav class="tabs" aria-label="Sort">
+  <a href="{{.Base}}" {{if ne .Sort "new"}}aria-current="page"{{end}}>top</a>
+  <a href="{{.Base}}{{if contains .Base "?"}}&amp;{{else}}?{{end}}sort=new" {{if eq .Sort "new"}}aria-current="page"{{end}}>new</a>
+  <span class="muted">·</span>
+  {{$k := .Kind}}{{$b := .KindBase}}{{range kinds}}<a href="{{$b}}{{.}}" {{if eq $k .}}aria-current="page"{{end}}>{{.}}</a>{{end}}
+</nav>{{end}}
+{{template "feed" .Feed}}
+{{end}}
+{{end}}

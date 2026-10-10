@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dogear options</title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="js/options.js"></script>
+  </head>
+  <body class="options">
+    <h1><span class="mark">dogear</span> options</h1>
+    <form id="options-form" autocomplete="off">
+      <label>
+        api token
+        <input
+          id="token"
+          type="password"
+          placeholder="afk_…"
+          spellcheck="false"
+        />
+      </label>
+      <p class="muted">
+        Create a token at
+        <a
+          id="tokens-link"
+          href="https://dogear.fyi/settings/tokens"
+          target="_blank"
+          rel="noopener"
+          >/settings/tokens</a
+        >
+        with only the <code>read</code> and <code>post</code> scopes. It is
+        stored in this browser's extension storage and sent only to the base URL
+        below.
+      </p>
+      <label>
+        base url
+        <input id="base" type="url" placeholder="https://dogear.fyi" />
+      </label>
+      <p class="muted">
+        Leave as https://dogear.fyi. For local development you may use
+        http://localhost:&lt;port&gt;; the browser will ask for access to
+        localhost.
+      </p>
+      <button type="submit">save</button>
+    </form>
+    <div id="status" role="status" aria-live="polite"></div>
+  </body>
+</html>

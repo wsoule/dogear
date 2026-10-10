@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+# Plain-text-friendly logs: moon already disables colors and spinners when it
+# detects CI. NO_COLOR keeps downloaded/raw logs byte-clean for humans and
+# agents; GitHub workflow commands (::error test annotations) are unaffected.
+env:
+  NO_COLOR: 1
+
+jobs:
+  # One affected-aware lane: moon computes the affected projects from the VCS
+  # diff (PR base, or the push range on main), expands through graph
+  # relations (a package change re-runs its dependents' builds, tests, and
+  # typechecks), and restores unchanged work from the moon cache.
+  ci:
+    name: Build, test, lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # moon diffs against the merge base to compute affected projects.
+          fetch-depth: 0
+
+      - name: Set up moon and caches
+        uses: ./.github/actions/setup
+
+      # Note on targets: moon ci executes every affected runInCI-enabled
+      # task — the target list adds entry points (so cold runs are explicit)
+      # but never subtracts. Anything that must not run in CI is
+      # runInCI: 'skip' in its task config.
+      # --summary detailed appends an end-of-log recap naming every action
+      # with status, duration, and cache hash, so a failed target is readable
+      # from the log tail without scrolling through interleaved task output.
+      - name: Run format
+        run: >-
+          moon run root:format-check
+
+      - name: Run affected tasks
+        run: >-
+          moon ci --include-relations --summary detailed :build :test :typecheck
+          root:lint root:lint-css
+
+  actions-pinned:
+    name: Actions pinned to SHA
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Verify external actions are pinned to a full commit SHA
+        run: |
+          # Supply-chain guard: every external action must be pinned to a
+          # 40-character commit SHA, never a movable tag/branch. Local actions
+          # (uses: ./...) ship with the repo and are exempt. Scans the workflows
+          # and the shared composite action manifest alike.
+          set -euo pipefail
+          unpinned=$(
+            grep -rEn '^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*[^.[:space:]]' .github \
+              | grep -vE 'uses:[[:space:]]*[^[:space:]]+@[0-9a-fA-F]{40}([[:space:]]|#|"|'"'"'|$)' \
+              || true
+          )
+          if [ -n "$unpinned" ]; then
+            echo "::error::These actions are not pinned to a full commit SHA:"
+            echo "$unpinned"
+            echo "Pin each to a 40-character commit SHA, e.g. owner/repo@<sha> # vX.Y.Z"
+            exit 1
+          fi
+          echo "All external actions are pinned to a full commit SHA."

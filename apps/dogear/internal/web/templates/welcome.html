@@ -1,0 +1,14 @@
+{{define "content"}}
+{{with .Data}}
+<h1>choose your username</h1>
+<p class="lede">This is your public handle at dogear.fyi/u/… — it can't be changed later.</p>
+{{if .Error}}<p class="flash error" role="alert">{{.Error}}</p>{{end}}
+<form class="stack" method="post" action="/welcome">
+  {{template "csrf" .CSRF}}
+  <label><span>username</span><input type="text" name="username" value="{{.Username}}" required pattern="[a-z0-9][a-z0-9-]{1,28}[a-z0-9]" autocapitalize="none" autocomplete="off"></label>
+  {{if .NeedInvite}}<label><span>invite code</span><input type="text" name="invite" value="{{.Invite}}" required></label>{{end}}
+  {{if $.TurnstileSiteKey}}<div class="cf-turnstile" data-sitekey="{{$.TurnstileSiteKey}}"></div>{{end}}
+  <div><button class="btn" type="submit">create account</button></div>
+</form>
+{{end}}
+{{end}}

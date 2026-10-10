@@ -1,0 +1,108 @@
+package db
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+)
+
+// FeedParams selects one page of a feed. Feeds vary their filters and sort
+// order, which sqlc cannot express, so this query is assembled by hand.
+type FeedParams struct {
+	ViewerID    *int64  // hides items from users the viewer blocked; shows their own shadow-banned items
+	CategoryIDs []int32 // empty means every category
+	Kind        string
+	Sort        string // "top" or "new"
+	Query       string // trigram search over title, blurb, and domain
+	IncludeDead bool
+	CreatedBy   *int64 // a single user's posts (profile page)
+
+	// Keyset cursor: the last row of the previous page.
+	AfterScore   *float64
+	AfterCreated *time.Time
+	AfterID      int64
+
+	Limit int
+}
+
+// Feed returns live items ordered by score or recency using keyset pagination.
+func (q *Queries) Feed(ctx context.Context, p FeedParams) ([]Item, error) {
+	var (
+		where = []string{"i.status = 'live'"}
+		args  []any
+	)
+	arg := func(v any) string {
+		args = append(args, v)
+		return fmt.Sprintf("$%d", len(args))
+	}
+	if !p.IncludeDead {
+		where = append(where, "i.link_status <> 'dead'")
+	}
+	// A category feed starts from that category's items and sorts them,
+	// instead of walking the global score index until enough rows match,
+	// which is slow for categories whose items rank low overall.
+	with, join := "", ""
+	if len(p.CategoryIDs) > 0 {
+		with = "WITH cat AS MATERIALIZED (SELECT DISTINCT item_id FROM item_categories WHERE category_id = ANY(" + arg(p.CategoryIDs) + "::int[])) "
+		join = " JOIN cat ON cat.item_id = i.id"
+	}
+	if p.Kind != "" {
+		where = append(where, "i.kind = "+arg(p.Kind))
+	}
+	if p.CreatedBy != nil {
+		where = append(where, "i.created_by = "+arg(*p.CreatedBy))
+	}
+	if q := strings.TrimSpace(p.Query); q != "" {
+		where = append(where, "(i.title || ' ' || i.blurb || ' ' || i.domain) ILIKE "+arg("%"+escapeLike(q)+"%"))
+	}
+	if p.Sort == "new" {
+		where = append(where, "i.via <> 'import'")
+	}
+	// Items by banned users are hidden; shadow-banned users' items are
+	// visible only to themselves. NOT EXISTS (rather than a join) keeps the
+	// score index usable.
+	hidden := "u.banned_at IS NOT NULL OR u.shadow_banned_at IS NOT NULL"
+	if p.ViewerID != nil {
+		v := arg(*p.ViewerID)
+		hidden = "u.banned_at IS NOT NULL OR (u.shadow_banned_at IS NOT NULL AND u.id <> " + v + ")"
+		where = append(where,
+			"(i.created_by IS NULL OR NOT EXISTS (SELECT 1 FROM user_blocks b WHERE b.blocker_id = "+v+" AND b.blocked_id = i.created_by))")
+	}
+	where = append(where, "(i.created_by IS NULL OR NOT EXISTS (SELECT 1 FROM users u WHERE u.id = i.created_by AND ("+hidden+")))")
+
+	order := "i.score DESC, i.id DESC"
+	switch {
+	case p.Sort == "new":
+		order = "i.created_at DESC, i.id DESC"
+		if p.AfterCreated != nil {
+			where = append(where, "(i.created_at, i.id) < ("+arg(*p.AfterCreated)+", "+arg(p.AfterID)+")")
+		}
+	default:
+		if p.AfterScore != nil {
+			where = append(where, "(i.score, i.id) < ("+arg(*p.AfterScore)+"::float8, "+arg(p.AfterID)+")")
+		}
+	}
+	limit := p.Limit
+	if limit <= 0 {
+		limit = 30
+	}
+	sql := with + `SELECT i.* FROM items i` + join + ` WHERE ` +
+		strings.Join(where, " AND ") + ` ORDER BY ` + order + ` LIMIT ` + arg(limit)
+
+	rows, err := q.db.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, fmt.Errorf("feed query: %w", err)
+	}
+	items, err := pgx.CollectRows(rows, pgx.RowToStructByPos[Item])
+	if err != nil {
+		return nil, fmt.Errorf("feed scan: %w", err)
+	}
+	return items, nil
+}
+
+func escapeLike(s string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
+}

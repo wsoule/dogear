@@ -1,0 +1,83 @@
+{
+  "manifest_version": "0.3",
+  "name": "dogear",
+  "display_name": "Dogear",
+  "version": "1.0.0",
+  "description": "Search Dogear, post links with a one-line reason, and save items to your lists.",
+  "long_description": "Dogear is a ranked catalog of recommended links. This extension lets Claude search the catalog, add links you ask it to add, and save items to your lists with your own notes. It calls the Dogear REST API with an afk_ token that needs only the read and post scopes.",
+  "author": {
+    "name": "Dogear",
+    "url": "https://dogear.fyi"
+  },
+  "homepage": "https://dogear.fyi",
+  "support": "https://dogear.fyi/about",
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.mjs"],
+      "env": {
+        "DOGEAR_API_TOKEN": "${user_config.api_token}",
+        "DOGEAR_BASE_URL": "${user_config.base_url}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "search_items",
+      "description": "Search the Dogear catalog. Call before add_item."
+    },
+    {
+      "name": "get_item",
+      "description": "Get one item with its source lists."
+    },
+    {
+      "name": "list_categories",
+      "description": "List the category tree with slugs."
+    },
+    {
+      "name": "add_item",
+      "description": "Post a link the user asked to add, with a one-line reason."
+    },
+    { "name": "list_my_lists", "description": "List the user's lists." },
+    { "name": "create_list", "description": "Create a new list." },
+    {
+      "name": "add_to_list",
+      "description": "Save an existing item to a list with the user's note."
+    }
+  ],
+  "tools_generated": false,
+  "keywords": [
+    "dogear",
+    "bookmarks",
+    "links",
+    "awesome-lists",
+    "recommendations"
+  ],
+  "license": "MIT",
+  "user_config": {
+    "api_token": {
+      "type": "string",
+      "title": "Dogear API token",
+      "description": "An afk_ token from https://dogear.fyi/settings/tokens with the read and post scopes.",
+      "sensitive": true,
+      "required": true
+    },
+    "base_url": {
+      "type": "string",
+      "title": "Base URL",
+      "description": "Dogear site to talk to. Leave as https://dogear.fyi unless you run your own.",
+      "default": "https://dogear.fyi",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  },
+  "privacy_policies": ["https://dogear.fyi/privacy"]
+}

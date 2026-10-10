@@ -1,0 +1,89 @@
+{{define "layout"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{if .Title}}{{.Title}} · {{end}}dogear</title>
+{{if .Description}}<meta name="description" content="{{.Description}}">{{end}}
+{{if .NoIndex}}<meta name="robots" content="noindex">{{end}}
+<meta name="htmx-config" content='{"includeIndicatorStyles":false,"historyCacheSize":0}'>
+<meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/htmx.min.js" defer></script>
+<script src="/static/app.js" defer></script>
+{{if .TurnstileSiteKey}}<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>{{end}}
+</head>
+<body{{if .CSRF}} hx-headers='{"X-CSRF-Token":"{{.CSRF}}"}'{{end}}>
+<a class="dogear" href="/" aria-label="Dogear home"><svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path class="flap" d="M0 0H48V48Z"/><line x1="0" y1="0" x2="48" y2="48" stroke="currentColor" stroke-width="1.25" vector-effect="non-scaling-stroke"/></svg></a>
+<div class="wrap">
+<header class="top">
+  <a class="wordmark" href="/">dogear</a>
+  <nav class="main" aria-label="Main">
+    <a href="/" {{if eq .Nav "top"}}aria-current="page"{{end}}>top</a>
+    <a href="/new" {{if eq .Nav "new"}}aria-current="page"{{end}}>new</a>
+    <a href="/search" {{if eq .Nav "search"}}aria-current="page"{{end}}>search</a>
+    <a href="/submit" {{if eq .Nav "submit"}}aria-current="page"{{end}}>post</a>
+    {{if .Viewer}}
+      {{if .Viewer.IsMod}}<a href="/mod" {{if eq .Nav "mod"}}aria-current="page"{{end}}>mod</a>{{end}}
+      <a class="me" href="/u/{{.Viewer.User.Username}}" {{if eq .Nav "me"}}aria-current="page"{{end}}>@{{.Viewer.User.Username}}</a>
+    {{else}}
+      <a class="me" href="/signin" {{if eq .Nav "signin"}}aria-current="page"{{end}}>sign in</a>
+    {{end}}
+  </nav>
+</header>
+<main id="main">
+{{if .Flash}}<p class="flash" role="status">{{.Flash}}</p>{{end}}
+{{template "content" .}}
+</main>
+<footer>
+  <a href="/about">about</a>
+  <a href="/categories">categories</a>
+  <a href="/api/v1/openapi.yaml">api</a>
+  <a href="/llms.txt">llms.txt</a>
+  <a href="/terms">terms</a>
+  <a href="/privacy">privacy</a>
+  {{if .Viewer}}<a href="/settings/profile">settings</a>
+  <form class="inline" method="post" action="/auth/logout"><input type="hidden" name="csrf" value="{{.CSRF}}"><button class="link" type="submit">sign out</button></form>{{end}}
+</footer>
+</div>
+</body>
+</html>{{end}}
+
+{{define "csrf"}}<input type="hidden" name="csrf" value="{{.}}">{{end}}
+
+{{define "vote"}}<div class="vote" id="vote-{{.ItemID}}">
+<form method="post" action="/items/{{.ItemID}}/vote" hx-put="/items/{{.ItemID}}/vote" hx-target="#vote-{{.ItemID}}" hx-swap="outerHTML">
+<input type="hidden" name="csrf" value="{{.CSRF}}">
+<button type="submit" name="value" value="{{if eq .MyVote 1}}0{{else}}1{{end}}" aria-pressed="{{if eq .MyVote 1}}true{{else}}false{{end}}" aria-label="Like" title="like">▲</button>
+<span class="count" aria-label="{{.Likes}} likes">{{.Likes}}</span>
+<button type="submit" name="value" value="{{if eq .MyVote -1}}0{{else}}-1{{end}}" aria-pressed="{{if eq .MyVote -1}}true{{else}}false{{end}}" aria-label="Dislike" title="dislike">▼</button>
+</form>
+</div>{{end}}
+
+{{define "row"}}<li class="row">
+{{template "vote" (voteState .Item $.CSRF)}}
+<div>
+  <a class="title" href="{{.Item.URL}}" rel="nofollow noopener ugc">{{.Item.Title}}</a>
+  <span class="domain small">{{.Item.Domain}}</span>
+  <div class="meta">
+    <span>{{.Item.Kind}}{{if .Item.Creator}} · {{.Item.Creator}}{{end}}</span>
+    {{with .Item.Category}}<a href="/c/{{.Slug}}">#{{.Slug}}</a>{{end}}
+    <a href="/i/{{.Item.ID}}">details</a>
+    {{if $.Viewer}}<a href="/i/{{.Item.ID}}#save" hx-get="/items/{{.Item.ID}}/save" hx-target="#save-{{.Item.ID}}" hx-swap="innerHTML">save</a>{{end}}
+    {{if .Item.Agent}}<span class="label" title="posted by an agent">agent</span>{{end}}
+    {{if ne .Item.Status "live"}}<span class="label warn">{{.Item.Status}}</span>{{end}}
+    {{if eq .Item.LinkStatus "dead"}}<span class="label warn">dead link</span>{{end}}
+  </div>
+  {{if .Item.Blurb}}<p class="blurb">{{.Item.Blurb}}</p>{{end}}
+  {{if .Note}}<p class="note">{{.Note}}</p>{{end}}
+  <div id="save-{{.Item.ID}}"></div>
+</div>
+</li>{{end}}
+
+{{define "rows"}}{{range .Items}}{{template "row" (rowData . "" $.CSRF $.Viewer)}}{{end}}{{if .Next}}<li class="more" hx-get="{{.Next}}" hx-trigger="revealed" hx-swap="outerHTML"><a href="{{.NextPage}}">more →</a></li>{{end}}{{end}}
+
+{{define "feed"}}{{if .Items}}<ol class="feed" id="feed">{{template "rows" .}}</ol>{{else}}<p class="muted">Nothing here yet.</p>{{end}}{{end}}

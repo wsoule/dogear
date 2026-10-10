@@ -1,0 +1,28 @@
+version: '2'
+sql:
+  - engine: postgresql
+    schema: ../migrations
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: .
+        sql_package: pgx/v5
+        emit_pointers_for_null_types: true
+        emit_json_tags: false
+        overrides:
+          - db_type: citext
+            go_type: string
+          - db_type: citext
+            go_type:
+              type: string
+              pointer: true
+            nullable: true
+          - db_type: timestamptz
+            go_type: time.Time
+          - db_type: timestamptz
+            go_type:
+              import: time
+              type: Time
+              pointer: true
+            nullable: true

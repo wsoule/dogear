@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dogear</title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="js/popup.js"></script>
+  </head>
+  <body class="popup">
+    <header>
+      <span class="mark">dogear</span>
+      <a href="#" id="open-options" class="muted">options</a>
+    </header>
+
+    <p id="no-token" class="notice" hidden>
+      No API token yet. <a href="#" id="setup-link">Open options</a> and paste
+      an <code>afk_</code> token with the <code>read</code> and
+      <code>post</code> scopes.
+    </p>
+
+    <form id="post-form" autocomplete="off">
+      <label
+        >url<input id="url" name="url" type="url" required maxlength="2048"
+      /></label>
+      <label
+        >title<input id="title" name="title" required maxlength="120"
+      /></label>
+      <label>
+        why <span id="blurb-count" class="muted">0/280</span>
+        <textarea
+          id="blurb"
+          name="blurb"
+          rows="3"
+          required
+          minlength="10"
+          maxlength="280"
+          placeholder="one line: why is this worth keeping?"
+        ></textarea>
+      </label>
+      <div class="row">
+        <label>category<select id="category" name="category"></select></label>
+        <label>kind<select id="kind" name="kind"></select></label>
+      </div>
+      <label>also save to list<select id="list" name="list"></select></label>
+      <label id="note-label" hidden>
+        note<input
+          id="note"
+          name="note"
+          maxlength="280"
+          placeholder="your own reason (optional)"
+        />
+      </label>
+      <button id="submit" type="submit">post</button>
+    </form>
+
+    <div id="status" role="status" aria-live="polite"></div>
+  </body>
+</html>

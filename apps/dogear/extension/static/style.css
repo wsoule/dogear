@@ -1,0 +1,153 @@
+:root {
+  --bg: #fff;
+  --fg: #000;
+  --muted: #666;
+  --line: #000;
+  --accent: #c2410c;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000;
+    --fg: #fff;
+    --muted: #999;
+    --line: #fff;
+    --accent: #fb923c;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+body {
+  padding: 12px;
+}
+
+body.popup {
+  width: 360px;
+}
+
+body.options {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+
+.mark {
+  font-weight: bold;
+  border-bottom: 2px solid var(--accent);
+}
+
+h1 {
+  font-size: 14px;
+  margin: 0 0 16px;
+}
+
+a {
+  color: var(--accent);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+input,
+textarea,
+select,
+button {
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+  padding: 4px 6px;
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 0;
+}
+
+textarea {
+  resize: vertical;
+}
+
+input:focus,
+textarea:focus,
+select:focus,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+.row > label {
+  flex: 1;
+  min-width: 0;
+}
+
+button {
+  cursor: pointer;
+  font-weight: bold;
+}
+
+button[type='submit'] {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+button[type='submit']:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.notice,
+#status:not(:empty) {
+  margin: 8px 0;
+  padding: 6px 8px;
+  border-left: 3px solid var(--accent);
+}
+
+#status button {
+  margin-top: 6px;
+}
+
+#status.ok {
+  border-left-color: var(--fg);
+}
+
+code {
+  font: inherit;
+  color: var(--accent);
+}

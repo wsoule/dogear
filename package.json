@@ -1,0 +1,31 @@
+{
+  "name": "@template/root",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@moonrepo/cli": "catalog:",
+    "@types/bun": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "lint-staged": "catalog:",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
+    "postcss-html": "catalog:",
+    "stylelint": "catalog:",
+    "stylelint-config-standard": "catalog:",
+    "typescript": "catalog:"
+  },
+  "lint-staged": {
+    "**/*.{js,jsx,ts,tsx}": [
+      "oxfmt --write",
+      "oxlint --type-aware --tsconfig tsconfig.oxlint.json --fix"
+    ],
+    "**/*.{json,jsonc,yml,yaml}": [
+      "oxfmt --write"
+    ],
+    "**/*.{css,pcss,postcss}": [
+      "stylelint --fix"
+    ]
+  },
+  "packageManager": "pnpm@11.9.0"
+}

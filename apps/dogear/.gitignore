@@ -1,0 +1,4 @@
+bin/
+.env
+extension/dist/
+*.mcpb

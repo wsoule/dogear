@@ -1,0 +1,64 @@
+{{define "content"}}
+{{if eq .Page "about"}}
+<h1>about</h1>
+<p>Dogear is a public directory of things people think are cool — sites, tools, apps, books, devices, and videos — each with a one-line reason. Anyone can read. Signed-in people can post, like, and keep their own public lists with notes.</p>
+<p>It launched pre-filled from every list in <a href="https://github.com/sindresorhus/awesome" rel="noopener">sindresorhus/awesome</a>. Imported entries link back to their source lists; descriptions are kept only from permissively licensed lists. Ranking is the lower bound of a Wilson score interval, seeded with GitHub stars and how many lists include an item.</p>
+<p>Claude and GPT agents can search, post, and save to your lists through the same API, using a token you create in <a href="/settings/tokens">settings</a>. See <a href="/llms.txt">llms.txt</a> and the <a href="/api/v1/openapi.yaml">OpenAPI spec</a>.</p>
+<h2>what we fetch</h2>
+<p>When you post a link, Dogear fetches that public page once to suggest a title and to screen it for spam (the page text is sent to a classification provider). Links are checked nightly so dead ones can be hidden. The bot identifies itself as <code>DogearBot/1.0</code>.</p>
+<h2>contact & takedowns</h2>
+<p>Email <a href="mailto:{{.ContactEmail}}">{{.ContactEmail}}</a>. Removed items stay blocked from being re-posted.</p>
+{{end}}
+
+{{if eq .Page "terms"}}
+<h1>terms</h1>
+<p>Plain-language rules for using Dogear. They're not legal advice.</p>
+<ul>
+<li>You keep ownership of what you post. You give Dogear a license to display it here, in the API, and in your synced GitHub repo if you connect one.</li>
+<li>Posts are links with honest descriptions. No spam, no illegal content, no undisclosed self-promotion, no manipulating votes with extra accounts or scripts.</li>
+<li>Moderators can remove content and suspend or ban accounts.</li>
+<li>An agent acting through one of your tokens acts as you. You're responsible for what it posts.</li>
+<li>Imported entries link back to their source lists. Takedown requests go to <a href="mailto:{{.ContactEmail}}">{{.ContactEmail}}</a>.</li>
+<li>The service is provided as is, without warranty.</li>
+</ul>
+{{end}}
+
+{{if eq .Page "privacy"}}
+<h1>privacy</h1>
+<h2>what is stored</h2>
+<ul>
+<li>For each sign-in method: the provider's user id. Your username, display name, bio, website, and avatar URL. No email address.</li>
+<li>A salted hash of the IP you signed up from, deleted after 90 days. It's used only to spot batches of fake accounts.</li>
+<li>Sessions (hashed), API token hashes and names, your posts, votes, reports, and lists with their notes.</li>
+<li>Lists are public by default. Unlisted lists are reachable by link only. Private lists are visible only to you.</li>
+</ul>
+<h2>third parties</h2>
+<ul>
+<li>When you post a URL, the page's public text is fetched and sent to a classification provider (Jev by TypeSafe) to screen for spam. URLs are also checked with Google Safe Browsing.</li>
+<li>Cloudflare Turnstile runs when you sign up and when new accounts post.</li>
+<li>If you connect GitHub list sync, Dogear writes only README.md in the one repository you choose. Disconnect in <a href="/settings/connections">connections</a> and uninstall the app on GitHub to revoke access.</li>
+</ul>
+<h2>cookies</h2>
+<p>One session cookie and a CSRF token, plus short-lived cookies during sign-in. No analytics and no third-party trackers. If that ever changes, this page changes first.</p>
+<h2>your data</h2>
+<p>Export everything or delete your account at <a href="/settings/account">settings → account</a>. Sessions expire after 30 days idle; revoked tokens are deleted after 30 days.</p>
+<p>Privacy requests: <a href="mailto:{{.ContactEmail}}">{{.ContactEmail}}</a>.</p>
+{{end}}
+
+{{if eq .Page "categories"}}
+<h1>categories</h1>
+{{range .Data}}{{if not .Hidden}}<h2><a href="/c/{{.Slug}}">{{.Name}}</a> <span class="muted small">{{.Count}}</span></h2>
+<ul class="tree">{{range .Children}}{{if not .Hidden}}<li><a href="/c/{{.Slug}}">{{.Name}}</a> <span class="small">{{.Count}}</span></li>{{end}}{{end}}</ul>{{end}}{{end}}
+{{end}}
+
+{{if eq .Page "error"}}
+<h1>{{.Data.Code}}</h1>
+<p>{{.Data.Message}}</p>
+<p><a href="/">← home</a></p>
+{{end}}
+
+{{if eq .Page "offline"}}
+<h1>offline</h1>
+<p class="muted">You're offline. Dogear needs a connection to load feeds.</p>
+{{end}}
+{{end}}

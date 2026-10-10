@@ -1,0 +1,31 @@
+name: Set up moon and caches
+description: >-
+  Install the proto-pinned toolchain (.prototools is the single source of truth
+  for bun, pnpm, node, and moon versions). moon installs workspace dependencies
+  itself with pnpm and a frozen lockfile when a task requires them, so there is
+  no explicit install step.
+
+runs:
+  using: composite
+  steps:
+    # Persist only the portable parts of moon's cache: moon documents
+    # `hashes` and `outputs` as safe to share between environments, while
+    # `states` holds machine-specific run state that must be rebuilt per run.
+    - name: Restore moon cache
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        key: ${{ runner.os }}-moon-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-moon-
+        path: |
+          .moon/cache/hashes
+          .moon/cache/outputs
+
+    # Installs proto, then `proto install` provisions every tool pinned in
+    # .prototools (bun runtime, pnpm package manager, node, moon, gh). The
+    # action's own cache layer covers ~/.proto between runs.
+    - name: Install proto and moon
+      uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
+      with:
+        auto-install: true
+        cache: true

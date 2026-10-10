@@ -1,0 +1,27 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Dogear: one Go binary (web UI, REST API, MCP) plus Postgres. Go tooling is
+# used directly; these tasks make it reachable through moon like the rest of
+# the monorepo.
+language: 'go'
+layer: 'application'
+
+tasks:
+  build:
+    command: 'go build ./...'
+    inputs: ['**/*.go', '**/*.sql', '**/*.html', '**/*.css', '**/*.js', '**/*.yaml', 'go.mod', 'go.sum']
+    options:
+      runInCI: 'always'
+  test:
+    command: 'go test ./...'
+    inputs: ['**/*.go', '**/*.sql', '**/*.html', '**/*.yaml', 'internal/importer/testdata/**', 'testdata/**', 'go.mod', 'go.sum']
+    options:
+      runInCI: 'always'
+  typecheck:
+    command: 'go vet ./...'
+    inputs: ['**/*.go', 'go.mod', 'go.sum']
+    options:
+      runInCI: 'always'
+  dev:
+    command: 'go run ./cmd/dogear serve'
+    preset: 'server'

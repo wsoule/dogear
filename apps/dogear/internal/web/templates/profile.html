@@ -1,0 +1,29 @@
+{{define "content"}}
+{{with .Data}}
+<h1>{{if .P.User.DisplayName}}{{deref .P.User.DisplayName}} <span class="muted">@{{.P.User.Username}}</span>{{else}}@{{.P.User.Username}}{{end}}</h1>
+{{if .P.User.Bio}}<p>{{.P.User.Bio}}</p>{{end}}
+{{if .P.User.Website}}<p><a href="{{deref .P.User.Website}}" rel="nofollow ugc noopener">{{deref .P.User.Website}}</a></p>{{end}}
+<p class="small muted">joined {{date .P.User.CreatedAt}}{{if .P.IsOwner}} · trust level {{.P.User.TrustLevel}} · <a href="/settings/profile">edit profile</a>{{end}}</p>
+{{if and $.Viewer (not .P.IsOwner)}}
+<form class="inline" method="post" action="/u/{{.P.User.Username}}/block">
+  {{template "csrf" $.CSRF}}
+  <button class="link small muted" name="block" value="{{if .P.Blocked}}0{{else}}1{{end}}">{{if .P.Blocked}}unblock{{else}}block{{end}}</button>
+</form>
+{{end}}
+
+<h2>lists</h2>
+{{if .P.Lists}}<ul class="plain">{{range .P.Lists}}<li><a href="/u/{{$.Data.P.User.Username}}/{{.Slug}}">{{.Title}}</a> <span class="muted small">{{.Count}}{{if ne .Visibility "public"}} · {{.Visibility}}{{end}}</span>{{if .Description}}<br><span class="small muted">{{.Description}}</span>{{end}}</li>{{end}}</ul>
+{{else}}<p class="muted">No public lists yet.</p>{{end}}
+{{if .P.IsOwner}}
+<form class="stack" method="post" action="/lists">
+  {{template "csrf" $.CSRF}}
+  <label><span>new list</span><input type="text" name="title" maxlength="80" required placeholder="e.g. tools I use daily"></label>
+  <label><span>visibility</span><select name="visibility"><option>public</option><option>unlisted</option><option>private</option></select></label>
+  <div><button class="btn ghost" type="submit">create list</button></div>
+</form>
+{{end}}
+
+<h2>posted</h2>
+{{template "feed" .Feed}}
+{{end}}
+{{end}}

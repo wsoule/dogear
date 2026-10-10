@@ -1,0 +1,34 @@
+{{define "content"}}
+{{with .Data}}
+<h1>post something cool</h1>
+<p class="lede">A link and one honest sentence on why it's good.{{if .Pending}} New accounts' posts are reviewed before they appear.{{end}}</p>
+{{if .Error}}<p class="flash error" role="alert">{{.Error}}{{if .DupID}} — <a href="/i/{{.DupID}}">see it</a> and save it to a list instead.{{end}}</p>{{end}}
+<form class="stack" method="post" action="/submit">
+  {{template "csrf" $.CSRF}}
+  <label><span>url</span>
+  <input type="url" name="url" value="{{.In.URL}}" required maxlength="2048" placeholder="https://"
+    hx-get="/submit/preview" hx-trigger="change, blur changed" hx-target="#autofill" hx-include="#autofill" hx-swap="outerHTML" hx-sync="this:replace"></label>
+  {{template "autofill" .}}
+  <label><span>why it's good (10–280)</span>
+  <textarea name="blurb" required minlength="10" maxlength="280">{{.In.Blurb}}</textarea></label>
+  <label><span>category</span>
+  <select name="category">
+    <option value="">let dogear pick</option>
+    {{$c := .In.Category}}{{range .Groups}}<optgroup label="{{.Name}}">{{range .Children}}{{if not .Hidden}}<option value="{{.Slug}}" {{if eq $c .Slug}}selected{{end}}>{{.Name}}</option>{{end}}{{end}}</optgroup>{{end}}
+  </select></label>
+  <label><span>also add to list (optional)</span>
+  <select name="list"><option value="">—</option>{{$l := .In.List}}{{range .Lists}}<option value="{{.Slug}}" {{if eq $l .Slug}}selected{{end}}>{{.Title}}</option>{{end}}</select></label>
+  <label><span>note for your list (optional)</span><input type="text" name="note" value="{{.In.Note}}" maxlength="280"></label>
+  {{if $.TurnstileSiteKey}}<div class="cf-turnstile" data-sitekey="{{$.TurnstileSiteKey}}"></div>{{end}}
+  <div><button class="btn" type="submit">post</button></div>
+</form>
+{{end}}
+{{end}}
+
+{{define "autofill"}}<div id="autofill" class="stack">
+  {{if .Preview}}{{if .Preview.Error}}<p class="error small">{{.Preview.Error}}{{if .Preview.DupID}} — <a href="/i/{{.Preview.DupID}}">see it</a>{{end}}</p>{{end}}{{end}}
+  <label><span>title</span><input type="text" name="title" value="{{.In.Title}}" required maxlength="120"></label>
+  <label><span>kind</span>
+  <select name="kind"><option value="">auto</option>{{$k := .In.Kind}}{{range kinds}}<option {{if eq $k .}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+  <label><span>creator — author, channel, or maker (optional)</span><input type="text" name="creator" value="{{.In.Creator}}" maxlength="120"></label>
+</div>{{end}}

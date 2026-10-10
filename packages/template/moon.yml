@@ -1,0 +1,9 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Starter library package. Inherits build/dev from the tsdown tag and
+# test/typecheck from the shared bun-common tasks. Rename or copy this
+# package when starting real work; the root project's `dependsOn` in
+# /moon.yml must list every dist-producing package.
+language: 'typescript'
+layer: 'library'
+tags: ['tsdown']

@@ -1,0 +1,37 @@
+{{define "content"}}
+{{with .Data}}
+<p class="small muted"><a href="/u/{{.L.Owner}}">@{{.L.Owner}}</a> / {{.L.Slug}}{{if ne .L.Visibility "public"}} · {{.L.Visibility}}{{end}}</p>
+<h1>{{.L.Title}}</h1>
+{{if .L.Description}}<p class="lede">{{.L.Description}}</p>{{end}}
+{{if .L.Entries}}
+<ol class="feed">
+{{range $i, $e := .L.Entries}}
+{{template "row" (rowData $e.Item $e.Note $.CSRF $.Viewer)}}
+{{if $.Data.L.IsOwner}}
+<li class="small">
+  <form class="actions" method="post" action="/lists/{{$.Data.L.Slug}}/entries/{{$e.Item.ID}}">
+    {{template "csrf" $.CSRF}}
+    <label class="inline"><span class="sr-only">note</span><input type="text" name="note" value="{{$e.Note}}" maxlength="280" aria-label="note for {{$e.Item.Title}}"></label>
+    <button class="link" name="op" value="note">save note</button>
+    {{if $i}}<button class="link" name="op" value="up" aria-label="move up">↑</button>{{end}}
+    <button class="link" name="op" value="down" aria-label="move down">↓</button>
+    <button class="link muted" name="op" value="remove">remove</button>
+  </form>
+</li>
+{{end}}
+{{end}}
+</ol>
+{{else}}<p class="muted">This list is empty.{{if .L.IsOwner}} Use “save” on anything in the feed.{{end}}</p>{{end}}
+
+{{if .L.IsOwner}}
+<h2>edit list</h2>
+<form class="stack" method="post" action="/lists/{{.L.Slug}}">
+  {{template "csrf" $.CSRF}}
+  <label><span>title</span><input type="text" name="title" value="{{.L.Title}}" maxlength="80" required></label>
+  <label><span>description</span><input type="text" name="description" value="{{.L.Description}}" maxlength="280"></label>
+  <label><span>visibility</span><select name="visibility">{{$v := .L.Visibility}}{{range list "public" "unlisted" "private"}}<option {{if eq $v .}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+  <div class="actions"><button class="btn ghost" name="op" value="update">save</button> <button class="btn danger" name="op" value="delete">delete list</button></div>
+</form>
+{{end}}
+{{end}}
+{{end}}

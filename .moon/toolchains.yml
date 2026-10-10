@@ -1,0 +1,15 @@
+$schema: 'https://moonrepo.dev/schemas/toolchains.json'
+
+# pnpm manages workspace installs and package-manager operations. Tool versions
+# come from .prototools (versionFromPrototools defaults to true), so pins live in
+# one place. Bun stays available for direct runtime and test script execution.
+javascript:
+  packageManager: 'pnpm'
+
+node: {}
+
+pnpm:
+  installArgs:
+    - '--frozen-lockfile'
+
+bun: {}

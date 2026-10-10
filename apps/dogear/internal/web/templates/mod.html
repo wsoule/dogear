@@ -1,0 +1,52 @@
+{{define "content"}}
+{{with .Data}}
+<h1>moderation</h1>
+<h2>pending ({{len .Q.Pending}})</h2>
+{{if .Q.Pending}}<table><tbody>
+{{range .Q.Pending}}<tr>
+<td><a href="/i/{{.ID}}">{{.Title}}</a><br><span class="muted">{{.Domain}} · {{.Kind}} · via {{.Via}}{{if .Poster}} · <a href="/u/{{deref .Poster}}">@{{deref .Poster}}</a>{{end}}</span><br>{{.Blurb}}{{if .Flags}}<br><span class="error">{{join .Flags ", "}}</span>{{end}}</td>
+<td><form class="actions" method="post" action="/mod/item/{{.ID}}">{{template "csrf" $.CSRF}}
+<button class="link" name="action" value="approve">approve</button>
+<button class="link muted" name="action" value="reject">reject</button></form></td>
+</tr>{{end}}
+</tbody></table>{{else}}<p class="muted">Nothing waiting.</p>{{end}}
+
+<h2>reports ({{len .Q.Reports}})</h2>
+{{if .Q.Reports}}<table><tbody>
+{{range .Q.Reports}}<tr><td><a href="/i/{{.ItemID}}">{{.Title}}</a> <span class="muted">({{.ItemStatus}})</span><br>{{.Reason}} by @{{.Reporter}}{{if .Note}}: {{.Note}}{{end}}</td>
+<td><form class="actions" method="post" action="/mod/report/{{.ID}}">{{template "csrf" $.CSRF}}
+<button class="link" name="action" value="uphold">uphold</button>
+<button class="link muted" name="action" value="dismiss">dismiss</button></form></td></tr>{{end}}
+</tbody></table>{{else}}<p class="muted">No open reports.</p>{{end}}
+
+<h2>flagged accounts ({{len .Q.Flags}})</h2>
+{{if .Q.Flags}}<table><tbody>
+{{range .Q.Flags}}<tr><td><a href="/u/{{.Username}}">@{{.Username}}</a> — {{.Reason}} · level {{.TrustLevel}}{{if .ShadowBannedAt}} · shadow-banned{{end}}{{if .BannedAt}} · banned{{end}}</td>
+<td>{{template "useractions" (userActions .Username $.CSRF)}}</td></tr>{{end}}
+</tbody></table>{{else}}<p class="muted">No flags.</p>{{end}}
+
+<h2>user</h2>
+<form class="stack" method="post" action="/mod/user">
+  {{template "csrf" $.CSRF}}
+  <label><span>username</span><input type="text" name="username" required></label>
+  <div class="actions">
+  {{range list "promote" "demote" "shadowban" "unshadowban" "ban" "unban" "clear_flags"}}<button class="btn ghost" name="action" value="{{.}}">{{.}}</button>{{end}}
+  {{if eq $.Viewer.User.Role "admin"}}<button class="btn ghost" name="action" value="make_mod">make mod</button>{{end}}
+  </div>
+  <label class="inline small"><input type="checkbox" name="cascade" value="1"> ban cascades to people they invited</label>
+</form>
+
+<h2>block domain</h2>
+<form class="actions" method="post" action="/mod/domain">{{template "csrf" $.CSRF}}
+<input type="text" name="domain" placeholder="spam.example" required aria-label="domain"><button class="btn ghost">block</button></form>
+
+<h2>dead links ({{len .Q.Dead}})</h2>
+{{if .Q.Dead}}<ul class="plain">{{range .Q.Dead}}<li><a href="/i/{{.ID}}">{{.Title}}</a> <span class="muted small">{{.Domain}}</span>
+<form class="inline" method="post" action="/mod/item/{{.ID}}">{{template "csrf" $.CSRF}}<button class="link small" name="action" value="restore">restore</button></form></li>{{end}}</ul>{{else}}<p class="muted">None.</p>{{end}}
+{{end}}
+{{end}}
+
+{{define "useractions"}}<form class="actions" method="post" action="/mod/user"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="username" value="{{.Username}}">
+<button class="link" name="action" value="clear_flags">clear</button>
+<button class="link" name="action" value="shadowban">shadowban</button>
+<button class="link muted" name="action" value="ban">ban</button></form>{{end}}
