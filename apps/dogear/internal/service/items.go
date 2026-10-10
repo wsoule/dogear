@@ -257,6 +257,16 @@ func (s *Service) Feed(ctx context.Context, viewer *Actor, fq FeedQuery) (FeedPa
 			return page, errf("invalid", "bad cursor")
 		}
 	}
+	// Anonymous first pages are the bulk of traffic and identical for every
+	// visitor, so they are cached for a minute.
+	cacheKey := ""
+	if viewer == nil && fq.Cursor == "" && fq.Q == "" {
+		cacheKey = fmt.Sprintf("%s|%s|%s|%d|%t", fq.Category, p.Kind, p.Sort, p.Limit, p.IncludeDead)
+		if cached, ok := s.feedCache.Get(cacheKey); ok {
+			cached.Category, cached.Parent = page.Category, page.Parent
+			return cached, nil
+		}
+	}
 	// Fetch one extra row to learn whether another page exists.
 	p.Limit++
 	rows, err := s.Q.Feed(ctx, p)
@@ -273,6 +283,9 @@ func (s *Service) Feed(ctx context.Context, viewer *Actor, fq FeedQuery) (FeedPa
 	}
 	if more && len(rows) > 0 {
 		page.NextCursor = encodeCursor(p.Sort, rows[len(rows)-1])
+	}
+	if cacheKey != "" {
+		s.feedCache.Set(cacheKey, page)
 	}
 	return page, nil
 }

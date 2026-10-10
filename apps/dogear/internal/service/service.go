@@ -39,6 +39,7 @@ type Service struct {
 
 	classifyCache *ttlCache[classify.Result]
 	catCache      *ttlCache[[]*CategoryNode]
+	feedCache     *ttlCache[FeedPage]
 }
 
 func New(pool *pgxpool.Pool, cfg *config.Config, cl classify.Classifier, log *slog.Logger) *Service {
@@ -55,6 +56,7 @@ func New(pool *pgxpool.Pool, cfg *config.Config, cl classify.Classifier, log *sl
 		Log:           log,
 		classifyCache: newTTLCache[classify.Result](7 * 24 * time.Hour),
 		catCache:      newTTLCache[[]*CategoryNode](time.Minute),
+		feedCache:     newTTLCache[FeedPage](time.Minute),
 	}
 }
 

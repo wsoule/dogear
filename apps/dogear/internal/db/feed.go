@@ -47,7 +47,11 @@ func (q *Queries) Feed(ctx context.Context, p FeedParams) ([]Item, error) {
 	with, join := "", ""
 	if len(p.CategoryIDs) > 0 {
 		with = "WITH cat AS MATERIALIZED (SELECT DISTINCT item_id FROM item_categories WHERE category_id = ANY(" + arg(p.CategoryIDs) + "::int[])) "
-		join = " JOIN cat ON cat.item_id = i.id"
+		// LATERAL forces the plan to start from the category's items and
+		// look each up by primary key; otherwise the planner may walk the
+		// global score index and rescan the CTE per row (minutes, not ms).
+		// OFFSET 0 stops Postgres from flattening the subquery back into a join.
+		join = "cat CROSS JOIN LATERAL (SELECT * FROM items WHERE items.id = cat.item_id OFFSET 0) i"
 	}
 	if p.Kind != "" {
 		where = append(where, "i.kind = "+arg(p.Kind))
@@ -89,7 +93,11 @@ func (q *Queries) Feed(ctx context.Context, p FeedParams) ([]Item, error) {
 	if limit <= 0 {
 		limit = 30
 	}
-	sql := with + `SELECT i.* FROM items i` + join + ` WHERE ` +
+	from := "items i"
+	if join != "" {
+		from = join
+	}
+	sql := with + `SELECT i.* FROM ` + from + ` WHERE ` +
 		strings.Join(where, " AND ") + ` ORDER BY ` + order + ` LIMIT ` + arg(limit)
 
 	rows, err := q.db.Query(ctx, sql, args...)
