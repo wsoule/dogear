@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -343,6 +344,16 @@ func (s *Service) userLists(ctx context.Context, userID int64, all bool) ([]List
 		out = append(out, List{ID: r.ID, Slug: r.Slug, Title: r.Title, Description: r.Description,
 			Visibility: r.Visibility, Count: int(r.EntryCount), UpdatedAt: r.UpdatedAt})
 	}
+	// The Dogeared list (the one-tap save) always comes first.
+	slices.SortStableFunc(out, func(a, b List) int {
+		switch {
+		case a.Slug == DogearSlug && b.Slug != DogearSlug:
+			return -1
+		case b.Slug == DogearSlug && a.Slug != DogearSlug:
+			return 1
+		}
+		return 0
+	})
 	return out, nil
 }
 

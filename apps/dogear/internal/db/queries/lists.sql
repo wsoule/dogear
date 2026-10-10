@@ -185,3 +185,8 @@ ON CONFLICT (list_id, item_id) DO NOTHING;
 
 -- name: SetEntryNote :exec
 UPDATE list_items SET note = $3, updated_at = now() WHERE list_id = $1 AND item_id = $2;
+
+-- name: DogearedAmong :many
+-- Which of these items the user has in their Dogeared list.
+SELECT li.item_id FROM list_items li JOIN lists l ON l.id = li.list_id
+WHERE l.user_id = $1 AND l.slug = 'dogeared' AND li.item_id = ANY(@ids::bigint[]);

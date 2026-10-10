@@ -953,3 +953,70 @@ a.hero {
   display: block;
   max-width: 480px;
 }
+
+/* one-line explanation for first-time visitors */
+.intro {
+  margin: 0 0 14px;
+  color: var(--muted);
+}
+.intro em {
+  font-style: normal;
+  color: var(--ink);
+}
+
+/* rows: a single like button (dislike lives on the item page) */
+.vote.like button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: auto;
+  min-height: 36px;
+  gap: 2px;
+}
+.vote.like .count {
+  font-size: 11px;
+  min-height: 0;
+}
+
+/* dogear: the one-tap save, matching the corner mark */
+.dogear-inline {
+  display: inline;
+}
+.dogear-inline button.dg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  color: var(--muted);
+}
+.dogear-inline button.dg.on {
+  color: var(--accent);
+}
+.dg-icon {
+  width: 11px;
+  height: 11px;
+}
+.item-actions .dogear-inline button.dg {
+  font-size: 14px;
+  color: var(--ink);
+}
+.item-actions .dogear-inline button.dg.on {
+  color: var(--accent);
+}
+.lists .dogeared-list a {
+  color: var(--accent);
+}
+details.newlist > summary {
+  cursor: pointer;
+  color: var(--muted);
+  margin: 8px 0;
+}
+details.newlist > summary::before {
+  content: '+ ';
+}
+details.newlist > summary {
+  list-style: none;
+}
+details.newlist > summary::-webkit-details-marker {
+  display: none;
+}

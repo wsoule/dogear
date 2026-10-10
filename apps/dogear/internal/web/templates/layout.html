@@ -71,6 +71,18 @@
 <button type="submit" class="dogear{{if .On}} on{{end}}" aria-pressed="{{if .On}}true{{else}}false{{end}}" aria-label="{{if .On}}Dogeared — remove from your Dogeared list{{else}}Dogear this: save it to your profile{{end}}" title="{{if .On}}dogeared · tap to undo{{else}}dogear this · save to your profile{{end}}"><svg viewBox="0 0 48 48" overflow="visible" aria-hidden="true" focusable="false"><path class="cut" d="M0.6 0 H48 V47.4 Z"/><path class="flap" d="M0.6 0 V47.4 H48 Z" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="miter" vector-effect="non-scaling-stroke"/></svg></button>
 </form>{{end}}
 
+{{define "like"}}<div class="vote like" id="vote-{{.ItemID}}">
+<form method="post" action="/items/{{.ItemID}}/vote" hx-put="/items/{{.ItemID}}/vote?ui=like" hx-target="#vote-{{.ItemID}}" hx-swap="outerHTML">
+<input type="hidden" name="csrf" value="{{.CSRF}}">
+<button type="submit" name="value" value="{{if eq .MyVote 1}}0{{else}}1{{end}}" aria-pressed="{{if eq .MyVote 1}}true{{else}}false{{end}}" aria-label="{{if eq .MyVote 1}}Unlike{{else}}Like{{end}} ({{.Likes}} likes)" title="{{if eq .MyVote 1}}liked · tap to undo{{else}}like{{end}}">▲<span class="count">{{if .Likes}}{{.Likes}}{{end}}</span></button>
+</form>
+</div>{{end}}
+
+{{define "dogearinline"}}<form class="inline dogear-inline" id="dg-{{.ItemID}}" method="post" action="/items/{{.ItemID}}/dogear" hx-post="/items/{{.ItemID}}/dogear?ui=inline" hx-target="#dg-{{.ItemID}}" hx-swap="outerHTML">
+<input type="hidden" name="csrf" value="{{.CSRF}}">
+<button type="submit" class="link dg{{if .On}} on{{end}}" aria-pressed="{{if .On}}true{{else}}false{{end}}" title="{{if .On}}in your Dogeared list · tap to undo{{else}}keep this in your Dogeared list{{end}}"><svg class="dg-icon" viewBox="0 0 10 10" aria-hidden="true"><path d="M0.5 0.5H6.5L9.5 3.5V9.5H0.5Z M6.5 0.5V3.5H9.5" fill="none" stroke="currentColor"/></svg>{{if .On}}dogeared{{else}}dogear{{end}}</button>
+</form>{{end}}
+
 {{define "csrf"}}<input type="hidden" name="csrf" value="{{.}}">{{end}}
 
 {{define "vote"}}<div class="vote" id="vote-{{.ItemID}}">
@@ -83,7 +95,7 @@
 </div>{{end}}
 
 {{define "row"}}<li class="row{{if .Item.Image}} has-thumb{{end}}">
-{{template "vote" (voteState .Item $.CSRF)}}
+{{template "like" (voteState .Item $.CSRF)}}
 <div>
   <a class="title" href="/i/{{.Item.ID}}">{{.Item.Title}}</a>
   <span class="domain small">{{.Item.Domain}}</span>
@@ -91,7 +103,7 @@
     <span>{{.Item.Kind}}{{if .Item.Creator}} · {{.Item.Creator}}{{end}}</span>
     {{with .Item.Category}}<a href="/c/{{.Slug}}"><span class="sr-only">category </span>#{{.Slug}}</a>{{end}}
     <a class="out" href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank">link ↗</a>
-    {{if $.Viewer}}<a href="/i/{{.Item.ID}}#save" hx-get="/items/{{.Item.ID}}/save" hx-target="#save-{{.Item.ID}}" hx-swap="innerHTML">save</a>{{end}}
+    {{if $.Viewer}}{{template "dogearinline" (dogearData .Item.ID .Item.Dogeared $.CSRF)}}{{end}}
     {{if .Item.Agent}}<span class="label" title="posted by an agent">agent</span>{{end}}
     {{if ne .Item.Status "live"}}<span class="label warn">{{.Item.Status}}</span>{{end}}
     {{if eq .Item.LinkStatus "dead"}}<span class="label warn">dead link</span>{{end}}
@@ -99,11 +111,10 @@
   </div>
   {{if .Item.Blurb}}<p class="blurb">{{.Item.Blurb}}</p>{{end}}
   {{if .Note}}<p class="note">{{.Note}}</p>{{end}}
-  <div id="save-{{.Item.ID}}"></div>
 </div>
 {{if .Item.Image}}<a class="thumb" href="/i/{{.Item.ID}}" tabindex="-1" aria-hidden="true"><img src="{{.Item.Image}}" alt="" loading="lazy" decoding="async" width="120" height="68"></a>{{end}}
 </li>{{end}}
 
 {{define "rows"}}{{range $i, $it := .Items}}{{if and $.Next (eq $i $.PrefetchAt)}}<li class="sentinel" aria-hidden="true" hx-get="{{$.Next}}" hx-trigger="revealed once" hx-target="closest ol" hx-swap="beforeend" hx-indicator="next .loading"></li>{{end}}{{template "row" (rowData $it "" $.CSRF $.Viewer)}}{{end}}{{if .Next}}<li class="more"><a href="{{.NextPage}}">next page of items</a><span class="loading htmx-indicator"> loading…</span></li>{{end}}{{end}}
 
-{{define "feed"}}{{if .Items}}<ol class="feed{{if .Compact}} compact{{end}}" id="feed">{{template "rows" .}}</ol>{{else}}<p class="muted">Nothing here yet.</p>{{end}}{{end}}
+{{define "feed"}}{{if .Items}}<ol class="feed{{if .Compact}} compact{{end}}" id="feed">{{template "rows" .}}</ol>{{else}}<p class="muted">Nothing here yet. Try another sort or kind, or <a href="/search">search</a>.</p>{{end}}{{end}}

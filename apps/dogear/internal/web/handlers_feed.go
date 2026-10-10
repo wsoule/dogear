@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"slices"
@@ -114,6 +115,7 @@ type feedPage struct {
 	Here         string // current URL, for the layout toggle's return link
 	SortLinks    []tabLink
 	KindLinks    []tabLink
+	Intro        bool      // show the one-line explanation (home, signed out)
 	Crumbs       []tabLink // breadcrumb trail above the heading
 	Source       *db.SourceListByCategoryRow
 	Feed         feedData
@@ -200,7 +202,7 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	if fq.Sort == "new" {
 		nav = "new"
 	}
-	s.serveFeed(w, r, nav, "/", fq, feedPage{Chips: chips, Tabs: true}, "", false)
+	s.serveFeed(w, r, nav, "/", fq, feedPage{Chips: chips, Tabs: true, Intro: fq.Cursor == ""}, "", false)
 }
 
 func (s *Server) newFeed(w http.ResponseWriter, r *http.Request) {
@@ -380,7 +382,11 @@ func (s *Server) vote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Header.Get("HX-Request") != "" {
-		s.fragment(w, http.StatusOK, "feed", "vote", voteData{ItemID: id, Likes: st.Likes, MyVote: st.MyVote, CSRF: reqCtx(r).csrf})
+		name := "vote"
+		if r.URL.Query().Get("ui") == "like" {
+			name = "like"
+		}
+		s.fragment(w, http.StatusOK, "feed", name, voteData{ItemID: id, Likes: st.Likes, MyVote: st.MyVote, CSRF: reqCtx(r).csrf})
 		return
 	}
 	s.back(w, r, "/i/"+strconv.FormatInt(id, 10))
@@ -399,7 +405,27 @@ func (s *Server) dogear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Header.Get("HX-Request") != "" {
-		s.fragment(w, http.StatusOK, "item", "dogearbtn", dogearState{ItemID: id, On: on, CSRF: reqCtx(r).csrf})
+		st := dogearState{ItemID: id, On: on, CSRF: reqCtx(r).csrf}
+		// Swap the control that was tapped; on an item page, also update the
+		// other one (the corner or the inline button) out of band.
+		onItemPage := strings.Contains(r.Header.Get("HX-Current-URL"), "/i/"+strconv.FormatInt(id, 10))
+		primary, other := "dogearbtn", "dogearinline"
+		if r.URL.Query().Get("ui") == "inline" {
+			primary, other = "dogearinline", "dogearbtn"
+		}
+		var buf strings.Builder
+		if err := s.tmpl["item"].ExecuteTemplate(&buf, primary, st); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		if onItemPage {
+			var oob strings.Builder
+			if err := s.tmpl["item"].ExecuteTemplate(&oob, other, st); err == nil {
+				buf.WriteString(strings.Replace(oob.String(), "<form ", `<form hx-swap-oob="true" `, 1))
+			}
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = io.WriteString(w, buf.String())
 		return
 	}
 	http.Redirect(w, r, "/i/"+strconv.FormatInt(id, 10), http.StatusSeeOther)

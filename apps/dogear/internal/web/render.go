@@ -104,6 +104,9 @@ var funcs = template.FuncMap{
 	"rowBadge": func(it service.Item, note, csrf string, v *service.Actor, badge string) rowData {
 		return rowData{Item: it, Note: note, CSRF: csrf, Viewer: v, Badge: badge}
 	},
+	"dogearData": func(id int64, on bool, csrf string) dogearState {
+		return dogearState{ItemID: id, On: on, CSRF: csrf}
+	},
 	"voteState": func(it service.Item, csrf string) voteData {
 		v := voteData{ItemID: it.ID, Likes: it.Likes, CSRF: csrf}
 		if it.MyVote != nil {
@@ -117,6 +120,7 @@ var funcs = template.FuncMap{
 	"kinds":    func() []string { return service.Kinds },
 	"list":     func(v ...string) []string { return v },
 	"join":     strings.Join,
+	"lower":    strings.ToLower,
 	"contains": strings.Contains,
 	"date":     func(t time.Time) string { return t.Format("2006-01-02") },
 	"ago": func(t time.Time) string {

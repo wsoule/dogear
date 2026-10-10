@@ -183,6 +183,37 @@ func (q *Queries) DirtySyncRows(ctx context.Context, dirtySince *time.Time) ([]G
 	return items, nil
 }
 
+const dogearedAmong = `-- name: DogearedAmong :many
+SELECT li.item_id FROM list_items li JOIN lists l ON l.id = li.list_id
+WHERE l.user_id = $1 AND l.slug = 'dogeared' AND li.item_id = ANY($2::bigint[])
+`
+
+type DogearedAmongParams struct {
+	UserID int64
+	Ids    []int64
+}
+
+// Which of these items the user has in their Dogeared list.
+func (q *Queries) DogearedAmong(ctx context.Context, arg DogearedAmongParams) ([]int64, error) {
+	rows, err := q.db.Query(ctx, dogearedAmong, arg.UserID, arg.Ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var item_id int64
+		if err := rows.Scan(&item_id); err != nil {
+			return nil, err
+		}
+		items = append(items, item_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getItemMedia = `-- name: GetItemMedia :many
 SELECT item_id, media_id, resolved_at FROM item_media WHERE item_id = ANY($1::bigint[])
 `

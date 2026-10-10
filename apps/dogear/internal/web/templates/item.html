@@ -12,13 +12,14 @@
 
 <div class="item-actions">
   <a class="btn" href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank">visit {{.Item.Domain}} ↗</a>
+  {{if $.Viewer}}{{template "dogearinline" (dogearData .Item.ID .Item.Dogeared $.CSRF)}}{{end}}
   {{template "vote" (voteState .Item $.CSRF)}}
   {{if $.Viewer}}
-  <details class="menu save" id="save" {{if .Save.Saved}}{{end}}>
-    <summary>{{if .Save.Saved}}saved{{else}}save{{end}}</summary>
+  <details class="menu save" id="save">
+    <summary>add to a list</summary>
     {{template "savemenu" .Save}}
   </details>
-  {{else}}<a class="muted small" href="/signin">sign in to save</a>{{end}}
+  {{else}}<a class="muted small" href="/signin">sign in to dogear this</a>{{end}}
 </div>
 
 {{if .Item.Image}}<a href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank" class="hero" tabindex="-1" aria-hidden="true"><img src="{{.Item.Image}}" alt="" decoding="async" width="480" height="240"></a>{{end}}

@@ -57,6 +57,7 @@ type Item struct {
 	Poster     string       `json:"posted_by,omitempty"`
 	Image      string       `json:"image,omitempty"`      // /img/{id} thumbnail path when one is available
 	Transcript string       `json:"transcript,omitempty"` // video captions, item detail only
+	Dogeared   bool         `json:"dogeared,omitempty"`   // in the viewer's Dogeared list
 	Flags      []string     `json:"-"`
 	createdBy  *int64
 	listCount  int
@@ -111,7 +112,15 @@ func (s *Service) decorate(ctx context.Context, viewer *Actor, rows []db.Item) (
 		byID[c.ItemID] = ref
 	}
 	votes := map[int64]int{}
+	dogeared := map[int64]bool{}
 	if viewer != nil {
+		ds, err := s.Q.DogearedAmong(ctx, db.DogearedAmongParams{UserID: viewer.ID(), Ids: ids})
+		if err != nil {
+			return nil, fmt.Errorf("dogeared: %w", err)
+		}
+		for _, id := range ds {
+			dogeared[id] = true
+		}
 		vs, err := s.Q.MyVotes(ctx, db.MyVotesParams{UserID: viewer.ID(), Ids: ids})
 		if err != nil {
 			return nil, fmt.Errorf("my votes: %w", err)
@@ -125,6 +134,7 @@ func (s *Service) decorate(ctx context.Context, viewer *Actor, rows []db.Item) (
 		if viewer != nil {
 			v := votes[items[i].ID]
 			items[i].MyVote = &v
+			items[i].Dogeared = dogeared[items[i].ID]
 		}
 	}
 	return items, nil
