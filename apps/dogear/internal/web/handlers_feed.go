@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
@@ -80,6 +81,15 @@ var sortLabels = map[string]string{"top": "top", "new": "new", "stars": "stars",
 
 // feedURL builds a feed link that keeps the other filter: changing the sort
 // keeps the kind and vice versa.
+// commas formats an integer with thousands separators.
+func commas(n int) string {
+	s := strconv.Itoa(n)
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + "," + s[i:]
+	}
+	return s
+}
+
 func feedURL(base, sort, kind string) string {
 	q := url.Values{}
 	if sort != "" && sort != "top" {
@@ -104,6 +114,7 @@ type feedPage struct {
 	Here         string // current URL, for the layout toggle's return link
 	SortLinks    []tabLink
 	KindLinks    []tabLink
+	Crumbs       []tabLink // breadcrumb trail above the heading
 	Source       *db.SourceListByCategoryRow
 	Feed         feedData
 }
@@ -195,14 +206,14 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 func (s *Server) newFeed(w http.ResponseWriter, r *http.Request) {
 	fq := feedQuery(r)
 	fq.Sort = "new"
-	s.serveFeed(w, r, "new", "/new", fq, feedPage{Heading: "new", Sub: "Fresh posts from people (imports excluded)."}, "new", true)
+	s.serveFeed(w, r, "", "/new", fq, feedPage{Heading: "new", Sub: "Fresh posts from people, newest first."}, "new", true)
 }
 
 func (s *Server) category(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("slug")
 	fq := feedQuery(r)
 	fq.Category = slug
-	fp := feedPage{Tabs: true}
+	fp := feedPage{Tabs: true, Crumbs: []tabLink{{Label: "categories", URL: "/categories"}}}
 	roots, err := s.svc.Categories(r.Context())
 	if err != nil {
 		s.serverError(w, r, err)
@@ -211,11 +222,12 @@ func (s *Server) category(w http.ResponseWriter, r *http.Request) {
 	for _, root := range roots {
 		if root.Slug == slug {
 			fp.Children = root.Children
-			fp.Sub = strconv.Itoa(len(root.Children)) + " lists"
+			fp.Sub = fmt.Sprintf("%s items in %d lists", commas(root.Count), len(root.Children))
 		}
 		for _, c := range root.Children {
 			if c.Slug == slug {
-				fp.Sub = "in " + root.Name
+				fp.Crumbs = append(fp.Crumbs, tabLink{Label: root.Name, URL: "/c/" + root.Slug})
+				fp.Sub = commas(c.Count) + " items"
 			}
 		}
 	}
@@ -223,15 +235,15 @@ func (s *Server) category(w http.ResponseWriter, r *http.Request) {
 	s.serveFeed(w, r, "", "/c/"+url.PathEscape(slug), fq, fp, slug, false)
 }
 
+// kind redirects /k/{kind} to the home feed filtered by that kind, so every
+// feed shares one set of controls.
 func (s *Server) kind(w http.ResponseWriter, r *http.Request) {
 	k := r.PathValue("kind")
 	if !slices.Contains(service.Kinds, k) {
 		s.notFound(w, r)
 		return
 	}
-	fq := feedQuery(r)
-	fq.Kind = k
-	s.serveFeed(w, r, "", "/k/"+k, fq, feedPage{Heading: k + "s", Tabs: false}, k, false)
+	http.Redirect(w, r, feedURL("/", r.URL.Query().Get("sort"), k), http.StatusMovedPermanently)
 }
 
 func (s *Server) categories(w http.ResponseWriter, r *http.Request) {
@@ -289,9 +301,10 @@ type saveMenuData struct {
 }
 
 type itemPage struct {
-	Item    service.Item
-	Save    saveMenuData
-	Reasons []string
+	Item       service.Item
+	ParentName string
+	Save       saveMenuData
+	Reasons    []string
 }
 
 func (s *Server) item(w http.ResponseWriter, r *http.Request) {
@@ -306,6 +319,16 @@ func (s *Server) item(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ip := itemPage{Item: it, Reasons: []string{"spam", "dead", "offensive", "duplicate", "other"}}
+	if it.Category != nil && it.Category.Parent != "" {
+		ip.ParentName = it.Category.Parent
+		if roots, err := s.svc.Categories(r.Context()); err == nil {
+			for _, root := range roots {
+				if root.Slug == it.Category.Parent {
+					ip.ParentName = root.Name
+				}
+			}
+		}
+	}
 	if v := viewer(r); v != nil {
 		ip.Save = s.saveMenuData(r, id, "")
 	}

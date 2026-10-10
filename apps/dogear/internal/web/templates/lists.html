@@ -22,7 +22,7 @@
 {{range .Lists}}<tr>
   <td><a href="/c/{{.CategorySlug}}">{{.Title}}</a></td>
   <td class="muted"><a href="https://github.com/{{.Repo}}" rel="noopener">{{.Repo}}</a></td>
-  <td class="num">{{if .Stars}}★{{deref32 .Stars}}{{end}}</td>
+  <td class="num">{{if .Stars}}★{{commas32 .Stars}}{{end}}</td>
   <td class="num">{{.ItemCount}}</td>
 </tr>{{end}}
 </tbody>

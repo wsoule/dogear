@@ -1,41 +1,56 @@
 {{define "content"}}
 {{with .Data}}
-{{if .Item.Image}}<a href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank" class="hero"><img src="{{.Item.Image}}" alt="" decoding="async" width="480" height="270"></a>{{end}}
-<ol class="feed single">{{template "row" (rowData .Item "" $.CSRF $.Viewer)}}</ol>
-<p><a class="btn ghost" href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank">visit {{.Item.Domain}} ↗</a></p>
-<dl class="kv small">
-  {{if .Item.Poster}}<dt>posted by</dt><dd><a href="/u/{{.Item.Poster}}">@{{.Item.Poster}}</a> via {{.Item.Via}}</dd>{{else if eq .Item.Via "import"}}<dt>source</dt><dd>imported from awesome lists</dd>{{end}}
-  <dt>added</dt><dd>{{date .Item.CreatedAt}}</dd>
-  <dt>score</dt><dd>{{printf "%.3f" .Item.Score}}</dd>
-  {{if .Item.Sources}}<dt>also in</dt><dd>{{range $i, $s := .Item.Sources}}{{if $i}}, {{end}}<a href="https://github.com/{{$s.Repo}}" rel="nofollow noopener">{{$s.Title}}</a>{{end}}</dd>{{end}}
-</dl>
+{{with .Item.Category}}<nav class="crumbs" aria-label="Breadcrumb"><a href="/categories">categories</a> / {{if .Parent}}<a href="/c/{{.Parent}}">{{$.Data.ParentName}}</a> / {{end}}<a href="/c/{{.Slug}}">{{.Name}}</a></nav>{{end}}
+<h1 class="item-title">{{.Item.Title}}</h1>
+<p class="item-meta">
+  <span>{{.Item.Domain}}</span><span>{{.Item.Kind}}</span>{{if .Item.Creator}}<span>{{.Item.Creator}}</span>{{end}}
+  {{if .Item.Agent}}<span class="label" title="posted by an agent">agent</span>{{end}}
+  {{if ne .Item.Status "live"}}<span class="label warn">{{.Item.Status}}</span>{{end}}
+  {{if eq .Item.LinkStatus "dead"}}<span class="label warn">dead link</span>{{end}}
+</p>
+{{if .Item.Blurb}}<p class="item-blurb">{{.Item.Blurb}}</p>{{end}}
+
+<div class="item-actions">
+  <a class="btn" href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank">visit {{.Item.Domain}} ↗</a>
+  {{template "vote" (voteState .Item $.CSRF)}}
+  {{if $.Viewer}}
+  <details class="menu save" id="save" {{if .Save.Saved}}{{end}}>
+    <summary>{{if .Save.Saved}}saved{{else}}save{{end}}</summary>
+    {{template "savemenu" .Save}}
+  </details>
+  {{else}}<a class="muted small" href="/signin">sign in to save</a>{{end}}
+</div>
+
+{{if .Item.Image}}<a href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank" class="hero" tabindex="-1" aria-hidden="true"><img src="{{.Item.Image}}" alt="" decoding="async" width="480" height="270"></a>{{end}}
 {{if .Item.Transcript}}<details class="transcript"><summary>transcript</summary><p>{{.Item.Transcript}}</p></details>{{end}}
-{{range .Item.Sources}}{{if .Description}}<p class="small muted">{{.Title}}{{if .HeadingPath}} › {{.HeadingPath}}{{end}}: “{{.Description}}”</p>{{end}}{{end}}
+
+<dl class="kv small">
+  {{if .Item.Poster}}<dt>posted by</dt><dd><a href="/u/{{.Item.Poster}}">@{{.Item.Poster}}</a></dd>{{else if eq .Item.Via "import"}}<dt>from</dt><dd>{{range $i, $s := .Item.Sources}}{{if $i}}, {{end}}<a href="https://github.com/{{$s.Repo}}" rel="nofollow noopener">{{$s.Title}}</a>{{end}}</dd>{{end}}
+  <dt>added</dt><dd>{{date .Item.CreatedAt}}</dd>
+  <dt>likes</dt><dd>{{.Item.Likes}}</dd>
+</dl>
+{{range .Item.Sources}}{{if .Description}}<p class="small muted quote">{{.Title}}{{if .HeadingPath}} › {{.HeadingPath}}{{end}}: “{{.Description}}”</p>{{end}}{{end}}
 
 {{if $.Viewer}}
-<h2 id="save">save to a list</h2>
-{{template "savemenu" .Save}}
-
-<h2>report</h2>
-<form class="stack" method="post" action="/items/{{.Item.ID}}/report">
-  {{template "csrf" $.CSRF}}
-  <label><span>reason</span>
-  <select name="reason">{{range .Reasons}}<option>{{.}}</option>{{end}}</select></label>
-  <label><span>note (optional)</span><input type="text" name="note" maxlength="500"></label>
-  <div><button class="btn ghost" type="submit">report</button></div>
-</form>
-{{if $.Viewer.IsMod}}
-<h2>mod</h2>
-<form class="actions" method="post" action="/mod/item/{{.Item.ID}}">
-  {{template "csrf" $.CSRF}}
-  <button class="btn ghost" name="action" value="approve">approve</button>
-  <button class="btn ghost" name="action" value="restore">restore</button>
-  <button class="btn danger" name="action" value="remove">remove</button>
-</form>
-{{if .Item.Flags}}<p class="small muted">flags: {{join .Item.Flags ", "}}</p>{{end}}
-{{end}}
-{{else}}
-<p class="muted small"><a href="/signin">Sign in</a> to like, save, or report.</p>
+<details class="more">
+  <summary>report{{if $.Viewer.IsMod}} or moderate{{end}}</summary>
+  <form class="stack" method="post" action="/items/{{.Item.ID}}/report">
+    {{template "csrf" $.CSRF}}
+    <label><span>reason</span>
+    <select name="reason">{{range .Reasons}}<option>{{.}}</option>{{end}}</select></label>
+    <label><span>note (optional)</span><input type="text" name="note" maxlength="500"></label>
+    <div><button class="btn ghost" type="submit">report</button></div>
+  </form>
+  {{if $.Viewer.IsMod}}
+  <form class="actions" method="post" action="/mod/item/{{.Item.ID}}">
+    {{template "csrf" $.CSRF}}
+    <button class="btn ghost" name="action" value="approve">approve</button>
+    <button class="btn ghost" name="action" value="restore">restore</button>
+    <button class="btn danger" name="action" value="remove">remove</button>
+  </form>
+  {{if .Item.Flags}}<p class="small muted">flags: {{join .Item.Flags ", "}}</p>{{end}}
+  {{end}}
+</details>
 {{end}}
 {{end}}
 {{end}}
@@ -47,9 +62,9 @@
   <label><span>list</span>
   <select name="list">
     {{range .Lists}}<option value="{{.Slug}}">{{.Title}}{{if ne .Visibility "public"}} ({{.Visibility}}){{end}}</option>{{end}}
-    <option value="">+ new list…</option>
+    <option value="">new list…</option>
   </select></label>
   <label><span>new list title (if new)</span><input type="text" name="new_list" maxlength="80"></label>
-  <label><span>your note (optional, 280)</span><input type="text" name="note" maxlength="280"></label>
+  <label><span>your note (optional)</span><input type="text" name="note" maxlength="280"></label>
   <div><button class="btn" type="submit">save</button></div>
 </form>{{end}}

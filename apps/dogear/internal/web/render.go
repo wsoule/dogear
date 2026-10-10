@@ -112,6 +112,12 @@ var funcs = template.FuncMap{
 		}
 		return *p
 	},
+	"commas32": func(p *int32) string {
+		if p == nil {
+			return "0"
+		}
+		return commas(int(*p))
+	},
 	"deref32": func(p *int32) int32 {
 		if p == nil {
 			return 0

@@ -23,17 +23,12 @@
 <header class="top">
   <a class="wordmark" href="/">dogear</a>
   <nav class="main" aria-label="Main">
-    <a href="/" {{if eq .Nav "top"}}aria-current="page"{{end}}>top</a>
-    <a href="/new" {{if eq .Nav "new"}}aria-current="page"{{end}}>new</a>
     <a href="/lists" {{if eq .Nav "lists"}}aria-current="page"{{end}}>lists</a>
     <a href="/search" data-cmdk {{if eq .Nav "search"}}aria-current="page"{{end}}>search <kbd>⌘K</kbd></a>
-    <a href="/submit" {{if eq .Nav "submit"}}aria-current="page"{{end}}>post</a>
-    {{if .Viewer}}
-      {{if .Viewer.IsMod}}<a href="/mod" {{if eq .Nav "mod"}}aria-current="page"{{end}}>mod</a>{{end}}
-      <a class="me" href="/u/{{.Viewer.User.Username}}" {{if eq .Nav "me"}}aria-current="page"{{end}}>@{{.Viewer.User.Username}}</a>
-    {{else}}
-      <a class="me" href="/signin" {{if eq .Nav "signin"}}aria-current="page"{{end}}>sign in</a>
-    {{end}}
+    {{if and .Viewer .Viewer.IsMod}}<a href="/mod" {{if eq .Nav "mod"}}aria-current="page"{{end}}>mod</a>{{end}}
+    <a class="post" href="/submit" {{if eq .Nav "submit"}}aria-current="page"{{end}}>post</a>
+    {{if .Viewer}}<a href="/u/{{.Viewer.User.Username}}" {{if eq .Nav "me"}}aria-current="page"{{end}}>@{{.Viewer.User.Username}}</a>
+    {{else}}<a href="/signin" {{if eq .Nav "signin"}}aria-current="page"{{end}}>sign in</a>{{end}}
   </nav>
 </header>
 <dialog id="cmdk" class="cmdk" aria-label="Search">
