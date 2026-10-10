@@ -166,6 +166,12 @@ func (s *Service) BackfillTranscripts(ctx context.Context, n int) {
 		s.Log.Error("transcripts backfill", "err", err)
 		return
 	}
+	got := 0
+	defer func() {
+		if len(rows) > 0 {
+			s.Log.Info("transcripts batch", "tried", len(rows), "found", got)
+		}
+	}()
 	for _, r := range rows {
 		id, ok := safety.YouTubeID(r.UrlNorm)
 		if !ok {
@@ -174,6 +180,9 @@ func (s *Service) BackfillTranscripts(ctx context.Context, n int) {
 		cctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 		lang, text, err := s.FetchTranscript(cctx, id)
 		cancel()
+		if err == nil {
+			got++
+		}
 		if err := s.Q.SaveTranscript(ctx, db.SaveTranscriptParams{ItemID: r.ID, Lang: lang, Text: text, Ok: err == nil}); err != nil {
 			s.Log.Warn("save transcript", "item", r.ID, "err", err)
 		}

@@ -474,6 +474,9 @@ func prepareRows(items []ParsedItem, permissive bool) ([]importRow, map[string]i
 			}
 			kind = "tool"
 		}
+		if _, ok := safety.YouTubeID(norm); ok {
+			kind = "video"
+		}
 		title := safety.Truncate(safety.SanitizeText(it.Title), 120)
 		if title == "" {
 			extra["no_title"]++
