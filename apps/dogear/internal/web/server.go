@@ -378,7 +378,7 @@ func cacheForever(h http.Handler) http.Handler {
 }
 
 // clientIP returns the caller's address for rate limiting and signup hashing.
-func (s *Server) clientIP(r *http.Request) string { return safety.ClientIP(r, s.cfg.TrustedProxyHops) }
+func (s *Server) clientIP(r *http.Request) string { return safety.ClientIPWith(r, s.cfg.ProxyTrust()) }
 
 func (s *Server) secureCookies() bool { return strings.HasPrefix(s.cfg.BaseURL, "https://") }
 

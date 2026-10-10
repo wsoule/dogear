@@ -164,7 +164,7 @@ func serve(ctx context.Context) error {
 	go svc.RunBackground(ctx)
 	go svc.RunLoggitSync(ctx)
 
-	apiHandler := api.New(svc, web.SessionActor, auth.Signer{Secret: cfg.SessionSecret}, cfg.BaseURL, cfg.TrustedProxyHops)
+	apiHandler := api.New(svc, web.SessionActor, auth.Signer{Secret: cfg.SessionSecret}, cfg.BaseURL, cfg.ProxyTrust())
 	site, err := web.New(web.Options{Service: svc, Config: cfg, Log: log, Providers: providers, App: app,
 		API: apiHandler, MCP: mcp.Handler(svc, cfg.BaseURL)})
 	if err != nil {

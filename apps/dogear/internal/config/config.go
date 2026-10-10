@@ -9,6 +9,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"dogear/internal/safety"
 )
 
 type Config struct {
@@ -45,7 +47,10 @@ type Config struct {
 	// TrustedProxyHops is how many proxies append to X-Forwarded-For in
 	// front of the app (2 on Railway). 0 ignores the header.
 	TrustedProxyHops int
-	ContactEmail     string
+	// CloudflareOriginSecret, when set, must arrive as X-Origin-Secret on
+	// requests proxied by the site's Cloudflare zone (see safety.ProxyTrust).
+	CloudflareOriginSecret string
+	ContactEmail           string
 
 	// loggit integration ("Sign in with loggit" + two-way list sync).
 	LoggitAPIURL, LoggitWebURL         string
@@ -53,7 +58,17 @@ type Config struct {
 }
 
 func (c *Config) Production() bool { return c.Env == "production" }
-func (c *Config) Staging() bool    { return c.Env == "staging" }
+
+// ProxyTrust describes the proxies in front of the app for client-IP
+// detection.
+func (c *Config) ProxyTrust() safety.ProxyTrust {
+	host := strings.TrimPrefix(strings.TrimPrefix(c.BaseURL, "https://"), "http://")
+	if i := strings.IndexAny(host, "/:"); i >= 0 {
+		host = host[:i]
+	}
+	return safety.ProxyTrust{Hops: c.TrustedProxyHops, SiteHost: host, OriginSecret: c.CloudflareOriginSecret}
+}
+func (c *Config) Staging() bool { return c.Env == "staging" }
 
 // GitHubLogin reports whether GitHub OAuth is configured.
 func (c *Config) GitHubLogin() bool { return c.GitHubClientID != "" && c.GitHubClientSecret != "" }
@@ -94,6 +109,7 @@ func Load(need ...string) (*Config, error) {
 		GitHubAppSlug:          env("GITHUB_APP_SLUG", "dogear-sync"),
 		IPHashSalt:             os.Getenv("IP_HASH_SALT"),
 		ContactEmail:           env("CONTACT_EMAIL", "hello@dogear.fyi"),
+		CloudflareOriginSecret: os.Getenv("CLOUDFLARE_ORIGIN_SECRET"),
 		LoggitAPIURL:           env("LOGGIT_API_URL", "https://api.useloggit.app"),
 		LoggitWebURL:           env("LOGGIT_WEB_URL", "https://useloggit.app"),
 		LoggitClientID:         os.Getenv("LOGGIT_CLIENT_ID"),

@@ -1,6 +1,7 @@
 package safety
 
 import (
+	"crypto/subtle"
 	"net"
 	"net/http"
 	"strings"
@@ -13,17 +14,53 @@ import (
 // client-controlled. With trustedHops = 0 the header is ignored and the
 // socket address is used.
 func ClientIP(r *http.Request, trustedHops int) string {
-	peer := proxiedPeer(r, trustedHops)
+	return ClientIPWith(r, ProxyTrust{Hops: trustedHops})
+}
+
+// ProxyTrust describes the proxies in front of the app.
+type ProxyTrust struct {
+	Hops int // proxies that append to X-Forwarded-For (2 on Railway)
+	// SiteHost is the public host Cloudflare serves (e.g. "dogear.fyi").
+	// CF-Connecting-IP is only trusted for requests to this host, so another
+	// Cloudflare zone pointed at the origin cannot choose its own address.
+	SiteHost string
+	// OriginSecret, when set, must arrive in the X-Origin-Secret header,
+	// added by a Cloudflare request rule on the site's own zone. It proves
+	// the request came through that zone rather than any Cloudflare account.
+	OriginSecret string
+}
+
+// ClientIPWith returns the visitor's address given the proxy setup.
+func ClientIPWith(r *http.Request, t ProxyTrust) string {
+	peer := proxiedPeer(r, t.Hops)
 	// Behind Cloudflare, the peer the proxies report is a Cloudflare server;
-	// the visitor is in CF-Connecting-IP. That header is trusted only when
-	// the peer really is in Cloudflare's published ranges, because anyone
-	// can reach the origin directly and set it themselves.
-	if ip := net.ParseIP(peer); ip != nil && isCloudflare(ip) {
+	// the visitor is in CF-Connecting-IP. It is trusted only when the peer
+	// is in Cloudflare's ranges, the request is for the site's own host, and
+	// (if configured) the zone's secret header matches.
+	if ip := net.ParseIP(peer); ip != nil && isCloudflare(ip) && t.trustsCloudflare(r) {
 		if cf := net.ParseIP(strings.TrimSpace(r.Header.Get("CF-Connecting-IP"))); cf != nil {
 			return cf.String()
 		}
 	}
 	return peer
+}
+
+func (t ProxyTrust) trustsCloudflare(r *http.Request) bool {
+	if t.SiteHost == "" || !strings.EqualFold(stripPort(r.Host), t.SiteHost) {
+		return false
+	}
+	if t.OriginSecret != "" {
+		got := r.Header.Get("X-Origin-Secret")
+		return subtle.ConstantTimeCompare([]byte(got), []byte(t.OriginSecret)) == 1
+	}
+	return true
+}
+
+func stripPort(host string) string {
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		return h
+	}
+	return host
 }
 
 // proxiedPeer is the address of whoever connected to the trusted proxies:
