@@ -236,6 +236,9 @@ func TestLoggitTwoWaySync(t *testing.T) {
 
 func itemWithURL(t *testing.T, s *Service, by *Actor, u string) int64 {
 	t.Helper()
+	if it, err := s.Q.GetItemByNorm(context.Background(), u); err == nil {
+		return it.ID // left over from an earlier run against the same database
+	}
 	seq++
 	it, err := s.Q.InsertItem(context.Background(), db.InsertItemParams{Url: u, UrlNorm: u, Domain: "x.test",
 		Title: fmt.Sprintf("Thing %d", seq), CreatedBy: &by.User.ID, Via: "web", Status: "live", Kind: "site", Flags: []string{}})

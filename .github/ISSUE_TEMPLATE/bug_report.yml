@@ -1,0 +1,30 @@
+name: Bug report
+description: Something on Dogear isn't working
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to …
+        2. Click …
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Page or API endpoint
+      placeholder: https://dogear.fyi/… or GET /api/v1/…
+  - type: input
+    id: env
+    attributes:
+      label: Browser / client
+      placeholder: Safari 19, Chrome 155, Claude Code, extension 1.0, …

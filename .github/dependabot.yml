@@ -21,3 +21,22 @@ updates:
           - '*'
     commit-message:
       prefix: '[ci]'
+
+  # Go modules and the base images for the Dogear app.
+  - package-ecosystem: gomod
+    directory: /apps/dogear
+    schedule:
+      interval: weekly
+    groups:
+      go:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: '[deps]'
+
+  - package-ecosystem: docker
+    directory: /apps/dogear
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: '[deps]'

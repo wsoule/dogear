@@ -1,6 +1,13 @@
 {
-  "name": "@template/root",
+  "name": "dogear",
   "private": true,
+  "description": "A public directory of things people think are cool, each with a one-line reason.",
+  "homepage": "https://dogear.fyi",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wsoule/dogear"
+  },
   "type": "module",
   "devDependencies": {
     "@moonrepo/cli": "catalog:",

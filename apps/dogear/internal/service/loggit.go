@@ -283,6 +283,9 @@ func (s *Service) SyncLink(ctx context.Context, link db.ListLink) (err error) {
 			_ = s.Q.SetListLinkError(context.WithoutCancel(ctx), db.SetListLinkErrorParams{ListID: link.ListID, LastError: msg, Status: status})
 		}
 	}()
+	if u, err := s.Q.GetUser(ctx, link.UserID); err != nil || u.BannedAt != nil {
+		return errLoggitReconnect // banned accounts stop syncing
+	}
 	tok, err := s.loggitAccess(ctx, link.UserID)
 	if err != nil {
 		return err
@@ -336,7 +339,7 @@ func (s *Service) SyncLink(ctx context.Context, link db.ListLink) (err error) {
 
 	plan := loggit.Merge(base, local, rs)
 	if !plan.Empty() {
-		if err := s.applyPlan(ctx, tok, link, list, plan, localByKey, remoteByKey); err != nil {
+		if err := s.applyPlan(ctx, tok, link, list, &plan, localByKey, remoteByKey); err != nil {
 			return err
 		}
 	}
@@ -394,18 +397,28 @@ func (s *Service) mediaForItems(ctx context.Context, tok string, rows []db.ListE
 
 // applyPlan writes a merge plan to both sides. Local writes go straight to
 // the database so they don't mark the link dirty again.
-func (s *Service) applyPlan(ctx context.Context, tok string, link db.ListLink, list db.List, p loggit.Plan,
+func (s *Service) applyPlan(ctx context.Context, tok string, link db.ListLink, list db.List, p *loggit.Plan,
 	localByKey map[string]localEntry, remoteByKey map[string]loggit.Entry) error {
 	owner, err := s.Q.GetUser(ctx, link.UserID)
 	if err != nil {
 		return err
 	}
-	// Remote → local.
+	// Remote → local. Entries past the per-run cap, or that loggit maps to a
+	// non-catalog URL, are skipped; they are retried on later runs because
+	// they stay out of the baseline.
+	created := 0
 	for _, k := range p.LocalAdd {
+		if created >= maxSyncCreates {
+			delete(p.Next.Entries, k)
+			continue
+		}
+		created++
 		e := remoteByKey[k]
 		itemID, err := s.ensureItemForMedia(ctx, owner, e.Media)
 		if err != nil {
-			return fmt.Errorf("add %q locally: %w", e.Media.Title, err)
+			s.Log.Warn("loggit sync skip", "list", link.ListID, "media", e.MediaID, "err", err)
+			delete(p.Next.Entries, k)
+			continue
 		}
 		note := truncateRunes(safety.SanitizeText(e.Note), 280)
 		if err := s.Q.InsertListEntryAtEnd(ctx, db.InsertListEntryAtEndParams{ListID: link.ListID, ItemID: itemID, Note: note}); err != nil {
@@ -514,6 +527,24 @@ func (s *Service) applyLocalOrder(ctx context.Context, listID int64, order []str
 	return nil
 }
 
+// loggitCatalogDomains are the only sites a loggit work's URL may point to.
+// Items created from sync skip the posting form, so anything else (a
+// malformed or malicious loggit response) is refused rather than published.
+var loggitCatalogDomains = []string{"themoviedb.org", "boardgamegeek.com", "igdb.com", "openlibrary.org",
+	"books.google.com", "useloggit.app"}
+
+// maxSyncCreates bounds how many new Dogear items one sync run may create.
+const maxSyncCreates = 50
+
+func catalogDomain(domain string) bool {
+	for _, d := range loggitCatalogDomains {
+		if domain == d || strings.HasSuffix(domain, "."+d) {
+			return true
+		}
+	}
+	return false
+}
+
 // mediaKinds maps loggit media types to Dogear kinds and categories.
 var mediaKinds = map[string][2]string{
 	"movie": {"video", "film-tv"}, "tv": {"video", "film-tv"},
@@ -535,6 +566,13 @@ func (s *Service) ensureItemForMedia(ctx context.Context, owner db.User, m loggi
 	if err != nil {
 		return 0, fmt.Errorf("bad media url %q", raw)
 	}
+	domain := safety.Domain(norm)
+	if !catalogDomain(domain) {
+		return 0, fmt.Errorf("refusing non-catalog url from loggit: %s", domain)
+	}
+	if blocked, err := s.Q.DomainBlocked(ctx, domain); err != nil || blocked {
+		return 0, fmt.Errorf("blocked domain %s", domain)
+	}
 	if it, err := s.Q.GetItemByNorm(ctx, norm); err == nil {
 		_ = s.Q.SetItemMedia(ctx, db.SetItemMediaParams{ItemID: it.ID, MediaID: &m.ID})
 		return it.ID, nil
@@ -547,14 +585,17 @@ func (s *Service) ensureItemForMedia(ctx context.Context, owner db.User, m loggi
 	if title == "" {
 		title = "Untitled"
 	}
-	status := "live"
+	status, flags := "live", []string{"from_loggit"}
 	if owner.TrustLevel < 1 || owner.ShadowBannedAt != nil {
 		status = "pending"
+	}
+	if safety.LooksLikeInjection(title) {
+		status, flags = "pending", append(flags, "injection_pattern")
 	}
 	var created db.Item
 	err = s.inTxQ(ctx, func(q *db.Queries) error {
 		created, err = q.InsertItem(ctx, db.InsertItemParams{Url: norm, UrlNorm: norm, Domain: safety.Domain(norm),
-			Title: title, CreatedBy: &owner.ID, Via: "api", Status: status, Kind: kind, Flags: []string{"from_loggit"}})
+			Title: title, CreatedBy: &owner.ID, Via: "api", Status: status, Kind: kind, Flags: flags})
 		if err != nil {
 			return err
 		}

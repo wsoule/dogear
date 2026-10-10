@@ -1,0 +1,59 @@
+name: Dogear (Go)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/dogear/**'
+      - '.github/workflows/dogear.yml'
+  pull_request:
+    paths:
+      - 'apps/dogear/**'
+      - '.github/workflows/dogear.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Vet and test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/dogear
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dogear
+          POSTGRES_PASSWORD: dogear
+          POSTGRES_DB: dogear_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dogear" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/dogear/go.mod
+          cache-dependency-path: apps/dogear/go.sum
+
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+
+      - name: go vet
+        run: go vet ./... && go vet -tags staging ./...
+
+      - name: go test
+        env:
+          TEST_DATABASE_URL: postgres://dogear:dogear@localhost:5432/dogear_test?sslmode=disable
+        run: go test -race ./...
+
+      - name: Build binary
+        run: CGO_ENABLED=0 go build -trimpath -o /dev/null ./cmd/dogear
