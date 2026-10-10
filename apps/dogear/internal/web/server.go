@@ -85,6 +85,7 @@ func (s *Server) routes(api, mcp http.Handler) {
 	m.HandleFunc("GET /view/{mode}", s.setView)
 	m.HandleFunc("GET /search", s.search)
 	m.HandleFunc("GET /i/{id}", s.item)
+	m.HandleFunc("GET /img/{id}", s.thumb)
 	m.HandleFunc("GET /about", s.staticPage("about", "about"))
 	m.HandleFunc("GET /terms", s.staticPage("terms", "terms"))
 	m.HandleFunc("GET /privacy", s.staticPage("privacy", "privacy"))

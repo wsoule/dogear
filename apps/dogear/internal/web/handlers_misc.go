@@ -6,8 +6,27 @@ import (
 	"encoding/xml"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 )
+
+// thumb serves an item's cached preview image, fetching it on first use.
+func (s *Server) thumb(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	mime, data, err := s.svc.Thumb(r.Context(), id)
+	if err != nil {
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", mime)
+	w.Header().Set("Cache-Control", "public, max-age=604800")
+	_, _ = w.Write(data)
+}
 
 func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)

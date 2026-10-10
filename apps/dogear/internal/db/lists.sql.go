@@ -220,7 +220,7 @@ func (q *Queries) ItemSavedIn(ctx context.Context, arg ItemSavedInParams) ([]str
 }
 
 const listEntries = `-- name: ListEntries :many
-SELECT li.note, li.position, li.added_at, i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at
+SELECT li.note, li.position, li.added_at, i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at, i.image_url, i.image_state, i.image_checked_at
 FROM list_items li JOIN items i ON i.id = li.item_id
 WHERE li.list_id = $1
 ORDER BY li.position, li.added_at
@@ -255,6 +255,9 @@ type ListEntriesRow struct {
 	Creator         string
 	Flags           []string
 	RemovedAt       *time.Time
+	ImageUrl        *string
+	ImageState      string
+	ImageCheckedAt  *time.Time
 }
 
 func (q *Queries) ListEntries(ctx context.Context, listID int64) ([]ListEntriesRow, error) {
@@ -295,6 +298,9 @@ func (q *Queries) ListEntries(ctx context.Context, listID int64) ([]ListEntriesR
 			&i.Creator,
 			&i.Flags,
 			&i.RemovedAt,
+			&i.ImageUrl,
+			&i.ImageState,
+			&i.ImageCheckedAt,
 		); err != nil {
 			return nil, err
 		}

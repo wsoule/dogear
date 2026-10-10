@@ -386,7 +386,8 @@ func (s *Service) GetList(ctx context.Context, viewer *Actor, username, slug str
 			LinkStatus: r.LinkStatus, LinkFailCount: r.LinkFailCount, LinkCheckedAt: r.LinkCheckedAt,
 			GithubStars: r.GithubStars, ListCount: r.ListCount, PriorScore: r.PriorScore, LikeCount: r.LikeCount,
 			DislikeCount: r.DislikeCount, Score: r.Score, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
-			Kind: r.Kind, Creator: r.Creator, Flags: r.Flags, RemovedAt: r.RemovedAt}
+			Kind: r.Kind, Creator: r.Creator, Flags: r.Flags, RemovedAt: r.RemovedAt,
+			ImageUrl: r.ImageUrl, ImageState: r.ImageState, ImageCheckedAt: r.ImageCheckedAt}
 		if !owner {
 			if it.Status != "live" || it.LinkStatus == "dead" {
 				continue

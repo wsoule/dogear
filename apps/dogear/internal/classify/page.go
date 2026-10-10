@@ -15,6 +15,9 @@ const maxPageText = 2000
 // Page is the metadata and visible text pulled from a fetched HTML page.
 type Page struct {
 	Title, Description, Text, Author, SiteName, OGTitle string
+	// Image is the og:image or twitter:image URL as written on the page
+	// (possibly relative); callers resolve it against the page URL.
+	Image string
 }
 
 // hiddenElems are elements whose text content is never visible.
@@ -103,6 +106,9 @@ func ExtractPage(doc []byte) Page {
 					setOnce(&p.SiteName)
 				case prop == "og:title" || name == "og:title":
 					setOnce(&p.OGTitle)
+				case prop == "og:image" || prop == "og:image:url" || prop == "og:image:secure_url" ||
+					name == "twitter:image" || name == "twitter:image:src" || prop == "twitter:image":
+					setOnce(&p.Image)
 				case prop == "article:author" || name == "article:author":
 					setOnce(&artAuthor)
 				}

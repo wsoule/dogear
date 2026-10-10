@@ -173,3 +173,27 @@ WHERE i.status = 'live' AND i.link_status <> 'dead'
   AND (i.via = 'import' OR (i.created_at < now() - interval '7 days' AND i.like_count >= 3
        AND u.trust_level >= 1 AND u.shadow_banned_at IS NULL))
 ORDER BY i.score DESC LIMIT 45000;
+
+-- name: GetThumb :one
+SELECT mime, data FROM item_thumbs WHERE item_id = $1;
+
+-- name: SaveThumb :exec
+INSERT INTO item_thumbs (item_id, mime, data, width, height) VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (item_id) DO UPDATE SET mime = EXCLUDED.mime, data = EXCLUDED.data,
+  width = EXCLUDED.width, height = EXCLUDED.height, fetched_at = now();
+
+-- name: SetImageState :exec
+UPDATE items SET image_state = $2 WHERE id = $1;
+
+-- name: SetImageURL :exec
+UPDATE items SET image_url = $2, image_checked_at = now(),
+  image_state = CASE WHEN $2::text = '' THEN 'none' ELSE image_state END
+WHERE id = $1;
+
+-- name: ItemsNeedingImage :many
+-- Live items with no deterministic image source, best-ranked first.
+SELECT id, url_norm FROM items
+WHERE image_checked_at IS NULL AND status = 'live'
+  AND domain NOT IN ('github.com', 'youtube.com')
+ORDER BY score DESC
+LIMIT $1;

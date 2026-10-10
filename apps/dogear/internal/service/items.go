@@ -55,6 +55,7 @@ type Item struct {
 	MyVote     *int         `json:"my_vote,omitempty"`
 	Sources    []Source     `json:"sources,omitempty"`
 	Poster     string       `json:"posted_by,omitempty"`
+	Image      string       `json:"image,omitempty"` // /img/{id} thumbnail path when one is available
 	Flags      []string     `json:"-"`
 	createdBy  *int64
 	listCount  int
@@ -72,13 +73,17 @@ func (it Item) CreatedByID() int64 {
 }
 
 func toItem(r db.Item) Item {
-	return Item{
+	it := Item{
 		ID: r.ID, URL: r.Url, Title: r.Title, Blurb: r.Blurb, Domain: r.Domain,
 		Kind: r.Kind, Creator: r.Creator, Likes: int(r.LikeCount),
 		Score: math.Round(r.Score*1000) / 1000, Via: r.Via, Status: r.Status,
 		LinkStatus: r.LinkStatus, CreatedAt: r.CreatedAt, Flags: r.Flags,
 		createdBy: r.CreatedBy, listCount: int(r.ListCount),
 	}
+	if hasImage(r) {
+		it.Image = "/img/" + strconv.FormatInt(r.ID, 10)
+	}
+	return it
 }
 
 // decorate attaches categories and the viewer's own votes to a page of items.

@@ -73,7 +73,7 @@
 </form>
 </div>{{end}}
 
-{{define "row"}}<li class="row">
+{{define "row"}}<li class="row{{if .Item.Image}} has-thumb{{end}}">
 {{template "vote" (voteState .Item $.CSRF)}}
 <div>
   <a class="title" href="/i/{{.Item.ID}}">{{.Item.Title}}</a>
@@ -91,6 +91,7 @@
   {{if .Note}}<p class="note">{{.Note}}</p>{{end}}
   <div id="save-{{.Item.ID}}"></div>
 </div>
+{{if .Item.Image}}<a class="thumb" href="/i/{{.Item.ID}}" tabindex="-1" aria-hidden="true"><img src="{{.Item.Image}}" alt="" loading="lazy" decoding="async" width="120" height="68"></a>{{end}}
 </li>{{end}}
 
 {{define "rows"}}{{range $i, $it := .Items}}{{if and $.Next (eq $i $.PrefetchAt)}}<li class="sentinel" aria-hidden="true" hx-get="{{$.Next}}" hx-trigger="revealed once" hx-target="closest ol" hx-swap="beforeend" hx-indicator="next .loading"></li>{{end}}{{template "row" (rowData $it "" $.CSRF $.Viewer)}}{{end}}{{if .Next}}<li class="more"><a href="{{.NextPage}}">more →</a><span class="loading htmx-indicator"> loading…</span></li>{{end}}{{end}}

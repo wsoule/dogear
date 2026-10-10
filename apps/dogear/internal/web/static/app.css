@@ -600,3 +600,45 @@ dialog.cmdk #cmdk-results {
 dialog.cmdk .small {
   margin: 8px 0 0;
 }
+
+/* thumbnails: served from /img/{id}, never third-party */
+.row.has-thumb {
+  grid-template-columns: 44px 1fr 120px;
+}
+.thumb img,
+.hero img {
+  display: block;
+  width: 120px;
+  height: 68px;
+  object-fit: cover;
+  background: var(--desk);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+}
+.hero img {
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  aspect-ratio: 16 / 9;
+  margin-bottom: 12px;
+}
+.feed.single .thumb,
+.feed.compact .thumb {
+  display: none;
+}
+.feed.single .row.has-thumb,
+.feed.compact .row.has-thumb {
+  grid-template-columns: 44px 1fr;
+}
+.feed.compact .row.has-thumb {
+  grid-template-columns: 64px 1fr;
+}
+@media (max-width: 520px) {
+  .row.has-thumb {
+    grid-template-columns: 44px 1fr 72px;
+  }
+  .thumb img {
+    width: 72px;
+    height: 48px;
+  }
+}

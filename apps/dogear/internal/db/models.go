@@ -88,6 +88,9 @@ type Item struct {
 	Creator         string
 	Flags           []string
 	RemovedAt       *time.Time
+	ImageUrl        *string
+	ImageState      string
+	ImageCheckedAt  *time.Time
 }
 
 type ItemCategory struct {
@@ -114,6 +117,15 @@ type ItemSource struct {
 	SourceListID        int32
 	HeadingPath         string
 	OriginalDescription string
+}
+
+type ItemThumb struct {
+	ItemID    int64
+	Mime      string
+	Data      []byte
+	Width     int32
+	Height    int32
+	FetchedAt time.Time
 }
 
 type List struct {

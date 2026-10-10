@@ -25,7 +25,7 @@ func (q *Queries) AddItemCategory(ctx context.Context, arg AddItemCategoryParams
 }
 
 const allItemsByUser = `-- name: AllItemsByUser :many
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at FROM items WHERE created_by = $1 ORDER BY created_at DESC
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at FROM items WHERE created_by = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) AllItemsByUser(ctx context.Context, createdBy *int64) ([]Item, error) {
@@ -63,6 +63,9 @@ func (q *Queries) AllItemsByUser(ctx context.Context, createdBy *int64) ([]Item,
 			&i.Creator,
 			&i.Flags,
 			&i.RemovedAt,
+			&i.ImageUrl,
+			&i.ImageState,
+			&i.ImageCheckedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -143,7 +146,7 @@ func (q *Queries) CreateReport(ctx context.Context, arg CreateReportParams) erro
 }
 
 const deadItems = `-- name: DeadItems :many
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at FROM items WHERE link_status = 'dead' AND status <> 'removed'
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at FROM items WHERE link_status = 'dead' AND status <> 'removed'
 ORDER BY link_checked_at DESC LIMIT 100
 `
 
@@ -182,6 +185,9 @@ func (q *Queries) DeadItems(ctx context.Context) ([]Item, error) {
 			&i.Creator,
 			&i.Flags,
 			&i.RemovedAt,
+			&i.ImageUrl,
+			&i.ImageState,
+			&i.ImageCheckedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -251,7 +257,7 @@ func (q *Queries) GetClassification(ctx context.Context, itemID int64) (ItemClas
 }
 
 const getItem = `-- name: GetItem :one
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at FROM items WHERE id = $1
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at FROM items WHERE id = $1
 `
 
 func (q *Queries) GetItem(ctx context.Context, id int64) (Item, error) {
@@ -283,12 +289,15 @@ func (q *Queries) GetItem(ctx context.Context, id int64) (Item, error) {
 		&i.Creator,
 		&i.Flags,
 		&i.RemovedAt,
+		&i.ImageUrl,
+		&i.ImageState,
+		&i.ImageCheckedAt,
 	)
 	return i, err
 }
 
 const getItemByNorm = `-- name: GetItemByNorm :one
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at FROM items WHERE url_norm = $1
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at FROM items WHERE url_norm = $1
 `
 
 func (q *Queries) GetItemByNorm(ctx context.Context, urlNorm string) (Item, error) {
@@ -320,12 +329,15 @@ func (q *Queries) GetItemByNorm(ctx context.Context, urlNorm string) (Item, erro
 		&i.Creator,
 		&i.Flags,
 		&i.RemovedAt,
+		&i.ImageUrl,
+		&i.ImageState,
+		&i.ImageCheckedAt,
 	)
 	return i, err
 }
 
 const getItemForUpdate = `-- name: GetItemForUpdate :one
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at FROM items WHERE id = $1 FOR UPDATE
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at FROM items WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) GetItemForUpdate(ctx context.Context, id int64) (Item, error) {
@@ -357,7 +369,26 @@ func (q *Queries) GetItemForUpdate(ctx context.Context, id int64) (Item, error) 
 		&i.Creator,
 		&i.Flags,
 		&i.RemovedAt,
+		&i.ImageUrl,
+		&i.ImageState,
+		&i.ImageCheckedAt,
 	)
+	return i, err
+}
+
+const getThumb = `-- name: GetThumb :one
+SELECT mime, data FROM item_thumbs WHERE item_id = $1
+`
+
+type GetThumbRow struct {
+	Mime string
+	Data []byte
+}
+
+func (q *Queries) GetThumb(ctx context.Context, itemID int64) (GetThumbRow, error) {
+	row := q.db.QueryRow(ctx, getThumb, itemID)
+	var i GetThumbRow
+	err := row.Scan(&i.Mime, &i.Data)
 	return i, err
 }
 
@@ -388,7 +419,7 @@ func (q *Queries) GetVote(ctx context.Context, arg GetVoteParams) (Vote, error) 
 const insertItem = `-- name: InsertItem :one
 INSERT INTO items (url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, kind, creator, flags)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at
+RETURNING id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at
 `
 
 type InsertItemParams struct {
@@ -448,6 +479,9 @@ func (q *Queries) InsertItem(ctx context.Context, arg InsertItemParams) (Item, e
 		&i.Creator,
 		&i.Flags,
 		&i.RemovedAt,
+		&i.ImageUrl,
+		&i.ImageState,
+		&i.ImageCheckedAt,
 	)
 	return i, err
 }
@@ -583,7 +617,7 @@ func (q *Queries) ItemSources(ctx context.Context, itemID int64) ([]ItemSourcesR
 }
 
 const itemsByUser = `-- name: ItemsByUser :many
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at FROM items WHERE created_by = $1 AND status <> 'removed'
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at FROM items WHERE created_by = $1 AND status <> 'removed'
 ORDER BY created_at DESC, id DESC LIMIT $2
 `
 
@@ -627,6 +661,9 @@ func (q *Queries) ItemsByUser(ctx context.Context, arg ItemsByUserParams) ([]Ite
 			&i.Creator,
 			&i.Flags,
 			&i.RemovedAt,
+			&i.ImageUrl,
+			&i.ImageState,
+			&i.ImageCheckedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -639,7 +676,7 @@ func (q *Queries) ItemsByUser(ctx context.Context, arg ItemsByUserParams) ([]Ite
 }
 
 const itemsNeedingClassification = `-- name: ItemsNeedingClassification :many
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at FROM items WHERE status = 'pending' AND 'classifier_error' = ANY(flags)
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at FROM items WHERE status = 'pending' AND 'classifier_error' = ANY(flags)
 ORDER BY created_at LIMIT 20
 `
 
@@ -678,7 +715,44 @@ func (q *Queries) ItemsNeedingClassification(ctx context.Context) ([]Item, error
 			&i.Creator,
 			&i.Flags,
 			&i.RemovedAt,
+			&i.ImageUrl,
+			&i.ImageState,
+			&i.ImageCheckedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const itemsNeedingImage = `-- name: ItemsNeedingImage :many
+SELECT id, url_norm FROM items
+WHERE image_checked_at IS NULL AND status = 'live'
+  AND domain NOT IN ('github.com', 'youtube.com')
+ORDER BY score DESC
+LIMIT $1
+`
+
+type ItemsNeedingImageRow struct {
+	ID      int64
+	UrlNorm string
+}
+
+// Live items with no deterministic image source, best-ranked first.
+func (q *Queries) ItemsNeedingImage(ctx context.Context, limit int32) ([]ItemsNeedingImageRow, error) {
+	rows, err := q.db.Query(ctx, itemsNeedingImage, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ItemsNeedingImageRow
+	for rows.Next() {
+		var i ItemsNeedingImageRow
+		if err := rows.Scan(&i.ID, &i.UrlNorm); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -839,7 +913,7 @@ func (q *Queries) OpenReports(ctx context.Context) ([]OpenReportsRow, error) {
 }
 
 const pendingItems = `-- name: PendingItems :many
-SELECT i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at, u.username AS poster
+SELECT i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at, i.image_url, i.image_state, i.image_checked_at, u.username AS poster
 FROM items i LEFT JOIN users u ON u.id = i.created_by
 WHERE i.status = 'pending' ORDER BY i.created_at LIMIT 200
 `
@@ -870,6 +944,9 @@ type PendingItemsRow struct {
 	Creator         string
 	Flags           []string
 	RemovedAt       *time.Time
+	ImageUrl        *string
+	ImageState      string
+	ImageCheckedAt  *time.Time
 	Poster          *string
 }
 
@@ -908,6 +985,9 @@ func (q *Queries) PendingItems(ctx context.Context) ([]PendingItemsRow, error) {
 			&i.Creator,
 			&i.Flags,
 			&i.RemovedAt,
+			&i.ImageUrl,
+			&i.ImageState,
+			&i.ImageCheckedAt,
 			&i.Poster,
 		); err != nil {
 			return nil, err
@@ -954,6 +1034,61 @@ UPDATE items SET link_status = 'unknown', link_fail_count = 0 WHERE id = $1
 
 func (q *Queries) RestoreLink(ctx context.Context, id int64) error {
 	_, err := q.db.Exec(ctx, restoreLink, id)
+	return err
+}
+
+const saveThumb = `-- name: SaveThumb :exec
+INSERT INTO item_thumbs (item_id, mime, data, width, height) VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (item_id) DO UPDATE SET mime = EXCLUDED.mime, data = EXCLUDED.data,
+  width = EXCLUDED.width, height = EXCLUDED.height, fetched_at = now()
+`
+
+type SaveThumbParams struct {
+	ItemID int64
+	Mime   string
+	Data   []byte
+	Width  int32
+	Height int32
+}
+
+func (q *Queries) SaveThumb(ctx context.Context, arg SaveThumbParams) error {
+	_, err := q.db.Exec(ctx, saveThumb,
+		arg.ItemID,
+		arg.Mime,
+		arg.Data,
+		arg.Width,
+		arg.Height,
+	)
+	return err
+}
+
+const setImageState = `-- name: SetImageState :exec
+UPDATE items SET image_state = $2 WHERE id = $1
+`
+
+type SetImageStateParams struct {
+	ID         int64
+	ImageState string
+}
+
+func (q *Queries) SetImageState(ctx context.Context, arg SetImageStateParams) error {
+	_, err := q.db.Exec(ctx, setImageState, arg.ID, arg.ImageState)
+	return err
+}
+
+const setImageURL = `-- name: SetImageURL :exec
+UPDATE items SET image_url = $2, image_checked_at = now(),
+  image_state = CASE WHEN $2::text = '' THEN 'none' ELSE image_state END
+WHERE id = $1
+`
+
+type SetImageURLParams struct {
+	ID       int64
+	ImageUrl *string
+}
+
+func (q *Queries) SetImageURL(ctx context.Context, arg SetImageURLParams) error {
+	_, err := q.db.Exec(ctx, setImageURL, arg.ID, arg.ImageUrl)
 	return err
 }
 
