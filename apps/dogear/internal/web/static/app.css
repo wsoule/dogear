@@ -771,12 +771,6 @@ details.menu > nav {
 details.menu > nav a[aria-current='page'] {
   color: var(--accent);
 }
-details.menu.save > form {
-  left: 0;
-  right: auto;
-  min-width: 300px;
-  margin: 0;
-}
 
 /* item page */
 .item-title {
@@ -842,9 +836,6 @@ details.more[open] > summary {
   }
   .toolbar-end {
     gap: 12px;
-  }
-  details.menu.save > form {
-    min-width: min(300px, calc(100vw - 32px));
   }
 }
 
@@ -1019,4 +1010,93 @@ details.newlist > summary {
 }
 details.newlist > summary::-webkit-details-marker {
   display: none;
+}
+
+/* "add to a list" opens in place under the item's buttons, as a checklist */
+.item-actions details.save[open] {
+  flex-basis: 100%;
+}
+details.menu.save > form {
+  position: static;
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  display: grid;
+  gap: 12px;
+  max-width: 420px;
+}
+.list-choices {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.list-choices legend {
+  padding: 0;
+  margin-bottom: 4px;
+}
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  cursor: pointer;
+}
+.choice input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--ink);
+}
+.choice.new {
+  margin-top: 4px;
+}
+.save-menu .actions .saved {
+  color: var(--muted);
+}
+
+/* list owner's controls under each entry: note editor, reorder, remove */
+.entry-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin-top: 6px;
+  color: var(--muted);
+}
+.entry-tools button.link {
+  color: var(--muted);
+}
+.entry-tools button.link:hover {
+  color: var(--ink);
+}
+details.note-edit > summary {
+  list-style: none;
+  cursor: pointer;
+}
+details.note-edit > summary::-webkit-details-marker {
+  display: none;
+}
+details.note-edit[open] {
+  flex-basis: 100%;
+}
+.entry-tools form.inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+details.note-edit[open] > summary {
+  color: var(--ink);
+}
+.note-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  max-width: 480px;
+}
+.note-form textarea {
+  min-height: 60px;
+}
+.note-form button {
+  justify-self: start;
 }

@@ -450,21 +450,7 @@ func (s *Server) save(w http.ResponseWriter, r *http.Request) {
 		s.notFound(w, r)
 		return
 	}
-	v := viewer(r)
-	slug := r.FormValue("list")
-	if slug == "" {
-		title := r.FormValue("new_list")
-		if title == "" {
-			title = "Favorites"
-		}
-		l, err := s.svc.CreateList(r.Context(), v, service.ListInput{Title: title})
-		if err != nil {
-			s.saveError(w, r, id, err)
-			return
-		}
-		slug = l.Slug
-	}
-	if err := s.svc.SaveToList(r.Context(), v, slug, id, r.FormValue("note"), nil); err != nil {
+	if err := s.applySave(r, id); err != nil {
 		s.saveError(w, r, id, err)
 		return
 	}
@@ -473,6 +459,54 @@ func (s *Server) save(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/i/"+strconv.FormatInt(id, 10)+"?m=saved#save", http.StatusSeeOther)
+}
+
+// applySave makes the viewer's lists match the save menu. The checklist form
+// (menu=1) sends every list that should hold the item: checked lists gain it
+// and unchecked ones lose it. Older callers send a single "list" and only add.
+// A typed new list name creates that list too. The note goes on newly added
+// entries only, so re-saving never wipes a note written earlier.
+func (s *Server) applySave(r *http.Request, id int64) error {
+	ctx, v := r.Context(), viewer(r)
+	if err := r.ParseForm(); err != nil {
+		return &service.Error{Code: "invalid", Message: "bad form"}
+	}
+	want := r.Form["lists"]
+	if l := r.FormValue("list"); l != "" {
+		want = append(want, l)
+	}
+	if title := strings.TrimSpace(r.FormValue("new_list")); title != "" {
+		l, err := s.svc.CreateList(ctx, v, service.ListInput{Title: title})
+		if err != nil {
+			return err
+		}
+		want = append(want, l.Slug)
+	}
+	menu := r.FormValue("menu") == "1"
+	if len(want) == 0 && !menu {
+		return &service.Error{Code: "invalid", Message: "pick a list or name a new one"}
+	}
+	have, err := s.svc.SavedIn(ctx, v, id)
+	if err != nil {
+		return err
+	}
+	for _, slug := range want {
+		if !slices.Contains(have, slug) {
+			if err := s.svc.SaveToList(ctx, v, slug, id, r.FormValue("note"), nil); err != nil {
+				return err
+			}
+		}
+	}
+	if menu {
+		for _, slug := range have {
+			if !slices.Contains(want, slug) {
+				if err := s.svc.RemoveFromList(ctx, v, slug, id); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (s *Server) saveError(w http.ResponseWriter, r *http.Request, id int64, err error) {

@@ -16,7 +16,7 @@
   {{template "vote" (voteState .Item $.CSRF)}}
   {{if $.Viewer}}
   <details class="menu save" id="save">
-    <summary>add to a list</summary>
+    <summary>{{if .Save.Saved}}on {{len .Save.Saved}} list{{if gt (len .Save.Saved) 1}}s{{end}}{{else}}add to a list{{end}}</summary>
     {{template "savemenu" .Save}}
   </details>
   {{else}}<a class="muted small" href="/signin">sign in to dogear this</a>{{end}}
@@ -59,16 +59,14 @@
 {{end}}
 
 {{define "savemenu"}}<form class="save-menu" method="post" action="/items/{{.ItemID}}/save" hx-post="/items/{{.ItemID}}/save" hx-swap="outerHTML"
-  toolname="save_to_list" tooldescription="Save this item to one of the user's Dogear lists, with an optional note in the user's own words. Saving is not a vote.">
-  <input type="hidden" name="csrf" value="{{.CSRF}}">
-  {{if .Saved}}<p class="saved small">saved to {{join .Saved ", "}}</p>{{end}}
+  toolname="save_to_list" tooldescription="Choose which of the user's Dogear lists this item is on (checked lists keep or gain it, unchecked lose it), optionally with a note in the user's own words. Saving is not a vote.">
+  <input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="menu" value="1">
   {{if .Error}}<p class="error small">{{.Error}}</p>{{end}}
-  <label><span>list</span>
-  <select name="list" toolparamdescription="Slug of the list to save to; empty creates a new list">
-    {{range .Lists}}<option value="{{.Slug}}">{{.Title}}{{if ne .Visibility "public"}} ({{.Visibility}}){{end}}</option>{{end}}
-    <option value="">new list…</option>
-  </select></label>
-  <label><span>new list title (if new)</span><input type="text" name="new_list" maxlength="80" toolparamdescription="Title for a new list, used only when list is empty"></label>
-  <label><span>your note (optional)</span><input type="text" name="note" maxlength="280" toolparamdescription="Optional: the user's own reason for saving it"></label>
-  <div><button class="btn" type="submit">save</button></div>
+  <fieldset class="list-choices">
+    <legend class="small muted">your lists</legend>
+    {{range .Lists}}<label class="choice"><input type="checkbox" name="lists" value="{{.Slug}}" {{if has $.Saved .Slug}}checked{{end}} toolparamdescription="Lists that should contain this item"> {{.Title}}{{if ne .Visibility "public"}} <span class="muted small">({{.Visibility}})</span>{{end}}</label>{{end}}
+    <label class="choice new"><span class="sr-only">New list name</span><input type="text" name="new_list" maxlength="80" placeholder="+ new list name" toolparamdescription="Optional: name of a new list to create and add this item to"></label>
+  </fieldset>
+  <label><span class="small muted">note (optional)</span><input type="text" name="note" maxlength="280" placeholder="why you're saving it" toolparamdescription="Optional: the user's own reason, stored on newly added entries"></label>
+  <div class="actions"><button class="btn" type="submit">save</button>{{if .Saved}}<span class="saved small">on {{join (titlesFor .Lists .Saved) ", "}}</span>{{end}}</div>
 </form>{{end}}

@@ -6,20 +6,8 @@
 {{if .L.Entries}}
 <nav class="tabs" aria-label="Sort">{{$s := .Sort}}{{range .SortLinks}}<a href="{{.URL}}" {{if eq $s .Key}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}</nav>
 <ol class="feed">
-{{range $i, $e := .L.Entries}}
-{{template "row" (rowBadge $e.Item $e.Note $.CSRF $.Viewer (index $.Data.Badges $e.Item.ID))}}
-{{if and $.Data.L.IsOwner (eq $.Data.Sort "owner")}}
-<li class="small">
-  <form class="actions" method="post" action="/lists/{{$.Data.L.Slug}}/entries/{{$e.Item.ID}}">
-    {{template "csrf" $.CSRF}}
-    <label class="inline"><span class="sr-only">note</span><input type="text" name="note" value="{{$e.Note}}" maxlength="280" aria-label="note for {{$e.Item.Title}}"></label>
-    <button class="link" name="op" value="note">save note</button>
-    {{if $i}}<button class="link" name="op" value="up" aria-label="move up">↑</button>{{end}}
-    <button class="link" name="op" value="down" aria-label="move down">↓</button>
-    <button class="link muted" name="op" value="remove">remove</button>
-  </form>
-</li>
-{{end}}
+{{$n := len .L.Entries}}{{range $i, $e := .L.Entries}}
+{{template "row" (entryRow $e.Item $e.Note $.CSRF $.Viewer (index $.Data.Badges $e.Item.ID) $.Data.L.Slug $i $n $.Data.L.IsOwner (eq $.Data.Sort "owner"))}}
 {{end}}
 </ol>
 {{else}}<p class="muted">This list is empty.{{if .L.IsOwner}} Use “save” on anything in the feed.{{end}}</p>{{end}}

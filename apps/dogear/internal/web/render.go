@@ -9,6 +9,7 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -46,6 +47,14 @@ type rowData struct {
 	CSRF   string
 	Viewer *service.Actor
 	Badge  string // small extra label, e.g. "not on loggit"
+	Owner  *entryTools // owner controls on their own list page
+}
+
+// entryTools are the list owner's controls shown inside a list entry row.
+type entryTools struct {
+	Slug          string
+	First, Last   bool
+	CanReorder    bool // only in the owner's own order
 }
 
 // dogearState drives the corner dog-ear button on item pages.
@@ -104,6 +113,23 @@ var funcs = template.FuncMap{
 	"rowBadge": func(it service.Item, note, csrf string, v *service.Actor, badge string) rowData {
 		return rowData{Item: it, Note: note, CSRF: csrf, Viewer: v, Badge: badge}
 	},
+	"entryRow": func(it service.Item, note, csrf string, v *service.Actor, badge, slug string, i, n int, owner, ordered bool) rowData {
+		rd := rowData{Item: it, Note: note, CSRF: csrf, Viewer: v, Badge: badge}
+		if owner {
+			rd.Owner = &entryTools{Slug: slug, First: i == 0, Last: i == n-1, CanReorder: ordered}
+		}
+		return rd
+	},
+	"titlesFor": func(lists []service.List, slugs []string) []string {
+		var out []string
+		for _, l := range lists {
+			if slices.Contains(slugs, l.Slug) {
+				out = append(out, l.Title)
+			}
+		}
+		return out
+	},
+	"has": func(xs []string, x string) bool { return slices.Contains(xs, x) },
 	"dogearData": func(id int64, on bool, csrf string) dogearState {
 		return dogearState{ItemID: id, On: on, CSRF: csrf}
 	},

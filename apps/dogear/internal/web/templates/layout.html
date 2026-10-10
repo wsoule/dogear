@@ -111,6 +111,21 @@
   </div>
   {{if .Item.Blurb}}<p class="blurb">{{.Item.Blurb}}</p>{{end}}
   {{if .Note}}<p class="note">{{.Note}}</p>{{end}}
+  {{with .Owner}}<div class="entry-tools small">
+    <form class="inline" method="post" action="/lists/{{.Slug}}/entries/{{$.Item.ID}}">
+      <input type="hidden" name="csrf" value="{{$.CSRF}}">
+      {{if .CanReorder}}{{if not .First}}<button class="link" name="op" value="up" aria-label="Move {{$.Item.Title}} up">move up</button>{{end}}
+      {{if not .Last}}<button class="link" name="op" value="down" aria-label="Move {{$.Item.Title}} down">move down</button>{{end}}{{end}}
+      <button class="link muted" name="op" value="remove" aria-label="Remove {{$.Item.Title}} from this list">remove</button>
+    </form>
+    <details class="note-edit"><summary>{{if $.Note}}edit note{{else}}add a note{{end}}</summary>
+      <form class="note-form" method="post" action="/lists/{{.Slug}}/entries/{{$.Item.ID}}">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="op" value="note">
+        <label><span class="sr-only">Note for {{$.Item.Title}}</span><textarea name="note" maxlength="280" rows="2" placeholder="why it's on this list">{{$.Note}}</textarea></label>
+        <button class="btn ghost" type="submit">save note</button>
+      </form>
+    </details>
+  </div>{{end}}
 </div>
 {{if .Item.Image}}<a class="thumb" href="/i/{{.Item.ID}}" tabindex="-1" aria-hidden="true"><img src="{{.Item.Image}}" alt="" loading="lazy" decoding="async" width="120" height="68"></a>{{end}}
 </li>{{end}}
