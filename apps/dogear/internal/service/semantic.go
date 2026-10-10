@@ -155,7 +155,10 @@ func (s *Service) hybridFeed(ctx context.Context, viewer *Actor, fq FeedQuery, l
 		if err != nil || !strings.HasPrefix(string(b), "h|") {
 			return page, errf("invalid", "bad cursor")
 		}
-		offset, _ = strconv.Atoi(strings.TrimPrefix(string(b), "h|"))
+		offset, err = strconv.Atoi(strings.TrimPrefix(string(b), "h|"))
+		if err != nil || offset < 0 || offset > hybridMax {
+			return page, errf("invalid", "bad cursor")
+		}
 	}
 	qv, err := s.queryVector(ctx, fq.Q)
 	if err != nil {
@@ -198,10 +201,8 @@ func (s *Service) hybridFeed(ctx context.Context, viewer *Actor, fq FeedQuery, l
 		return page, err
 	}
 	rows = rows[:min(len(rows), hybridMax)]
-	end := min(offset+limit, len(rows))
-	if offset > len(rows) {
-		offset = len(rows)
-	}
+	offset = min(offset, len(rows))
+	end := min(offset+max(limit, 1), len(rows))
 	page.Items, err = s.decorate(ctx, viewer, rows[offset:end])
 	if err != nil {
 		return page, err

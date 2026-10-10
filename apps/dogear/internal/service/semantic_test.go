@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
@@ -94,3 +95,23 @@ func liveItemTitled(t *testing.T, s *Service, by *Actor, title string) int64 {
 	}
 	return id
 }
+
+func TestHybridBadCursor(t *testing.T) {
+	s := newTestService(t)
+	srv := fakeVoyage(t)
+	defer srv.Close()
+	s.Embed = &embed.Client{APIKey: "k", URL: srv.URL, HTTP: srv.Client()}
+	s.Vectors = embed.NewIndex()
+	s.Vectors.Put(1, make([]int8, embed.Dims))
+	v := make([]int8, embed.Dims)
+	v[0] = 1
+	s.Vectors.Put(2, v)
+	for _, c := range []string{"h|-5", "h|abc", "h|99999999"} {
+		cur := base64RawURL(c)
+		if _, err := s.hybridFeed(context.Background(), nil, FeedQuery{Q: "x", Cursor: cur}, 30); err == nil {
+			t.Errorf("cursor %q accepted", c)
+		}
+	}
+}
+
+func base64RawURL(s string) string { return base64.RawURLEncoding.EncodeToString([]byte(s)) }
