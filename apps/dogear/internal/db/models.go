@@ -137,10 +137,11 @@ type ListItem struct {
 }
 
 type MobileLoginCode struct {
-	CodeHash  []byte
-	UserID    int64
-	ExpiresAt time.Time
-	UsedAt    *time.Time
+	CodeHash      []byte
+	UserID        int64
+	ExpiresAt     time.Time
+	UsedAt        *time.Time
+	CodeChallenge string
 }
 
 type ModAction struct {

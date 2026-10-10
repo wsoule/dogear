@@ -127,12 +127,12 @@ DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2;
 SELECT EXISTS (SELECT 1 FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2);
 
 -- name: CreateMobileCode :exec
-INSERT INTO mobile_login_codes (code_hash, user_id, expires_at) VALUES ($1, $2, $3);
+INSERT INTO mobile_login_codes (code_hash, user_id, expires_at, code_challenge) VALUES ($1, $2, $3, $4);
 
 -- name: UseMobileCode :one
 UPDATE mobile_login_codes SET used_at = now()
 WHERE code_hash = $1 AND used_at IS NULL AND expires_at > now()
-RETURNING user_id;
+RETURNING user_id, code_challenge;
 
 -- name: ClearOldIPHashes :exec
 UPDATE users SET signup_ip_hash = NULL

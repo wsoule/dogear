@@ -1,22 +1,29 @@
 // Small progressive enhancements. Every page works without this file.
 (function () {
-  "use strict";
+  'use strict';
   // Copy buttons: <button data-copy="#id">copy</button>
-  document.addEventListener("click", function (e) {
-    var btn = e.target.closest("[data-copy]");
-    if (!btn) return;
-    var el = document.querySelector(btn.getAttribute("data-copy"));
-    if (!el || !navigator.clipboard) return;
-    navigator.clipboard.writeText(el.textContent.trim()).then(function () {
-      var old = btn.textContent;
-      btn.textContent = "copied";
-      setTimeout(function () { btn.textContent = old; }, 1200);
+  document.addEventListener('click', function (e) {
+    const target = /** @type {Element | null} */ (e.target);
+    const btn =
+      target instanceof Element ? target.closest('[data-copy]') : null;
+    if (btn === null) return;
+    const el = document.querySelector(btn.getAttribute('data-copy') ?? '');
+    if (el === null || el.textContent === null) return;
+    const text = el.textContent.trim();
+    void navigator.clipboard.writeText(text).then(function () {
+      const old = btn.textContent;
+      btn.textContent = 'copied';
+      setTimeout(function () {
+        btn.textContent = old;
+      }, 1200);
     });
   });
   // Register the service worker that caches static assets and the offline page.
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", function () {
-      navigator.serviceWorker.register("/sw.js").catch(function () {});
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js').catch(function () {
+        // Offline support is optional.
+      });
     });
   }
 })();

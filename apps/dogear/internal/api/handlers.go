@@ -333,14 +333,15 @@ func (a *API) unblock(w http.ResponseWriter, r *http.Request, act *service.Actor
 // exchange trades a one-time mobile sign-in code for a device token.
 func (a *API) exchange(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Code       string `json:"code"`
-		DeviceName string `json:"device_name"`
+		Code         string `json:"code"`
+		CodeVerifier string `json:"code_verifier"`
+		DeviceName   string `json:"device_name"`
 	}
 	if err := decode(r, &body); err != nil {
 		writeErr(w, err)
 		return
 	}
-	tok, u, err := a.svc.ExchangeMobileCode(r.Context(), body.Code, body.DeviceName)
+	tok, u, err := a.svc.ExchangeMobileCode(r.Context(), body.Code, body.CodeVerifier, body.DeviceName)
 	if err != nil {
 		writeErr(w, err)
 		return

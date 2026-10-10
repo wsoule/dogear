@@ -9,12 +9,32 @@ layer: 'application'
 tasks:
   build:
     command: 'go build ./...'
-    inputs: ['**/*.go', '**/*.sql', '**/*.html', '**/*.css', '**/*.js', '**/*.yaml', 'go.mod', 'go.sum']
+    inputs:
+      [
+        '**/*.go',
+        '**/*.sql',
+        '**/*.html',
+        '**/*.css',
+        '**/*.js',
+        '**/*.yaml',
+        'go.mod',
+        'go.sum',
+      ]
     options:
       runInCI: 'always'
   test:
     command: 'go test ./...'
-    inputs: ['**/*.go', '**/*.sql', '**/*.html', '**/*.yaml', 'internal/importer/testdata/**', 'testdata/**', 'go.mod', 'go.sum']
+    inputs:
+      [
+        '**/*.go',
+        '**/*.sql',
+        '**/*.html',
+        '**/*.yaml',
+        'internal/importer/testdata/**',
+        'testdata/**',
+        'go.mod',
+        'go.sum',
+      ]
     options:
       runInCI: 'always'
   typecheck:

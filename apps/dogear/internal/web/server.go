@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
-	"net"
 	"net/http"
 	"runtime/debug"
 	"strings"
@@ -18,6 +17,7 @@ import (
 	"dogear/internal/auth"
 	"dogear/internal/config"
 	"dogear/internal/ghsync"
+	"dogear/internal/safety"
 	"dogear/internal/service"
 )
 
@@ -287,7 +287,14 @@ func (s *Server) logRequests(next http.Handler) http.Handler {
 		if r.URL.Path == "/healthz" || strings.HasPrefix(r.URL.Path, "/static/") {
 			return
 		}
-		s.log.Info("http", "method", r.Method, "path", r.URL.Path, "status", sw.status, "ms", time.Since(start).Milliseconds())
+		// xff_hops (never the addresses) shows how many proxies sit in front,
+		// which decides which X-Forwarded-For entry ClientIP should trust.
+		hops := 0
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			hops = strings.Count(xff, ",") + 1
+		}
+		s.log.Info("http", "method", r.Method, "path", r.URL.Path, "status", sw.status,
+			"ms", time.Since(start).Milliseconds(), "xff_hops", hops, "real_ip_set", r.Header.Get("X-Real-IP") != "")
 	})
 }
 
@@ -357,22 +364,8 @@ func cacheForever(h http.Handler) http.Handler {
 	})
 }
 
-// ClientIP returns the client address. Behind Railway's proxy the first
-// X-Forwarded-For entry is the client; locally it is the socket address.
-func ClientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		ip, _, _ := strings.Cut(xff, ",")
-		return strings.TrimSpace(ip)
-	}
-	if ip := r.Header.Get("X-Real-IP"); ip != "" {
-		return ip
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
-}
+// ClientIP returns the caller's address for rate limiting and signup hashing.
+func ClientIP(r *http.Request) string { return safety.ClientIP(r) }
 
 func (s *Server) secureCookies() bool { return strings.HasPrefix(s.cfg.BaseURL, "https://") }
 

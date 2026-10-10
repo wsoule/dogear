@@ -22,11 +22,13 @@ const (
 type oauthState struct {
 	State, Nonce, Provider string
 	Mobile                 bool
+	Challenge              string // PKCE S256 challenge from the native app
 }
 
 type pendingSignup struct {
-	Ext    service.ExternalIdentity
-	Mobile bool
+	Ext       service.ExternalIdentity
+	Mobile    bool
+	Challenge string
 }
 
 type signinPage struct {
@@ -69,7 +71,13 @@ func (s *Server) authStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	st := oauthState{State: service.RandomToken(24), Nonce: service.RandomToken(24), Provider: p.Name(),
-		Mobile: r.URL.Query().Get("mobile") == "1"}
+		Mobile: r.URL.Query().Get("mobile") == "1", Challenge: r.URL.Query().Get("code_challenge")}
+	// The native app must send a PKCE challenge; without one the one-time
+	// code could be redeemed by any app that registers the dogear:// scheme.
+	if st.Mobile && (!service.ValidChallenge(st.Challenge) || r.URL.Query().Get("code_challenge_method") != "S256") {
+		s.errorPage(w, r, http.StatusBadRequest, "The app must send code_challenge with code_challenge_method=S256.")
+		return
+	}
 	val, err := s.signer.Sign(oauthCookie, st, 10*time.Minute)
 	if err != nil {
 		s.serverError(w, r, err)
@@ -144,11 +152,11 @@ func (s *Server) authCallback(w http.ResponseWriter, r *http.Request) {
 			s.serviceError(w, r, err)
 			return
 		}
-		s.startSession(w, r, u.ID, st.Mobile, "/")
+		s.startSession(w, r, u.ID, st.Mobile, st.Challenge, "/")
 		return
 	}
 	// New identity: confirm a username first.
-	val, err := s.signer.Sign(pendingCookie, pendingSignup{Ext: ext, Mobile: st.Mobile}, 30*time.Minute)
+	val, err := s.signer.Sign(pendingCookie, pendingSignup{Ext: ext, Mobile: st.Mobile, Challenge: st.Challenge}, 30*time.Minute)
 	if err != nil {
 		s.serverError(w, r, err)
 		return
@@ -159,9 +167,9 @@ func (s *Server) authCallback(w http.ResponseWriter, r *http.Request) {
 
 // startSession sets the sid cookie, or for the native app hands back a
 // one-time code through the allow-listed custom URL scheme.
-func (s *Server) startSession(w http.ResponseWriter, r *http.Request, userID int64, mobile bool, next string) {
+func (s *Server) startSession(w http.ResponseWriter, r *http.Request, userID int64, mobile bool, challenge, next string) {
 	if mobile {
-		code, err := s.svc.CreateMobileCode(r.Context(), userID)
+		code, err := s.svc.CreateMobileCode(r.Context(), userID, challenge)
 		if err != nil {
 			s.serverError(w, r, err)
 			return
@@ -259,7 +267,7 @@ func (s *Server) welcome(w http.ResponseWriter, r *http.Request) {
 	}
 	s.clearCookie(w, pendingCookie)
 	s.clearCookie(w, inviteCookie)
-	s.startSession(w, r, u.ID, p.Mobile, "/?m=welcome")
+	s.startSession(w, r, u.ID, p.Mobile, p.Challenge, "/?m=welcome")
 }
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {

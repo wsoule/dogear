@@ -145,17 +145,23 @@ func (q *Queries) CreateInvite(ctx context.Context, arg CreateInviteParams) erro
 }
 
 const createMobileCode = `-- name: CreateMobileCode :exec
-INSERT INTO mobile_login_codes (code_hash, user_id, expires_at) VALUES ($1, $2, $3)
+INSERT INTO mobile_login_codes (code_hash, user_id, expires_at, code_challenge) VALUES ($1, $2, $3, $4)
 `
 
 type CreateMobileCodeParams struct {
-	CodeHash  []byte
-	UserID    int64
-	ExpiresAt time.Time
+	CodeHash      []byte
+	UserID        int64
+	ExpiresAt     time.Time
+	CodeChallenge string
 }
 
 func (q *Queries) CreateMobileCode(ctx context.Context, arg CreateMobileCodeParams) error {
-	_, err := q.db.Exec(ctx, createMobileCode, arg.CodeHash, arg.UserID, arg.ExpiresAt)
+	_, err := q.db.Exec(ctx, createMobileCode,
+		arg.CodeHash,
+		arg.UserID,
+		arg.ExpiresAt,
+		arg.CodeChallenge,
+	)
 	return err
 }
 
@@ -902,14 +908,19 @@ func (q *Queries) UseInvite(ctx context.Context, arg UseInviteParams) (int64, er
 const useMobileCode = `-- name: UseMobileCode :one
 UPDATE mobile_login_codes SET used_at = now()
 WHERE code_hash = $1 AND used_at IS NULL AND expires_at > now()
-RETURNING user_id
+RETURNING user_id, code_challenge
 `
 
-func (q *Queries) UseMobileCode(ctx context.Context, codeHash []byte) (int64, error) {
+type UseMobileCodeRow struct {
+	UserID        int64
+	CodeChallenge string
+}
+
+func (q *Queries) UseMobileCode(ctx context.Context, codeHash []byte) (UseMobileCodeRow, error) {
 	row := q.db.QueryRow(ctx, useMobileCode, codeHash)
-	var user_id int64
-	err := row.Scan(&user_id)
-	return user_id, err
+	var i UseMobileCodeRow
+	err := row.Scan(&i.UserID, &i.CodeChallenge)
+	return i, err
 }
 
 const usernameTaken = `-- name: UsernameTaken :one

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
 	"regexp"
@@ -380,24 +381,42 @@ func (s *Service) InviteValid(ctx context.Context, code string) bool {
 	return err == nil
 }
 
-// CreateMobileCode issues a one-time 60-second code for the native app.
-func (s *Service) CreateMobileCode(ctx context.Context, userID int64) (string, error) {
+// ValidChallenge reports whether a PKCE S256 code challenge is well-formed
+// (43 base64url characters, the encoding of a sha256 digest).
+func ValidChallenge(c string) bool {
+	b, err := base64.RawURLEncoding.DecodeString(c)
+	return err == nil && len(b) == sha256.Size
+}
+
+// CreateMobileCode issues a one-time 60-second code for the native app,
+// bound to the app's PKCE S256 challenge.
+func (s *Service) CreateMobileCode(ctx context.Context, userID int64, challenge string) (string, error) {
+	if !ValidChallenge(challenge) {
+		return "", errf("invalid", "missing or invalid code_challenge")
+	}
 	code := RandomToken(32)
-	if err := s.Q.CreateMobileCode(ctx, db.CreateMobileCodeParams{CodeHash: Hash(code), UserID: userID, ExpiresAt: time.Now().Add(60 * time.Second)}); err != nil {
+	if err := s.Q.CreateMobileCode(ctx, db.CreateMobileCodeParams{CodeHash: Hash(code), UserID: userID,
+		ExpiresAt: time.Now().Add(60 * time.Second), CodeChallenge: challenge}); err != nil {
 		return "", fmt.Errorf("mobile code: %w", err)
 	}
 	return code, nil
 }
 
-// ExchangeMobileCode trades a one-time code for a device API token.
-func (s *Service) ExchangeMobileCode(ctx context.Context, code, device string) (string, db.User, error) {
-	userID, err := s.Q.UseMobileCode(ctx, Hash(code))
+// ExchangeMobileCode trades a one-time code plus the PKCE verifier for a
+// device API token. The code is consumed even when the verifier is wrong, so
+// an intercepted code cannot be retried.
+func (s *Service) ExchangeMobileCode(ctx context.Context, code, verifier, device string) (string, db.User, error) {
+	row, err := s.Q.UseMobileCode(ctx, Hash(code))
 	if notFound(err) {
 		return "", db.User{}, ErrUnauthorized
 	} else if err != nil {
 		return "", db.User{}, fmt.Errorf("use code: %w", err)
 	}
-	u, err := s.Q.GetUser(ctx, userID)
+	sum := sha256.Sum256([]byte(verifier))
+	if verifier == "" || subtle.ConstantTimeCompare([]byte(base64.RawURLEncoding.EncodeToString(sum[:])), []byte(row.CodeChallenge)) != 1 {
+		return "", db.User{}, ErrUnauthorized
+	}
+	u, err := s.Q.GetUser(ctx, row.UserID)
 	if err != nil {
 		return "", db.User{}, fmt.Errorf("get user: %w", err)
 	}

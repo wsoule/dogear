@@ -6,20 +6,12 @@
   "tabWidth": 2,
   "useTabs": false,
   "proseWrap": "always",
-  "importOrder": [
-    "<THIRD_PARTY_MODULES>",
-    "^\\."
-  ],
+  "importOrder": ["<THIRD_PARTY_MODULES>", "^\\."],
   "importOrderSortSpecifiers": true,
   "importOrderSeparation": true,
   "experimentalSortImports": {
     "groups": [
-      [
-        "value-builtin",
-        "value-external",
-        "type-builtin",
-        "type-external"
-      ],
+      ["value-builtin", "value-external", "type-builtin", "type-external"],
       [
         "value-internal",
         "type-internal",
@@ -33,10 +25,7 @@
       "unknown"
     ],
     "ignoreCase": true,
-    "internalPattern": [
-      "~/",
-      "@/"
-    ],
+    "internalPattern": ["~/", "@/"],
     "newlinesBetween": true,
     "order": "asc",
     "partitionByComment": false,
@@ -56,6 +45,7 @@
     "*.patch",
     "**/testdata/**",
     "apps/dogear/internal/web/static/htmx.min.js",
-    "apps/dogear/internal/**/*.html"
+    "apps/dogear/internal/**/*.html",
+    "apps/dogear/internal/api/*.yaml"
   ]
 }

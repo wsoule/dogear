@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -37,7 +36,10 @@ type API struct {
 	Routes []string
 }
 
-var readRules = []safety.Rule{{Limit: 300, Per: time.Minute}}
+var (
+	readRules      = []safety.Rule{{Limit: 300, Per: time.Minute}}
+	tokenReadRules = []safety.Rule{{Limit: 600, Per: time.Minute}}
+)
 
 func New(svc *service.Service, session SessionFunc, signer auth.Signer, baseURL string) *API {
 	a := &API{svc: svc, session: session, signer: signer, baseURL: baseURL, mux: http.NewServeMux()}
@@ -77,15 +79,21 @@ func (a *API) handle(pattern string, h http.HandlerFunc) {
 
 func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	// Every response carries X-RateLimit-Remaining; anonymous reads are
-	// limited per client IP.
-	if r.Header.Get("Authorization") == "" {
-		ok, rem, retry := a.svc.Limiter.Allow("read:"+clientIP(r), readRules...)
-		w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(rem))
-		if !ok {
-			writeErr(w, &service.Error{Code: "rate_limited", Message: "too many requests", RetryAfter: retry})
-			return
+	// Every request counts against a read bucket: per token when a valid
+	// bearer token is sent, otherwise per client IP. An invalid or junk
+	// Authorization header falls back to the IP bucket, so it cannot be used
+	// to skip the limit.
+	key, rules := "read:ip:"+safety.ClientIP(r), readRules
+	if raw, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
+		if act, err := a.svc.TokenActor(r.Context(), strings.TrimSpace(raw), "api"); err == nil && act.TokenID != nil {
+			key, rules = "read:tok:"+strconv.FormatInt(*act.TokenID, 10), tokenReadRules
 		}
+	}
+	ok, rem, retry := a.svc.Limiter.Allow(key, rules...)
+	w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(rem))
+	if !ok {
+		writeErr(w, &service.Error{Code: "rate_limited", Message: "too many requests", RetryAfter: retry})
+		return
 	}
 	if _, pattern := a.mux.Handler(r); pattern == "" {
 		writeErr(w, &service.Error{Code: "not_found", Message: "no such endpoint"})
@@ -237,16 +245,4 @@ func pathID(r *http.Request, name string) (int64, error) {
 		return 0, &service.Error{Code: "invalid", Message: name + " must be a number"}
 	}
 	return id, nil
-}
-
-func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		ip, _, _ := strings.Cut(xff, ",")
-		return strings.TrimSpace(ip)
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
 }
