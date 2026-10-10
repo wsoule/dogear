@@ -211,3 +211,25 @@ WHERE i.status = 'live' AND i.url_norm LIKE 'https://youtube.com/watch?v=%'
   AND NOT EXISTS (SELECT 1 FROM item_transcripts t WHERE t.item_id = i.id)
 ORDER BY i.score DESC
 LIMIT $1;
+
+-- name: ItemsNeedingEmbedding :many
+SELECT i.id, i.title, i.blurb, i.domain, i.kind, i.creator,
+  COALESCE((SELECT c.name FROM item_categories ic JOIN categories c ON c.id = ic.category_id WHERE ic.item_id = i.id ORDER BY c.id LIMIT 1), '')::text AS category,
+  COALESCE((SELECT left(t.text, 600) FROM item_transcripts t WHERE t.item_id = i.id AND t.ok), '')::text AS transcript
+FROM items i
+WHERE i.embedding IS NULL AND i.status = 'live'
+ORDER BY i.score DESC
+LIMIT $1;
+
+-- name: SetItemEmbedding :exec
+UPDATE items SET embedding = $2, embedded_hash = $3 WHERE id = $1;
+
+-- name: EmbeddingsAfter :many
+-- Loads embeddings into the in-memory index in id order, in pages.
+SELECT id, embedding FROM items
+WHERE embedding IS NOT NULL AND status = 'live' AND id > $1
+ORDER BY id
+LIMIT $2;
+
+-- name: ItemsByIDs :many
+SELECT * FROM items WHERE id = ANY(@ids::bigint[]);

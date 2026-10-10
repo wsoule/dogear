@@ -303,6 +303,7 @@ type saveMenuData struct {
 type itemPage struct {
 	Item       service.Item
 	ParentName string
+	Similar    feedData // closest items by meaning
 	Save       saveMenuData
 	Reasons    []string
 }
@@ -319,6 +320,9 @@ func (s *Server) item(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ip := itemPage{Item: it, Reasons: []string{"spam", "dead", "offensive", "duplicate", "other"}}
+	if sim, err := s.svc.Similar(r.Context(), viewer(r), it.ID, 6); err == nil && len(sim) > 0 {
+		ip.Similar = feedData{Items: sim, CSRF: reqCtx(r).csrf, Viewer: viewer(r), Compact: true}
+	}
 	if it.Category != nil && it.Category.Parent != "" {
 		ip.ParentName = it.Category.Parent
 		if roots, err := s.svc.Categories(r.Context()); err == nil {

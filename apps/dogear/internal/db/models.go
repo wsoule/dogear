@@ -91,6 +91,8 @@ type Item struct {
 	ImageUrl        *string
 	ImageState      string
 	ImageCheckedAt  *time.Time
+	Embedding       []byte
+	EmbeddedHash    []byte
 }
 
 type ItemCategory struct {

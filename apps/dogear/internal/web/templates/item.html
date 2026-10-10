@@ -29,6 +29,7 @@
   <dt>added</dt><dd>{{date .Item.CreatedAt}}</dd>
   <dt>likes</dt><dd>{{.Item.Likes}}</dd>
 </dl>
+{{if .Similar.Items}}<h2>similar</h2>{{template "feed" .Similar}}{{end}}
 {{range .Item.Sources}}{{if .Description}}<p class="small muted quote">{{.Title}}{{if .HeadingPath}} › {{.HeadingPath}}{{end}}: “{{.Description}}”</p>{{end}}{{end}}
 
 {{if $.Viewer}}

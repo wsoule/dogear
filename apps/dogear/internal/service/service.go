@@ -18,6 +18,7 @@ import (
 	"dogear/internal/classify"
 	"dogear/internal/config"
 	"dogear/internal/db"
+	"dogear/internal/embed"
 	"dogear/internal/loggit"
 	"dogear/internal/safety"
 )
@@ -39,11 +40,15 @@ type Service struct {
 	UninstallApp func(ctx context.Context, installationID int64) error
 	// Loggit talks to loggit's OAuth provider and lists API.
 	Loggit *loggit.Client
+	// Embed and Vectors power semantic search (nil-safe when not configured).
+	Embed   *embed.Client
+	Vectors *embed.Index
 
 	classifyCache *ttlCache[classify.Result]
 	catCache      *ttlCache[[]*CategoryNode]
 	feedCache     *ttlCache[FeedPage]
 	indexCache    *ttlCache[ListIndex]
+	queryCache    *ttlCache[[]int8]
 }
 
 func New(pool *pgxpool.Pool, cfg *config.Config, cl classify.Classifier, log *slog.Logger) *Service {
@@ -64,6 +69,9 @@ func New(pool *pgxpool.Pool, cfg *config.Config, cl classify.Classifier, log *sl
 		catCache:      newTTLCache[[]*CategoryNode](time.Minute),
 		feedCache:     newTTLCache[FeedPage](time.Minute),
 		indexCache:    newTTLCache[ListIndex](time.Minute),
+		queryCache:    newTTLCache[[]int8](10 * time.Minute),
+		Embed:         &embed.Client{APIKey: cfg.VoyageAPIKey},
+		Vectors:       embed.NewIndex(),
 	}
 }
 

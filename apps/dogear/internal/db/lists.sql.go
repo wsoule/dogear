@@ -401,7 +401,7 @@ func (q *Queries) LinkedLoggitListIDs(ctx context.Context, userID int64) ([]stri
 }
 
 const listEntries = `-- name: ListEntries :many
-SELECT li.note, li.position, li.added_at, i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at, i.image_url, i.image_state, i.image_checked_at
+SELECT li.note, li.position, li.added_at, i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at, i.image_url, i.image_state, i.image_checked_at, i.embedding, i.embedded_hash
 FROM list_items li JOIN items i ON i.id = li.item_id
 WHERE li.list_id = $1
 ORDER BY li.position, li.added_at
@@ -439,6 +439,8 @@ type ListEntriesRow struct {
 	ImageUrl        *string
 	ImageState      string
 	ImageCheckedAt  *time.Time
+	Embedding       []byte
+	EmbeddedHash    []byte
 }
 
 func (q *Queries) ListEntries(ctx context.Context, listID int64) ([]ListEntriesRow, error) {
@@ -482,6 +484,8 @@ func (q *Queries) ListEntries(ctx context.Context, listID int64) ([]ListEntriesR
 			&i.ImageUrl,
 			&i.ImageState,
 			&i.ImageCheckedAt,
+			&i.Embedding,
+			&i.EmbeddedHash,
 		); err != nil {
 			return nil, err
 		}

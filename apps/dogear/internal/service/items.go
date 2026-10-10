@@ -262,6 +262,22 @@ func (s *Service) Feed(ctx context.Context, viewer *Actor, fq FeedQuery) (FeedPa
 			p.CategoryIDs = append(p.CategoryIDs, kids...)
 		}
 	}
+	// Searches in the default order use semantic + keyword ranking when
+	// semantic search is available; explicit sorts and category-scoped
+	// searches stay keyword-only.
+	if strings.TrimSpace(fq.Q) != "" && p.Sort == "top" && fq.Category == "" && s.SemanticEnabled() {
+		hp, err := s.hybridFeed(ctx, viewer, fq, p.Limit)
+		if err == nil {
+			return hp, nil
+		}
+		if e, ok := AsError(err); ok {
+			return page, e
+		}
+		s.Log.Warn("semantic search failed; using keywords", "err", err)
+		if strings.HasPrefix(fq.Cursor, "aHw") { // "h|" cursors can't continue a keyword search
+			fq.Cursor = ""
+		}
+	}
 	if fq.Cursor != "" {
 		if err := decodeCursor(fq.Cursor, &p); err != nil {
 			return page, errf("invalid", "bad cursor")

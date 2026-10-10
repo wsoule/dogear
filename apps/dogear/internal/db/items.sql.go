@@ -25,7 +25,7 @@ func (q *Queries) AddItemCategory(ctx context.Context, arg AddItemCategoryParams
 }
 
 const allItemsByUser = `-- name: AllItemsByUser :many
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at FROM items WHERE created_by = $1 ORDER BY created_at DESC
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash FROM items WHERE created_by = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) AllItemsByUser(ctx context.Context, createdBy *int64) ([]Item, error) {
@@ -66,6 +66,8 @@ func (q *Queries) AllItemsByUser(ctx context.Context, createdBy *int64) ([]Item,
 			&i.ImageUrl,
 			&i.ImageState,
 			&i.ImageCheckedAt,
+			&i.Embedding,
+			&i.EmbeddedHash,
 		); err != nil {
 			return nil, err
 		}
@@ -146,7 +148,7 @@ func (q *Queries) CreateReport(ctx context.Context, arg CreateReportParams) erro
 }
 
 const deadItems = `-- name: DeadItems :many
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at FROM items WHERE link_status = 'dead' AND status <> 'removed'
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash FROM items WHERE link_status = 'dead' AND status <> 'removed'
 ORDER BY link_checked_at DESC LIMIT 100
 `
 
@@ -188,6 +190,8 @@ func (q *Queries) DeadItems(ctx context.Context) ([]Item, error) {
 			&i.ImageUrl,
 			&i.ImageState,
 			&i.ImageCheckedAt,
+			&i.Embedding,
+			&i.EmbeddedHash,
 		); err != nil {
 			return nil, err
 		}
@@ -233,6 +237,44 @@ func (q *Queries) DomainBlocked(ctx context.Context, domain string) (bool, error
 	return exists, err
 }
 
+const embeddingsAfter = `-- name: EmbeddingsAfter :many
+SELECT id, embedding FROM items
+WHERE embedding IS NOT NULL AND status = 'live' AND id > $1
+ORDER BY id
+LIMIT $2
+`
+
+type EmbeddingsAfterParams struct {
+	ID    int64
+	Limit int32
+}
+
+type EmbeddingsAfterRow struct {
+	ID        int64
+	Embedding []byte
+}
+
+// Loads embeddings into the in-memory index in id order, in pages.
+func (q *Queries) EmbeddingsAfter(ctx context.Context, arg EmbeddingsAfterParams) ([]EmbeddingsAfterRow, error) {
+	rows, err := q.db.Query(ctx, embeddingsAfter, arg.ID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EmbeddingsAfterRow
+	for rows.Next() {
+		var i EmbeddingsAfterRow
+		if err := rows.Scan(&i.ID, &i.Embedding); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getClassification = `-- name: GetClassification :one
 SELECT item_id, category_slug, category_conf, promo_conf, mismatch_conf, injection_conf, unsafe_conf, model, created_at, kind, kind_conf FROM item_classifications WHERE item_id = $1
 `
@@ -257,7 +299,7 @@ func (q *Queries) GetClassification(ctx context.Context, itemID int64) (ItemClas
 }
 
 const getItem = `-- name: GetItem :one
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at FROM items WHERE id = $1
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash FROM items WHERE id = $1
 `
 
 func (q *Queries) GetItem(ctx context.Context, id int64) (Item, error) {
@@ -292,12 +334,14 @@ func (q *Queries) GetItem(ctx context.Context, id int64) (Item, error) {
 		&i.ImageUrl,
 		&i.ImageState,
 		&i.ImageCheckedAt,
+		&i.Embedding,
+		&i.EmbeddedHash,
 	)
 	return i, err
 }
 
 const getItemByNorm = `-- name: GetItemByNorm :one
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at FROM items WHERE url_norm = $1
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash FROM items WHERE url_norm = $1
 `
 
 func (q *Queries) GetItemByNorm(ctx context.Context, urlNorm string) (Item, error) {
@@ -332,12 +376,14 @@ func (q *Queries) GetItemByNorm(ctx context.Context, urlNorm string) (Item, erro
 		&i.ImageUrl,
 		&i.ImageState,
 		&i.ImageCheckedAt,
+		&i.Embedding,
+		&i.EmbeddedHash,
 	)
 	return i, err
 }
 
 const getItemForUpdate = `-- name: GetItemForUpdate :one
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at FROM items WHERE id = $1 FOR UPDATE
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash FROM items WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) GetItemForUpdate(ctx context.Context, id int64) (Item, error) {
@@ -372,6 +418,8 @@ func (q *Queries) GetItemForUpdate(ctx context.Context, id int64) (Item, error) 
 		&i.ImageUrl,
 		&i.ImageState,
 		&i.ImageCheckedAt,
+		&i.Embedding,
+		&i.EmbeddedHash,
 	)
 	return i, err
 }
@@ -435,7 +483,7 @@ func (q *Queries) GetVote(ctx context.Context, arg GetVoteParams) (Vote, error) 
 const insertItem = `-- name: InsertItem :one
 INSERT INTO items (url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, kind, creator, flags)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at
+RETURNING id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash
 `
 
 type InsertItemParams struct {
@@ -498,6 +546,8 @@ func (q *Queries) InsertItem(ctx context.Context, arg InsertItemParams) (Item, e
 		&i.ImageUrl,
 		&i.ImageState,
 		&i.ImageCheckedAt,
+		&i.Embedding,
+		&i.EmbeddedHash,
 	)
 	return i, err
 }
@@ -632,8 +682,63 @@ func (q *Queries) ItemSources(ctx context.Context, itemID int64) ([]ItemSourcesR
 	return items, nil
 }
 
+const itemsByIDs = `-- name: ItemsByIDs :many
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash FROM items WHERE id = ANY($1::bigint[])
+`
+
+func (q *Queries) ItemsByIDs(ctx context.Context, ids []int64) ([]Item, error) {
+	rows, err := q.db.Query(ctx, itemsByIDs, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Item
+	for rows.Next() {
+		var i Item
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.UrlNorm,
+			&i.Domain,
+			&i.Title,
+			&i.Blurb,
+			&i.CreatedBy,
+			&i.CreatedViaToken,
+			&i.Via,
+			&i.Status,
+			&i.LinkStatus,
+			&i.LinkFailCount,
+			&i.LinkCheckedAt,
+			&i.GithubStars,
+			&i.ListCount,
+			&i.PriorScore,
+			&i.LikeCount,
+			&i.DislikeCount,
+			&i.Score,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Kind,
+			&i.Creator,
+			&i.Flags,
+			&i.RemovedAt,
+			&i.ImageUrl,
+			&i.ImageState,
+			&i.ImageCheckedAt,
+			&i.Embedding,
+			&i.EmbeddedHash,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const itemsByUser = `-- name: ItemsByUser :many
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at FROM items WHERE created_by = $1 AND status <> 'removed'
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash FROM items WHERE created_by = $1 AND status <> 'removed'
 ORDER BY created_at DESC, id DESC LIMIT $2
 `
 
@@ -680,6 +785,8 @@ func (q *Queries) ItemsByUser(ctx context.Context, arg ItemsByUserParams) ([]Ite
 			&i.ImageUrl,
 			&i.ImageState,
 			&i.ImageCheckedAt,
+			&i.Embedding,
+			&i.EmbeddedHash,
 		); err != nil {
 			return nil, err
 		}
@@ -692,7 +799,7 @@ func (q *Queries) ItemsByUser(ctx context.Context, arg ItemsByUserParams) ([]Ite
 }
 
 const itemsNeedingClassification = `-- name: ItemsNeedingClassification :many
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at FROM items WHERE status = 'pending' AND 'classifier_error' = ANY(flags)
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash FROM items WHERE status = 'pending' AND 'classifier_error' = ANY(flags)
 ORDER BY created_at LIMIT 20
 `
 
@@ -734,6 +841,58 @@ func (q *Queries) ItemsNeedingClassification(ctx context.Context) ([]Item, error
 			&i.ImageUrl,
 			&i.ImageState,
 			&i.ImageCheckedAt,
+			&i.Embedding,
+			&i.EmbeddedHash,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const itemsNeedingEmbedding = `-- name: ItemsNeedingEmbedding :many
+SELECT i.id, i.title, i.blurb, i.domain, i.kind, i.creator,
+  COALESCE((SELECT c.name FROM item_categories ic JOIN categories c ON c.id = ic.category_id WHERE ic.item_id = i.id ORDER BY c.id LIMIT 1), '')::text AS category,
+  COALESCE((SELECT left(t.text, 600) FROM item_transcripts t WHERE t.item_id = i.id AND t.ok), '')::text AS transcript
+FROM items i
+WHERE i.embedding IS NULL AND i.status = 'live'
+ORDER BY i.score DESC
+LIMIT $1
+`
+
+type ItemsNeedingEmbeddingRow struct {
+	ID         int64
+	Title      string
+	Blurb      string
+	Domain     string
+	Kind       string
+	Creator    string
+	Category   string
+	Transcript string
+}
+
+func (q *Queries) ItemsNeedingEmbedding(ctx context.Context, limit int32) ([]ItemsNeedingEmbeddingRow, error) {
+	rows, err := q.db.Query(ctx, itemsNeedingEmbedding, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ItemsNeedingEmbeddingRow
+	for rows.Next() {
+		var i ItemsNeedingEmbeddingRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Blurb,
+			&i.Domain,
+			&i.Kind,
+			&i.Creator,
+			&i.Category,
+			&i.Transcript,
 		); err != nil {
 			return nil, err
 		}
@@ -929,7 +1088,7 @@ func (q *Queries) OpenReports(ctx context.Context) ([]OpenReportsRow, error) {
 }
 
 const pendingItems = `-- name: PendingItems :many
-SELECT i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at, i.image_url, i.image_state, i.image_checked_at, u.username AS poster
+SELECT i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at, i.image_url, i.image_state, i.image_checked_at, i.embedding, i.embedded_hash, u.username AS poster
 FROM items i LEFT JOIN users u ON u.id = i.created_by
 WHERE i.status = 'pending' ORDER BY i.created_at LIMIT 200
 `
@@ -963,6 +1122,8 @@ type PendingItemsRow struct {
 	ImageUrl        *string
 	ImageState      string
 	ImageCheckedAt  *time.Time
+	Embedding       []byte
+	EmbeddedHash    []byte
 	Poster          *string
 }
 
@@ -1004,6 +1165,8 @@ func (q *Queries) PendingItems(ctx context.Context) ([]PendingItemsRow, error) {
 			&i.ImageUrl,
 			&i.ImageState,
 			&i.ImageCheckedAt,
+			&i.Embedding,
+			&i.EmbeddedHash,
 			&i.Poster,
 		); err != nil {
 			return nil, err
@@ -1148,6 +1311,21 @@ func (q *Queries) SetItemCounts(ctx context.Context, arg SetItemCountsParams) er
 		arg.DislikeCount,
 		arg.Score,
 	)
+	return err
+}
+
+const setItemEmbedding = `-- name: SetItemEmbedding :exec
+UPDATE items SET embedding = $2, embedded_hash = $3 WHERE id = $1
+`
+
+type SetItemEmbeddingParams struct {
+	ID           int64
+	Embedding    []byte
+	EmbeddedHash []byte
+}
+
+func (q *Queries) SetItemEmbedding(ctx context.Context, arg SetItemEmbeddingParams) error {
+	_, err := q.db.Exec(ctx, setItemEmbedding, arg.ID, arg.Embedding, arg.EmbeddedHash)
 	return err
 }
 

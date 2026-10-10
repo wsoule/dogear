@@ -163,6 +163,7 @@ func serve(ctx context.Context) error {
 	}
 	go svc.RunBackground(ctx)
 	go svc.RunLoggitSync(ctx)
+	go svc.RunEmbeddings(ctx)
 
 	apiHandler := api.New(svc, web.SessionActor, auth.Signer{Secret: cfg.SessionSecret}, cfg.BaseURL, cfg.ProxyTrust())
 	site, err := web.New(web.Options{Service: svc, Config: cfg, Log: log, Providers: providers, App: app,
