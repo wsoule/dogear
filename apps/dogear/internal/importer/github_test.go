@@ -125,8 +125,8 @@ func TestStarsBatching(t *testing.T) {
 		queries++
 		mu.Unlock()
 		matches := aliasRe.FindAllStringSubmatch(req.Query, -1)
-		if len(matches) > 100 {
-			t.Errorf("query has %d aliases, want <= 100", len(matches))
+		if len(matches) > starsBatchSize {
+			t.Errorf("query has %d aliases, want <= %d", len(matches), starsBatchSize)
 		}
 		data := map[string]any{}
 		var errs []map[string]any
@@ -151,8 +151,8 @@ func TestStarsBatching(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if queries != 2 {
-		t.Errorf("queries = %d, want 2", queries)
+	if want := (150 + starsBatchSize - 1) / starsBatchSize; queries != want {
+		t.Errorf("queries = %d, want %d", queries, want)
 	}
 	if len(got) != 149 {
 		t.Errorf("len = %d, want 149", len(got))

@@ -25,7 +25,7 @@ const (
 	maxAttempts          = 6
 	starsPause           = time.Second
 	maxRateLimitWait     = 15 * time.Minute
-	starsBatchSize       = 100
+	starsBatchSize       = 50
 )
 
 // GitHub is a minimal GitHub REST + GraphQL client for the importer.

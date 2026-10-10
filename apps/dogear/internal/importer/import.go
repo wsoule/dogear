@@ -350,8 +350,12 @@ func (im *Importer) seedPriors(ctx context.Context, q *db.Queries) error {
 	}
 	repos := slices.Collect(maps.Keys(byRepo))
 	sort.Strings(repos)
-	if len(repos) > 0 {
-		stars, err := im.GH.Stars(ctx, repos)
+	// Fetch and store stars in chunks so progress is saved as it goes and a
+	// rate-limited run can be resumed with --stars.
+	const chunk = 500
+	for start := 0; start < len(repos); start += chunk {
+		part := repos[start:min(start+chunk, len(repos))]
+		stars, err := im.GH.Stars(ctx, part)
 		if err != nil {
 			im.Log.Warn("stars", "err", err)
 		}
@@ -361,6 +365,10 @@ func (im *Importer) seedPriors(ctx context.Context, q *db.Queries) error {
 					return fmt.Errorf("set stars: %w", err)
 				}
 			}
+		}
+		im.Log.Info("stars progress", "done", min(start+chunk, len(repos)), "total", len(repos))
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 	}
 	return Rescore(ctx, q, &im.sum.RowsChanged)

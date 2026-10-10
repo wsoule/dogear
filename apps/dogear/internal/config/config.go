@@ -92,6 +92,13 @@ func Load(need ...string) (*Config, error) {
 		ContactEmail:           env("CONTACT_EMAIL", "hello@dogear.fyi"),
 	}
 	var errs []error
+	// Behind a proxy every request arrives from the proxy's address, so an
+	// unset value would put all visitors in one rate-limit bucket. Production
+	// must state the proxy depth explicitly (0 is allowed when nothing sits in
+	// front of the app).
+	if os.Getenv("TRUSTED_PROXY_HOPS") == "" && c.Env == "production" {
+		errs = append(errs, fmt.Errorf("TRUSTED_PROXY_HOPS is required in production (2 on Railway)"))
+	}
 	if v := os.Getenv("TRUSTED_PROXY_HOPS"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 0 {
