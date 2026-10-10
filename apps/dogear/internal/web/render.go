@@ -32,7 +32,9 @@ type Page struct {
 	TurnstileSiteKey   string
 	BaseURL            string
 	ContactEmail       string
-	Page               string // which static page to show
+	Page               string       // which static page to show
+	Canonical          string       // absolute canonical URL; set automatically for indexable pages
+	Dogear             *dogearState // on item pages, the corner mark saves the item
 	Data               any
 }
 
@@ -44,6 +46,13 @@ type rowData struct {
 	CSRF   string
 	Viewer *service.Actor
 	Badge  string // small extra label, e.g. "not on loggit"
+}
+
+// dogearState drives the corner dog-ear button on item pages.
+type dogearState struct {
+	ItemID int64
+	On     bool
+	CSRF   string
 }
 
 type voteData struct {
@@ -227,6 +236,11 @@ func (s *Server) fill(r *http.Request, p *Page) {
 	p.CSRF = rc.csrf
 	p.BaseURL = s.cfg.BaseURL
 	p.ContactEmail = s.cfg.ContactEmail
+	// Indexable pages get a canonical URL without paging or view params, so
+	// sort/kind/cursor variants consolidate onto one URL.
+	if p.Canonical == "" && !p.NoIndex {
+		p.Canonical = s.cfg.BaseURL + r.URL.Path
+	}
 	if p.Flash == "" {
 		p.Flash = flashes[r.URL.Query().Get("m")]
 	}

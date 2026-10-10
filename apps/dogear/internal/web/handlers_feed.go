@@ -61,12 +61,12 @@ func (s *Server) lists(w http.ResponseWriter, r *http.Request) {
 	}
 	sort := r.URL.Query().Get("sort")
 	if !slices.Contains(service.IndexSorts, sort) {
-		sort = "name"
+		sort = "stars"
 	}
 	lp := listsPage{ListIndex: service.SortIndex(idx, sort), Sort: sort}
 	for _, k := range service.IndexSorts {
 		u := "/lists"
-		if k != "name" {
+		if k != "stars" {
 			u += "?sort=" + k
 		}
 		lp.SortLinks = append(lp.SortLinks, tabLink{Key: k, Label: k, URL: u})
@@ -206,7 +206,7 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 func (s *Server) newFeed(w http.ResponseWriter, r *http.Request) {
 	fq := feedQuery(r)
 	fq.Sort = "new"
-	s.serveFeed(w, r, "", "/new", fq, feedPage{Heading: "new", Sub: "Fresh posts from people, newest first."}, "new", true)
+	s.serveFeed(w, r, "", "/new", fq, feedPage{Heading: "new", Sub: "Fresh posts from people, newest first."}, "new", false)
 }
 
 func (s *Server) category(w http.ResponseWriter, r *http.Request) {
@@ -336,7 +336,13 @@ func (s *Server) item(w http.ResponseWriter, r *http.Request) {
 	if desc == "" {
 		desc = it.Title + " — " + it.Domain
 	}
-	s.render(w, r, http.StatusOK, "item", &Page{Title: it.Title, Description: desc, NoIndex: !s.svc.Indexable(r.Context(), it), Data: ip})
+	dg := &dogearState{ItemID: it.ID, CSRF: reqCtx(r).csrf}
+	for _, slug := range ip.Save.Saved {
+		if slug == service.DogearSlug {
+			dg.On = true
+		}
+	}
+	s.render(w, r, http.StatusOK, "item", &Page{Title: it.Title, Description: desc, NoIndex: !s.svc.Indexable(r.Context(), it), Data: ip, Dogear: dg})
 }
 
 func (s *Server) saveMenuData(r *http.Request, itemID int64, errMsg string) saveMenuData {
@@ -374,6 +380,25 @@ func (s *Server) vote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.back(w, r, "/i/"+strconv.FormatInt(id, 10))
+}
+
+// dogear toggles the item in the viewer's Dogeared list (the corner mark).
+func (s *Server) dogear(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		s.notFound(w, r)
+		return
+	}
+	on, err := s.svc.ToggleDogear(r.Context(), viewer(r), id)
+	if err != nil {
+		s.serviceError(w, r, err)
+		return
+	}
+	if r.Header.Get("HX-Request") != "" {
+		s.fragment(w, http.StatusOK, "item", "dogearbtn", dogearState{ItemID: id, On: on, CSRF: reqCtx(r).csrf})
+		return
+	}
+	http.Redirect(w, r, "/i/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
 }
 
 func (s *Server) saveMenu(w http.ResponseWriter, r *http.Request) {

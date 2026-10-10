@@ -4,7 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{if .Title}}{{.Title}} · {{end}}dogear</title>
-{{if .Description}}<meta name="description" content="{{.Description}}">{{end}}
+<meta name="description" content="{{if .Description}}{{.Description}}{{else}}Dogear is a public directory of things people think are cool — sites, tools, apps, books, devices, and videos — each with a one-line reason.{{end}}">
+{{if .Canonical}}<link rel="canonical" href="{{.Canonical}}">{{end}}
+<meta property="og:title" content="{{if .Title}}{{.Title}} · {{end}}dogear">
+<meta property="og:site_name" content="dogear">
+<meta property="og:type" content="website">
+{{if .Canonical}}<meta property="og:url" content="{{.Canonical}}">{{end}}
+<link rel="alternate" type="text/plain" title="llms.txt" href="/llms.txt">
+{{if eq .Nav "top"}}<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Dogear","url":"{{.BaseURL}}/","potentialAction":{"@type":"SearchAction","target":"{{.BaseURL}}/search?q={search_term_string}","query-input":"required name=search_term_string"}}</script>{{end}}
 {{if .NoIndex}}<meta name="robots" content="noindex">{{end}}
 <meta name="htmx-config" content='{"includeIndicatorStyles":false,"historyCacheSize":0}'>
 <meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)">
@@ -18,7 +25,7 @@
 {{if .TurnstileSiteKey}}<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>{{end}}
 </head>
 <body{{if .CSRF}} hx-headers='{"X-CSRF-Token":"{{.CSRF}}"}'{{end}}>
-<a class="dogear" href="/" aria-label="Dogear home"><svg viewBox="0 0 48 48" overflow="visible" aria-hidden="true" focusable="false"><path class="cut" d="M0.6 0 H48 V47.4 Z"/><path class="flap" d="M0.6 0 V47.4 H48 Z" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="miter" vector-effect="non-scaling-stroke"/></svg></a>
+{{if .Dogear}}{{template "dogearbtn" .Dogear}}{{else}}<a class="dogear" href="/" aria-label="Dogear home"><svg viewBox="0 0 48 48" overflow="visible" aria-hidden="true" focusable="false"><path class="cut" d="M0.6 0 H48 V47.4 Z"/><path class="flap" d="M0.6 0 V47.4 H48 Z" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="miter" vector-effect="non-scaling-stroke"/></svg></a>{{end}}
 <div class="wrap">
 <header class="top">
   <a class="wordmark" href="/">dogear</a>
@@ -32,8 +39,10 @@
   </nav>
 </header>
 <dialog id="cmdk" class="cmdk" aria-label="Search">
-  <form method="get" action="/search" role="search">
-    <input type="search" name="q" placeholder="search dogear…" autocomplete="off" aria-label="Search"
+  <form method="get" action="/search" role="search" toolname="search_dogear" toolautosubmit
+    tooldescription="Search Dogear's directory of recommended sites, tools, apps, books, devices, and videos by words in the title, reason, domain, or video transcript. Returns matching items with links.">
+    <input type="search" name="q" required placeholder="search dogear…" autocomplete="off" aria-label="Search"
+      toolparamdescription="Words to search for, e.g. 'postgres gui' or 'sci-fi novels'"
       hx-get="/search" hx-trigger="input changed delay:200ms, search" hx-target="#cmdk-results" hx-sync="this:replace">
   </form>
   <div id="cmdk-results"></div>
@@ -57,6 +66,11 @@
 </body>
 </html>{{end}}
 
+{{define "dogearbtn"}}<form class="dogear-form" id="dogear" method="post" action="/items/{{.ItemID}}/dogear" hx-post="/items/{{.ItemID}}/dogear" hx-target="#dogear" hx-swap="outerHTML">
+<input type="hidden" name="csrf" value="{{.CSRF}}">
+<button type="submit" class="dogear{{if .On}} on{{end}}" aria-pressed="{{if .On}}true{{else}}false{{end}}" aria-label="{{if .On}}Dogeared — remove from your Dogeared list{{else}}Dogear this: save it to your profile{{end}}" title="{{if .On}}dogeared · tap to undo{{else}}dogear this · save to your profile{{end}}"><svg viewBox="0 0 48 48" overflow="visible" aria-hidden="true" focusable="false"><path class="cut" d="M0.6 0 H48 V47.4 Z"/><path class="flap" d="M0.6 0 V47.4 H48 Z" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="miter" vector-effect="non-scaling-stroke"/></svg></button>
+</form>{{end}}
+
 {{define "csrf"}}<input type="hidden" name="csrf" value="{{.}}">{{end}}
 
 {{define "vote"}}<div class="vote" id="vote-{{.ItemID}}">
@@ -75,7 +89,7 @@
   <span class="domain small">{{.Item.Domain}}</span>
   <div class="meta">
     <span>{{.Item.Kind}}{{if .Item.Creator}} · {{.Item.Creator}}{{end}}</span>
-    {{with .Item.Category}}<a href="/c/{{.Slug}}">#{{.Slug}}</a>{{end}}
+    {{with .Item.Category}}<a href="/c/{{.Slug}}"><span class="sr-only">category </span>#{{.Slug}}</a>{{end}}
     <a class="out" href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank">link ↗</a>
     {{if $.Viewer}}<a href="/i/{{.Item.ID}}#save" hx-get="/items/{{.Item.ID}}/save" hx-target="#save-{{.Item.ID}}" hx-swap="innerHTML">save</a>{{end}}
     {{if .Item.Agent}}<span class="label" title="posted by an agent">agent</span>{{end}}
@@ -90,6 +104,6 @@
 {{if .Item.Image}}<a class="thumb" href="/i/{{.Item.ID}}" tabindex="-1" aria-hidden="true"><img src="{{.Item.Image}}" alt="" loading="lazy" decoding="async" width="120" height="68"></a>{{end}}
 </li>{{end}}
 
-{{define "rows"}}{{range $i, $it := .Items}}{{if and $.Next (eq $i $.PrefetchAt)}}<li class="sentinel" aria-hidden="true" hx-get="{{$.Next}}" hx-trigger="revealed once" hx-target="closest ol" hx-swap="beforeend" hx-indicator="next .loading"></li>{{end}}{{template "row" (rowData $it "" $.CSRF $.Viewer)}}{{end}}{{if .Next}}<li class="more"><a href="{{.NextPage}}">more →</a><span class="loading htmx-indicator"> loading…</span></li>{{end}}{{end}}
+{{define "rows"}}{{range $i, $it := .Items}}{{if and $.Next (eq $i $.PrefetchAt)}}<li class="sentinel" aria-hidden="true" hx-get="{{$.Next}}" hx-trigger="revealed once" hx-target="closest ol" hx-swap="beforeend" hx-indicator="next .loading"></li>{{end}}{{template "row" (rowData $it "" $.CSRF $.Viewer)}}{{end}}{{if .Next}}<li class="more"><a href="{{.NextPage}}">next page of items</a><span class="loading htmx-indicator"> loading…</span></li>{{end}}{{end}}
 
 {{define "feed"}}{{if .Items}}<ol class="feed{{if .Compact}} compact{{end}}" id="feed">{{template "rows" .}}</ol>{{else}}<p class="muted">Nothing here yet.</p>{{end}}{{end}}

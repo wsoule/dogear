@@ -419,3 +419,30 @@ func (s *Service) markDirty(ctx context.Context, userID int64) {
 		s.Log.Warn("mark dirty", "user", userID, "err", err)
 	}
 }
+
+// DogearSlug is the list that tapping the corner dog-ear on an item saves to.
+const DogearSlug = "dogeared"
+
+// ToggleDogear adds an item to the actor's "Dogeared" list (creating the
+// list on first use) or removes it if it's already there. It returns
+// whether the item is dogeared afterwards.
+func (s *Service) ToggleDogear(ctx context.Context, a *Actor, itemID int64) (bool, error) {
+	if err := require(a, "post"); err != nil {
+		return false, err
+	}
+	l, err := s.Q.GetList(ctx, db.GetListParams{UserID: a.ID(), Slug: DogearSlug})
+	if notFound(err) {
+		if _, err := s.Q.CreateList(ctx, db.CreateListParams{UserID: a.ID(), Slug: DogearSlug, Title: "Dogeared",
+			Description: "Things I folded the corner on.", Visibility: "public"}); err != nil && !isUniqueViolation(err) {
+			return false, fmt.Errorf("create dogeared list: %w", err)
+		}
+		l, err = s.Q.GetList(ctx, db.GetListParams{UserID: a.ID(), Slug: DogearSlug})
+	}
+	if err != nil {
+		return false, fmt.Errorf("dogeared list: %w", err)
+	}
+	if _, err := s.Q.GetListEntry(ctx, db.GetListEntryParams{ListID: l.ID, ItemID: itemID}); err == nil {
+		return false, s.RemoveFromList(ctx, a, DogearSlug, itemID)
+	}
+	return true, s.SaveToList(ctx, a, DogearSlug, itemID, "", nil)
+}

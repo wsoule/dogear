@@ -73,6 +73,7 @@ a:hover {
   transition:
     width 150ms ease,
     height 150ms ease;
+  z-index: 30;
 }
 .dogear svg {
   width: 100%;
@@ -599,8 +600,7 @@ dialog.cmdk .small {
 .row.has-thumb {
   grid-template-columns: 44px 1fr 120px;
 }
-.thumb img,
-.hero img {
+.thumb img {
   display: block;
   width: 120px;
   height: 68px;
@@ -610,10 +610,16 @@ dialog.cmdk .small {
   border-radius: 2px;
 }
 .hero img {
-  width: auto;
+  /* a fixed 2:1 box (GitHub cards are 2:1) so the image can't shift layout */
+  display: block;
+  width: 100%;
+  max-width: 480px;
   height: auto;
-  max-width: 100%;
-  max-height: 220px;
+  aspect-ratio: 2 / 1;
+  object-fit: cover;
+  background: var(--desk);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
   margin: 0 0 16px;
 }
 .feed.single .thumb,
@@ -840,4 +846,110 @@ details.more[open] > summary {
   details.menu.save > form {
     min-width: min(300px, calc(100vw - 32px));
   }
+}
+
+/* phones: a slightly smaller mark that always sits above the sticky header */
+@media (max-width: 520px) {
+  .dogear {
+    width: 40px;
+    height: 40px;
+  }
+  .dogear:hover,
+  .dogear:focus-visible {
+    width: 48px;
+    height: 48px;
+  }
+  header.top {
+    padding-right: 44px;
+  }
+}
+
+/* on item pages the corner mark is a button that dogears the item */
+.dogear-form {
+  margin: 0;
+}
+button.dogear {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+}
+.dogear.on {
+  color: var(--accent);
+}
+.dogear.on .flap {
+  fill: var(--accent);
+}
+.dogear.on:hover .flap,
+.dogear.on:focus-visible .flap {
+  fill: var(--accent);
+}
+
+/* row links are spaced and tall enough to tap */
+.meta {
+  gap: 2px 12px;
+}
+.meta a,
+.meta .label {
+  display: inline-block;
+  min-height: 24px;
+  line-height: 24px;
+}
+
+/* mobile pass */
+@media (max-width: 520px) {
+  /* iOS zooms into inputs under 16px */
+  input[type='text'],
+  input[type='url'],
+  input[type='search'],
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  /* comfortable tap targets for nav, tabs, chips, and footer links */
+  nav.main a,
+  .seg a,
+  .chips a,
+  footer a,
+  footer button.link,
+  details.menu > summary {
+    display: inline-block;
+    padding: 6px 0;
+  }
+  .toolbar {
+    gap: 4px 12px;
+  }
+  /* the kind menu opens from the left edge so it stays on screen */
+  details.menu > nav,
+  details.menu > form {
+    left: 0;
+    right: auto;
+    max-width: calc(100vw - 32px);
+  }
+  details.menu > nav a {
+    padding: 8px 0;
+  }
+  dialog.cmdk {
+    margin-top: 8px;
+    max-height: calc(100dvh - 16px);
+  }
+  .item-actions .btn {
+    flex: 1 1 100%;
+    text-align: center;
+  }
+  .row {
+    grid-template-columns: 36px 1fr;
+    gap: 10px;
+  }
+  .vote button {
+    width: 36px;
+    height: 30px;
+  }
+}
+
+a.hero {
+  display: block;
+  max-width: 480px;
 }

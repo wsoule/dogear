@@ -95,6 +95,7 @@ func (s *Server) routes(api, mcp http.Handler) {
 	m.HandleFunc("DELETE /items/{id}/vote", s.csrf(s.vote))
 	m.HandleFunc("GET /items/{id}/save", s.saveMenu)
 	m.HandleFunc("POST /items/{id}/save", s.csrf(s.save))
+	m.HandleFunc("POST /items/{id}/dogear", s.csrf(s.dogear))
 	m.HandleFunc("POST /items/{id}/report", s.csrf(s.report))
 
 	m.HandleFunc("GET /submit", s.submitForm)

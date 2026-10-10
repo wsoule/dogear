@@ -14,6 +14,8 @@ import (
 type AwesomeGroup struct {
 	Name, Slug string
 	Lists      []db.SourceListIndexRow
+	Total      int  // lists in the group before trimming
+	More       bool // Lists was trimmed for display
 }
 
 // ListIndex is everything shown on /lists: people's public lists and every
@@ -88,8 +90,11 @@ func SortEntries(entries []Entry, sort string) {
 	}
 }
 
+// perGroup is how many awesome lists /lists shows per category.
+const perGroup = 10
+
 // IndexSorts are the orders for the awesome lists on /lists.
-var IndexSorts = []string{"name", "items", "stars"}
+var IndexSorts = []string{"stars", "items", "name"}
 
 // SortIndex returns a copy of the index with each group's awesome lists and
 // the people's lists reordered.
@@ -110,7 +115,12 @@ func SortIndex(idx ListIndex, sort string) ListIndex {
 			}
 			slices.SortStableFunc(lists, func(a, b db.SourceListIndexRow) int { return cmp.Compare(star(b), star(a)) })
 		}
-		out.Awesome[i] = AwesomeGroup{Name: g.Name, Slug: g.Slug, Lists: lists}
+		// Show the top lists per group; the category page has the rest.
+		ag := AwesomeGroup{Name: g.Name, Slug: g.Slug, Lists: lists, Total: len(lists)}
+		if len(lists) > perGroup {
+			ag.Lists, ag.More = lists[:perGroup], true
+		}
+		out.Awesome[i] = ag
 	}
 	out.People = slices.Clone(idx.People)
 	if sort == "items" {

@@ -18,15 +18,17 @@
 {{range .Awesome}}
 <h2 id="{{.Slug}}" class="group"><a href="/c/{{.Slug}}">{{.Name}}</a></h2>
 <table class="index">
+<thead><tr><th scope="col">list</th><th scope="col">source</th><th scope="col" class="num">stars</th><th scope="col" class="num">items</th></tr></thead>
 <tbody>
 {{range .Lists}}<tr>
-  <td><a href="/c/{{.CategorySlug}}">{{.Title}}</a></td>
+  <td><a href="/c/{{.CategorySlug}}"><span class="sr-only">list </span>{{.Title}}</a></td>
   <td class="muted"><a href="https://github.com/{{.Repo}}" rel="noopener">{{.Repo}}</a></td>
   <td class="num">{{if .Stars}}★{{commas32 .Stars}}{{end}}</td>
   <td class="num">{{.ItemCount}}</td>
 </tr>{{end}}
 </tbody>
 </table>
+{{if .More}}<p class="small"><a href="/c/{{.Slug}}">all {{.Total}} {{.Name}} lists</a></p>{{end}}
 {{end}}
 {{end}}
 {{end}}

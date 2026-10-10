@@ -1,6 +1,6 @@
 {{define "content"}}
 {{with .Data}}
-{{with .Item.Category}}<nav class="crumbs" aria-label="Breadcrumb"><a href="/categories">categories</a> / {{if .Parent}}<a href="/c/{{.Parent}}">{{$.Data.ParentName}}</a> / {{end}}<a href="/c/{{.Slug}}">{{.Name}}</a></nav>{{end}}
+{{with .Item.Category}}<nav class="crumbs" aria-label="Breadcrumb"><a href="/categories">categories</a> / {{if .Parent}}<a href="/c/{{.Parent}}">{{$.Data.ParentName}}</a> / {{end}}<a href="/c/{{.Slug}}"><span class="sr-only">list </span>{{.Name}}</a></nav>{{end}}
 <h1 class="item-title">{{.Item.Title}}</h1>
 <p class="item-meta">
   <span>{{.Item.Domain}}</span><span>{{.Item.Kind}}</span>{{if .Item.Creator}}<span>{{.Item.Creator}}</span>{{end}}
@@ -21,7 +21,7 @@
   {{else}}<a class="muted small" href="/signin">sign in to save</a>{{end}}
 </div>
 
-{{if .Item.Image}}<a href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank" class="hero" tabindex="-1" aria-hidden="true"><img src="{{.Item.Image}}" alt="" decoding="async" width="480" height="270"></a>{{end}}
+{{if .Item.Image}}<a href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank" class="hero" tabindex="-1" aria-hidden="true"><img src="{{.Item.Image}}" alt="" decoding="async" width="480" height="240"></a>{{end}}
 {{if .Item.Transcript}}<details class="transcript"><summary>transcript</summary><p>{{.Item.Transcript}}</p></details>{{end}}
 
 <dl class="kv small">
@@ -34,10 +34,11 @@
 {{if $.Viewer}}
 <details class="more">
   <summary>report{{if $.Viewer.IsMod}} or moderate{{end}}</summary>
-  <form class="stack" method="post" action="/items/{{.Item.ID}}/report">
+  <form class="stack" method="post" action="/items/{{.Item.ID}}/report" toolname="report_item"
+    tooldescription="Report this item to Dogear's moderators as spam, a dead link, offensive, a duplicate, or another problem.">
     {{template "csrf" $.CSRF}}
     <label><span>reason</span>
-    <select name="reason">{{range .Reasons}}<option>{{.}}</option>{{end}}</select></label>
+    <select name="reason" toolparamdescription="Why the item should be reviewed">{{range .Reasons}}<option>{{.}}</option>{{end}}</select></label>
     <label><span>note (optional)</span><input type="text" name="note" maxlength="500"></label>
     <div><button class="btn ghost" type="submit">report</button></div>
   </form>
@@ -55,16 +56,17 @@
 {{end}}
 {{end}}
 
-{{define "savemenu"}}<form class="save-menu" method="post" action="/items/{{.ItemID}}/save" hx-post="/items/{{.ItemID}}/save" hx-swap="outerHTML">
+{{define "savemenu"}}<form class="save-menu" method="post" action="/items/{{.ItemID}}/save" hx-post="/items/{{.ItemID}}/save" hx-swap="outerHTML"
+  toolname="save_to_list" tooldescription="Save this item to one of the user's Dogear lists, with an optional note in the user's own words. Saving is not a vote.">
   <input type="hidden" name="csrf" value="{{.CSRF}}">
   {{if .Saved}}<p class="saved small">saved to {{join .Saved ", "}}</p>{{end}}
   {{if .Error}}<p class="error small">{{.Error}}</p>{{end}}
   <label><span>list</span>
-  <select name="list">
+  <select name="list" toolparamdescription="Slug of the list to save to; empty creates a new list">
     {{range .Lists}}<option value="{{.Slug}}">{{.Title}}{{if ne .Visibility "public"}} ({{.Visibility}}){{end}}</option>{{end}}
     <option value="">new list…</option>
   </select></label>
-  <label><span>new list title (if new)</span><input type="text" name="new_list" maxlength="80"></label>
-  <label><span>your note (optional)</span><input type="text" name="note" maxlength="280"></label>
+  <label><span>new list title (if new)</span><input type="text" name="new_list" maxlength="80" toolparamdescription="Title for a new list, used only when list is empty"></label>
+  <label><span>your note (optional)</span><input type="text" name="note" maxlength="280" toolparamdescription="Optional: the user's own reason for saving it"></label>
   <div><button class="btn" type="submit">save</button></div>
 </form>{{end}}

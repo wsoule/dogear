@@ -52,6 +52,29 @@
     });
   });
 
+  // WebMCP: when a browser agent submits the search tool, answer with
+  // structured results from the JSON API instead of navigating.
+  document.addEventListener('submit', function (e) {
+    const form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    if (form.getAttribute('toolname') !== 'search_dogear') return;
+    /** @type {SubmitEvent & {agentInvoked?: boolean, respondWith?: (p: Promise<unknown>) => void}} */
+    const ev = /** @type {any} */ (e);
+    if (ev.agentInvoked !== true || typeof ev.respondWith !== 'function')
+      return;
+    e.preventDefault();
+    const q = new FormData(form).get('q');
+    const url =
+      '/api/v1/items?limit=10&q=' + encodeURIComponent(String(q ?? ''));
+    ev.respondWith(
+      fetch(url, { headers: { Accept: 'application/json' } }).then(
+        function (r) {
+          return r.json();
+        }
+      )
+    );
+  });
+
   // Register the service worker that caches static assets and the offline page.
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
