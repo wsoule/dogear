@@ -130,6 +130,10 @@ func (s *Server) routes(api, mcp http.Handler) {
 	m.HandleFunc("GET /settings/account/export", s.export)
 	m.HandleFunc("POST /settings/account/delete", s.csrf(s.deleteAccount))
 
+	m.HandleFunc("GET /integrations/loggit/connect", s.loggitConnect)
+	m.HandleFunc("GET /integrations/loggit/callback", s.loggitCallback)
+	m.HandleFunc("POST /integrations/loggit/disconnect", s.csrf(s.loggitDisconnect))
+	m.HandleFunc("POST /lists/{slug}/loggit", s.csrf(s.listLoggit))
 	m.HandleFunc("GET /github/setup", s.githubSetup)
 	m.HandleFunc("POST /webhooks/github", s.githubWebhook)
 

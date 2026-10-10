@@ -112,6 +112,12 @@ type ItemClassification struct {
 	KindConf      *float32
 }
 
+type ItemMedium struct {
+	ItemID     int64
+	MediaID    *string
+	ResolvedAt time.Time
+}
+
 type ItemSource struct {
 	ItemID              int64
 	SourceListID        int32
@@ -149,11 +155,35 @@ type List struct {
 }
 
 type ListItem struct {
-	ListID   int64
-	ItemID   int64
-	Note     string
-	Position int32
-	AddedAt  time.Time
+	ListID    int64
+	ItemID    int64
+	Note      string
+	Position  int32
+	AddedAt   time.Time
+	UpdatedAt time.Time
+}
+
+type ListLink struct {
+	ListID       int64
+	UserID       int64
+	LoggitListID string
+	Baseline     []byte
+	Status       string
+	LastError    string
+	DirtyAt      *time.Time
+	LastSyncedAt *time.Time
+	CreatedAt    time.Time
+}
+
+type LoggitAccount struct {
+	UserID          int64
+	LoggitUserID    string
+	LoggitUsername  string
+	AccessTokenEnc  []byte
+	RefreshTokenEnc []byte
+	AccessExpiresAt time.Time
+	Scope           string
+	CreatedAt       time.Time
 }
 
 type MobileLoginCode struct {

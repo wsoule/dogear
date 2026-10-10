@@ -18,6 +18,7 @@ import (
 	"dogear/internal/classify"
 	"dogear/internal/config"
 	"dogear/internal/db"
+	"dogear/internal/loggit"
 	"dogear/internal/safety"
 )
 
@@ -36,6 +37,8 @@ type Service struct {
 	// UninstallApp removes a GitHub App installation when an account is
 	// deleted. Nil when the App is not configured.
 	UninstallApp func(ctx context.Context, installationID int64) error
+	// Loggit talks to loggit's OAuth provider and lists API.
+	Loggit *loggit.Client
 
 	classifyCache *ttlCache[classify.Result]
 	catCache      *ttlCache[[]*CategoryNode]
@@ -46,15 +49,17 @@ type Service struct {
 func New(pool *pgxpool.Pool, cfg *config.Config, cl classify.Classifier, log *slog.Logger) *Service {
 	ua := "DogearBot/1.0 (+" + cfg.BaseURL + "/about)"
 	return &Service{
-		Pool:          pool,
-		Q:             db.New(pool),
-		Cfg:           cfg,
-		Limiter:       safety.NewLimiter(),
-		Classifier:    cl,
-		Thresholds:    classify.DefaultThresholds(),
-		Fetch:         safety.NewClient(safety.ClientOptions{Timeout: 10 * time.Second, MaxRedirects: 5, UserAgent: ua}),
-		API:           &http.Client{Timeout: 5 * time.Second},
-		Log:           log,
+		Pool:       pool,
+		Q:          db.New(pool),
+		Cfg:        cfg,
+		Limiter:    safety.NewLimiter(),
+		Classifier: cl,
+		Thresholds: classify.DefaultThresholds(),
+		Fetch:      safety.NewClient(safety.ClientOptions{Timeout: 10 * time.Second, MaxRedirects: 5, UserAgent: ua}),
+		API:        &http.Client{Timeout: 5 * time.Second},
+		Log:        log,
+		Loggit: &loggit.Client{APIURL: cfg.LoggitAPIURL, WebURL: cfg.LoggitWebURL,
+			ClientID: cfg.LoggitClientID, ClientSecret: cfg.LoggitClientSecret},
 		classifyCache: newTTLCache[classify.Result](7 * 24 * time.Hour),
 		catCache:      newTTLCache[[]*CategoryNode](time.Minute),
 		feedCache:     newTTLCache[FeedPage](time.Minute),
@@ -138,6 +143,11 @@ func (s *Service) inTx(ctx context.Context, fn func(q *db.Queries, tx pgx.Tx) er
 		return fmt.Errorf("commit: %w", err)
 	}
 	return nil
+}
+
+// inTxQ is inTx for callers that only need the transaction's queries.
+func (s *Service) inTxQ(ctx context.Context, fn func(q *db.Queries) error) error {
+	return s.inTx(ctx, func(q *db.Queries, _ pgx.Tx) error { return fn(q) })
 }
 
 func notFound(err error) bool { return errors.Is(err, pgx.ErrNoRows) }

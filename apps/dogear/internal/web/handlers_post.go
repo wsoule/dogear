@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 
+	"dogear/internal/loggit"
 	"dogear/internal/service"
 )
 
@@ -167,6 +168,12 @@ type listPage struct {
 	L         service.ListView
 	Sort      string
 	SortLinks []tabLink
+	// loggit sync panel (owner only)
+	LoggitEnabled, LoggitConnected bool
+	Link                           *service.ListLink
+	LoggitLists                    []loggit.List
+	LoggitError                    string
+	Badges                         map[int64]string
 }
 
 var listSortLabels = map[string]string{"owner": "their order", "top": "top", "added": "recently added", "az": "a–z"}
@@ -182,7 +189,27 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 		sort = "owner"
 	}
 	service.SortEntries(lv.Entries, sort)
-	lp := listPage{L: lv, Sort: sort}
+	lp := listPage{L: lv, Sort: sort, Badges: map[int64]string{}}
+	if lv.IsOwner && s.svc.LoggitEnabled() {
+		lp.LoggitEnabled = true
+		lp.LoggitConnected = s.svc.LoggitAccount(r.Context(), viewer(r).ID()) != nil
+		lp.Link = s.svc.ListLinkFor(r.Context(), lv.ID)
+		if lp.Link != nil {
+			ids := make([]int64, len(lv.Entries))
+			for i, e := range lv.Entries {
+				ids[i] = e.Item.ID
+			}
+			for id := range s.svc.UnmappedItems(r.Context(), ids) {
+				lp.Badges[id] = "not on loggit"
+			}
+		} else if lp.LoggitConnected {
+			ls, err := s.svc.LoggitLists(r.Context(), viewer(r))
+			if err != nil {
+				lp.LoggitError = "Couldn't load your loggit lists: " + err.Error()
+			}
+			lp.LoggitLists = ls
+		}
+	}
 	base := "/u/" + url.PathEscape(lv.Owner) + "/" + url.PathEscape(lv.Slug)
 	for _, k := range service.ListSorts {
 		u := base

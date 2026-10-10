@@ -30,6 +30,8 @@ type settingsPage struct {
 	Invites       []db.ListInvitesRow
 	NewInvite     string
 	InviteLimit   int
+	LoggitEnabled bool
+	Loggit        *db.LoggitAccount
 }
 
 func (s *Server) settingsData(r *http.Request, tab string) (settingsPage, error) {
@@ -58,6 +60,8 @@ func (s *Server) settingsData(r *http.Request, tab string) (settingsPage, error)
 			sp.InstallURL = ghsync.InstallURL(s.app.Slug)
 		}
 		sp.Sync, err = s.svc.SyncStatus(ctx, v.ID())
+		sp.LoggitEnabled = s.svc.LoggitEnabled()
+		sp.Loggit = s.svc.LoggitAccount(ctx, v.ID())
 	case "invites":
 		sp.Invites, err = s.svc.Invites(ctx, v.ID())
 	case "account":

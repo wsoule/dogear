@@ -69,6 +69,21 @@ func (q *Queries) CreateList(ctx context.Context, arg CreateListParams) (List, e
 	return i, err
 }
 
+const createListLink = `-- name: CreateListLink :exec
+INSERT INTO list_links (list_id, user_id, loggit_list_id, dirty_at) VALUES ($1, $2, $3, now())
+`
+
+type CreateListLinkParams struct {
+	ListID       int64
+	UserID       int64
+	LoggitListID string
+}
+
+func (q *Queries) CreateListLink(ctx context.Context, arg CreateListLinkParams) error {
+	_, err := q.db.Exec(ctx, createListLink, arg.ListID, arg.UserID, arg.LoggitListID)
+	return err
+}
+
 const deleteList = `-- name: DeleteList :exec
 DELETE FROM lists WHERE user_id = $1 AND id = $2
 `
@@ -97,12 +112,39 @@ func (q *Queries) DeleteListEntry(ctx context.Context, arg DeleteListEntryParams
 	return err
 }
 
+const deleteListLink = `-- name: DeleteListLink :exec
+DELETE FROM list_links WHERE list_id = $1
+`
+
+func (q *Queries) DeleteListLink(ctx context.Context, listID int64) error {
+	_, err := q.db.Exec(ctx, deleteListLink, listID)
+	return err
+}
+
+const deleteLoggitAccount = `-- name: DeleteLoggitAccount :exec
+DELETE FROM loggit_accounts WHERE user_id = $1
+`
+
+func (q *Queries) DeleteLoggitAccount(ctx context.Context, userID int64) error {
+	_, err := q.db.Exec(ctx, deleteLoggitAccount, userID)
+	return err
+}
+
 const deleteSyncRow = `-- name: DeleteSyncRow :exec
 DELETE FROM github_sync WHERE user_id = $1
 `
 
 func (q *Queries) DeleteSyncRow(ctx context.Context, userID int64) error {
 	_, err := q.db.Exec(ctx, deleteSyncRow, userID)
+	return err
+}
+
+const deleteUserListLinks = `-- name: DeleteUserListLinks :exec
+DELETE FROM list_links WHERE user_id = $1
+`
+
+func (q *Queries) DeleteUserListLinks(ctx context.Context, userID int64) error {
+	_, err := q.db.Exec(ctx, deleteUserListLinks, userID)
 	return err
 }
 
@@ -141,6 +183,30 @@ func (q *Queries) DirtySyncRows(ctx context.Context, dirtySince *time.Time) ([]G
 	return items, nil
 }
 
+const getItemMedia = `-- name: GetItemMedia :many
+SELECT item_id, media_id, resolved_at FROM item_media WHERE item_id = ANY($1::bigint[])
+`
+
+func (q *Queries) GetItemMedia(ctx context.Context, ids []int64) ([]ItemMedium, error) {
+	rows, err := q.db.Query(ctx, getItemMedia, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ItemMedium
+	for rows.Next() {
+		var i ItemMedium
+		if err := rows.Scan(&i.ItemID, &i.MediaID, &i.ResolvedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getList = `-- name: GetList :one
 SELECT id, user_id, slug, title, description, visibility, sort_order, created_at, updated_at FROM lists WHERE user_id = $1 AND slug = $2
 `
@@ -167,8 +233,29 @@ func (q *Queries) GetList(ctx context.Context, arg GetListParams) (List, error) 
 	return i, err
 }
 
+const getListByID = `-- name: GetListByID :one
+SELECT id, user_id, slug, title, description, visibility, sort_order, created_at, updated_at FROM lists WHERE id = $1
+`
+
+func (q *Queries) GetListByID(ctx context.Context, id int64) (List, error) {
+	row := q.db.QueryRow(ctx, getListByID, id)
+	var i List
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Slug,
+		&i.Title,
+		&i.Description,
+		&i.Visibility,
+		&i.SortOrder,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getListEntry = `-- name: GetListEntry :one
-SELECT list_id, item_id, note, position, added_at FROM list_items WHERE list_id = $1 AND item_id = $2
+SELECT list_id, item_id, note, position, added_at, updated_at FROM list_items WHERE list_id = $1 AND item_id = $2
 `
 
 type GetListEntryParams struct {
@@ -185,8 +272,78 @@ func (q *Queries) GetListEntry(ctx context.Context, arg GetListEntryParams) (Lis
 		&i.Note,
 		&i.Position,
 		&i.AddedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getListLink = `-- name: GetListLink :one
+SELECT list_id, user_id, loggit_list_id, baseline, status, last_error, dirty_at, last_synced_at, created_at FROM list_links WHERE list_id = $1
+`
+
+func (q *Queries) GetListLink(ctx context.Context, listID int64) (ListLink, error) {
+	row := q.db.QueryRow(ctx, getListLink, listID)
+	var i ListLink
+	err := row.Scan(
+		&i.ListID,
+		&i.UserID,
+		&i.LoggitListID,
+		&i.Baseline,
+		&i.Status,
+		&i.LastError,
+		&i.DirtyAt,
+		&i.LastSyncedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getLoggitAccount = `-- name: GetLoggitAccount :one
+SELECT user_id, loggit_user_id, loggit_username, access_token_enc, refresh_token_enc, access_expires_at, scope, created_at FROM loggit_accounts WHERE user_id = $1
+`
+
+func (q *Queries) GetLoggitAccount(ctx context.Context, userID int64) (LoggitAccount, error) {
+	row := q.db.QueryRow(ctx, getLoggitAccount, userID)
+	var i LoggitAccount
+	err := row.Scan(
+		&i.UserID,
+		&i.LoggitUserID,
+		&i.LoggitUsername,
+		&i.AccessTokenEnc,
+		&i.RefreshTokenEnc,
+		&i.AccessExpiresAt,
+		&i.Scope,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const insertListEntryAtEnd = `-- name: InsertListEntryAtEnd :exec
+INSERT INTO list_items (list_id, item_id, note, position)
+VALUES ($1, $2, $3, (SELECT COALESCE(max(position) + 1, 0) FROM list_items WHERE list_id = $1))
+ON CONFLICT (list_id, item_id) DO NOTHING
+`
+
+type InsertListEntryAtEndParams struct {
+	ListID int64
+	ItemID int64
+	Note   string
+}
+
+func (q *Queries) InsertListEntryAtEnd(ctx context.Context, arg InsertListEntryAtEndParams) error {
+	_, err := q.db.Exec(ctx, insertListEntryAtEnd, arg.ListID, arg.ItemID, arg.Note)
+	return err
+}
+
+const itemForMedia = `-- name: ItemForMedia :one
+SELECT item_id FROM item_media WHERE media_id = $1 LIMIT 1
+`
+
+func (q *Queries) ItemForMedia(ctx context.Context, mediaID *string) (int64, error) {
+	row := q.db.QueryRow(ctx, itemForMedia, mediaID)
+	var item_id int64
+	err := row.Scan(&item_id)
+	return item_id, err
 }
 
 const itemSavedIn = `-- name: ItemSavedIn :many
@@ -212,6 +369,30 @@ func (q *Queries) ItemSavedIn(ctx context.Context, arg ItemSavedInParams) ([]str
 			return nil, err
 		}
 		items = append(items, slug)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const linkedLoggitListIDs = `-- name: LinkedLoggitListIDs :many
+SELECT loggit_list_id FROM list_links WHERE user_id = $1
+`
+
+func (q *Queries) LinkedLoggitListIDs(ctx context.Context, userID int64) ([]string, error) {
+	rows, err := q.db.Query(ctx, linkedLoggitListIDs, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var loggit_list_id string
+		if err := rows.Scan(&loggit_list_id); err != nil {
+			return nil, err
+		}
+		items = append(items, loggit_list_id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -312,6 +493,80 @@ func (q *Queries) ListEntries(ctx context.Context, listID int64) ([]ListEntriesR
 	return items, nil
 }
 
+const listEntryTimes = `-- name: ListEntryTimes :many
+SELECT item_id, note, position, updated_at FROM list_items WHERE list_id = $1 ORDER BY position, added_at
+`
+
+type ListEntryTimesRow struct {
+	ItemID    int64
+	Note      string
+	Position  int32
+	UpdatedAt time.Time
+}
+
+func (q *Queries) ListEntryTimes(ctx context.Context, listID int64) ([]ListEntryTimesRow, error) {
+	rows, err := q.db.Query(ctx, listEntryTimes, listID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEntryTimesRow
+	for rows.Next() {
+		var i ListEntryTimesRow
+		if err := rows.Scan(
+			&i.ItemID,
+			&i.Note,
+			&i.Position,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLinksToSync = `-- name: ListLinksToSync :many
+SELECT list_id, user_id, loggit_list_id, baseline, status, last_error, dirty_at, last_synced_at, created_at FROM list_links
+WHERE status = 'active' AND (dirty_at IS NOT NULL OR last_synced_at IS NULL OR last_synced_at < now() - interval '2 minutes')
+ORDER BY dirty_at NULLS LAST, last_synced_at NULLS FIRST
+LIMIT $1
+`
+
+// Links edited locally, or not synced for two minutes.
+func (q *Queries) ListLinksToSync(ctx context.Context, limit int32) ([]ListLink, error) {
+	rows, err := q.db.Query(ctx, listLinksToSync, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLink
+	for rows.Next() {
+		var i ListLink
+		if err := rows.Scan(
+			&i.ListID,
+			&i.UserID,
+			&i.LoggitListID,
+			&i.Baseline,
+			&i.Status,
+			&i.LastError,
+			&i.DirtyAt,
+			&i.LastSyncedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSlugTaken = `-- name: ListSlugTaken :one
 SELECT EXISTS (SELECT 1 FROM lists WHERE user_id = $1 AND slug = $2)
 `
@@ -347,6 +602,15 @@ WHERE g.status = 'active' AND (
 
 func (q *Queries) MarkDirtyForItem(ctx context.Context, itemID int64) error {
 	_, err := q.db.Exec(ctx, markDirtyForItem, itemID)
+	return err
+}
+
+const markListLinkDirty = `-- name: MarkListLinkDirty :exec
+UPDATE list_links SET dirty_at = COALESCE(dirty_at, now()) WHERE list_id = $1 AND status = 'active'
+`
+
+func (q *Queries) MarkListLinkDirty(ctx context.Context, listID int64) error {
+	_, err := q.db.Exec(ctx, markListLinkDirty, listID)
 	return err
 }
 
@@ -420,8 +684,38 @@ func (q *Queries) RevokeSyncByInstallation(ctx context.Context, installationID i
 	return err
 }
 
+const saveListLinkSync = `-- name: SaveListLinkSync :exec
+UPDATE list_links SET baseline = $2, last_synced_at = now(), dirty_at = NULL, last_error = '' WHERE list_id = $1
+`
+
+type SaveListLinkSyncParams struct {
+	ListID   int64
+	Baseline []byte
+}
+
+func (q *Queries) SaveListLinkSync(ctx context.Context, arg SaveListLinkSyncParams) error {
+	_, err := q.db.Exec(ctx, saveListLinkSync, arg.ListID, arg.Baseline)
+	return err
+}
+
+const setEntryNote = `-- name: SetEntryNote :exec
+UPDATE list_items SET note = $3, updated_at = now() WHERE list_id = $1 AND item_id = $2
+`
+
+type SetEntryNoteParams struct {
+	ListID int64
+	ItemID int64
+	Note   string
+}
+
+func (q *Queries) SetEntryNote(ctx context.Context, arg SetEntryNoteParams) error {
+	_, err := q.db.Exec(ctx, setEntryNote, arg.ListID, arg.ItemID, arg.Note)
+	return err
+}
+
 const setEntryPosition = `-- name: SetEntryPosition :exec
-UPDATE list_items SET position = $3 WHERE list_id = $1 AND item_id = $2
+UPDATE list_items SET position = $3, updated_at = CASE WHEN position <> $3 THEN now() ELSE updated_at END
+WHERE list_id = $1 AND item_id = $2
 `
 
 type SetEntryPositionParams struct {
@@ -446,6 +740,57 @@ type SetIncludePostedParams struct {
 
 func (q *Queries) SetIncludePosted(ctx context.Context, arg SetIncludePostedParams) error {
 	_, err := q.db.Exec(ctx, setIncludePosted, arg.UserID, arg.IncludePosted)
+	return err
+}
+
+const setItemMedia = `-- name: SetItemMedia :exec
+INSERT INTO item_media (item_id, media_id) VALUES ($1, $2)
+ON CONFLICT (item_id) DO UPDATE SET media_id = EXCLUDED.media_id, resolved_at = now()
+`
+
+type SetItemMediaParams struct {
+	ItemID  int64
+	MediaID *string
+}
+
+func (q *Queries) SetItemMedia(ctx context.Context, arg SetItemMediaParams) error {
+	_, err := q.db.Exec(ctx, setItemMedia, arg.ItemID, arg.MediaID)
+	return err
+}
+
+const setListFields = `-- name: SetListFields :exec
+UPDATE lists SET title = $2, description = $3, visibility = $4, updated_at = now() WHERE id = $1
+`
+
+type SetListFieldsParams struct {
+	ID          int64
+	Title       string
+	Description string
+	Visibility  string
+}
+
+func (q *Queries) SetListFields(ctx context.Context, arg SetListFieldsParams) error {
+	_, err := q.db.Exec(ctx, setListFields,
+		arg.ID,
+		arg.Title,
+		arg.Description,
+		arg.Visibility,
+	)
+	return err
+}
+
+const setListLinkError = `-- name: SetListLinkError :exec
+UPDATE list_links SET last_error = $2, status = $3, last_synced_at = now(), dirty_at = NULL WHERE list_id = $1
+`
+
+type SetListLinkErrorParams struct {
+	ListID    int64
+	LastError string
+	Status    string
+}
+
+func (q *Queries) SetListLinkError(ctx context.Context, arg SetListLinkErrorParams) error {
+	_, err := q.db.Exec(ctx, setListLinkError, arg.ListID, arg.LastError, arg.Status)
 	return err
 }
 
@@ -582,7 +927,10 @@ const upsertListEntry = `-- name: UpsertListEntry :exec
 INSERT INTO list_items (list_id, item_id, note, position)
 VALUES ($1, $2, $3, COALESCE($4::int, (SELECT COALESCE(max(position) + 1, 0) FROM list_items WHERE list_id = $1)))
 ON CONFLICT (list_id, item_id) DO UPDATE SET note = EXCLUDED.note,
-  position = COALESCE($4::int, list_items.position)
+  position = COALESCE($4::int, list_items.position),
+  updated_at = CASE WHEN list_items.note IS DISTINCT FROM EXCLUDED.note
+    OR list_items.position IS DISTINCT FROM COALESCE($4::int, list_items.position)
+    THEN now() ELSE list_items.updated_at END
 `
 
 type UpsertListEntryParams struct {
@@ -598,6 +946,38 @@ func (q *Queries) UpsertListEntry(ctx context.Context, arg UpsertListEntryParams
 		arg.ItemID,
 		arg.Note,
 		arg.Position,
+	)
+	return err
+}
+
+const upsertLoggitAccount = `-- name: UpsertLoggitAccount :exec
+INSERT INTO loggit_accounts (user_id, loggit_user_id, loggit_username, access_token_enc, refresh_token_enc, access_expires_at, scope)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (user_id) DO UPDATE SET loggit_user_id = EXCLUDED.loggit_user_id,
+  loggit_username = EXCLUDED.loggit_username, access_token_enc = EXCLUDED.access_token_enc,
+  refresh_token_enc = EXCLUDED.refresh_token_enc, access_expires_at = EXCLUDED.access_expires_at,
+  scope = EXCLUDED.scope
+`
+
+type UpsertLoggitAccountParams struct {
+	UserID          int64
+	LoggitUserID    string
+	LoggitUsername  string
+	AccessTokenEnc  []byte
+	RefreshTokenEnc []byte
+	AccessExpiresAt time.Time
+	Scope           string
+}
+
+func (q *Queries) UpsertLoggitAccount(ctx context.Context, arg UpsertLoggitAccountParams) error {
+	_, err := q.db.Exec(ctx, upsertLoggitAccount,
+		arg.UserID,
+		arg.LoggitUserID,
+		arg.LoggitUsername,
+		arg.AccessTokenEnc,
+		arg.RefreshTokenEnc,
+		arg.AccessExpiresAt,
+		arg.Scope,
 	)
 	return err
 }

@@ -197,6 +197,7 @@ func (s *Service) UpdateList(ctx context.Context, a *Actor, slug string, p ListP
 		if l.Visibility == "public" || vis == "public" {
 			_ = q.MarkDirty(ctx, a.ID())
 		}
+		_ = q.MarkListLinkDirty(ctx, l.ID)
 		return nil
 	})
 	return out, err
@@ -260,6 +261,7 @@ func (s *Service) addEntry(ctx context.Context, q *db.Queries, a *Actor, l db.Li
 	if l.Visibility == "public" {
 		_ = q.MarkDirty(ctx, a.ID())
 	}
+	_ = q.MarkListLinkDirty(ctx, l.ID)
 	return nil
 }
 
@@ -313,6 +315,7 @@ func (s *Service) RemoveFromList(ctx context.Context, a *Actor, slug string, ite
 	if err := s.Q.DeleteListEntry(ctx, db.DeleteListEntryParams{ListID: l.ID, ItemID: itemID}); err != nil {
 		return fmt.Errorf("delete entry: %w", err)
 	}
+	s.markLinkDirty(ctx, l.ID)
 	if l.Visibility == "public" {
 		s.markDirty(ctx, a.ID())
 	}

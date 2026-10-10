@@ -43,6 +43,7 @@ type rowData struct {
 	Note   string
 	CSRF   string
 	Viewer *service.Actor
+	Badge  string // small extra label, e.g. "not on loggit"
 }
 
 type voteData struct {
@@ -91,6 +92,9 @@ var funcs = template.FuncMap{
 	"rowData": func(it service.Item, note, csrf string, v *service.Actor) rowData {
 		return rowData{Item: it, Note: note, CSRF: csrf, Viewer: v}
 	},
+	"rowBadge": func(it service.Item, note, csrf string, v *service.Actor, badge string) rowData {
+		return rowData{Item: it, Note: note, CSRF: csrf, Viewer: v, Badge: badge}
+	},
 	"voteState": func(it service.Item, csrf string) voteData {
 		v := voteData{ItemID: it.ID, Likes: it.Likes, CSRF: csrf}
 		if it.MyVote != nil {
@@ -106,6 +110,18 @@ var funcs = template.FuncMap{
 	"join":     strings.Join,
 	"contains": strings.Contains,
 	"date":     func(t time.Time) string { return t.Format("2006-01-02") },
+	"ago": func(t time.Time) string {
+		d := time.Since(t)
+		switch {
+		case d < time.Minute:
+			return "just now"
+		case d < time.Hour:
+			return fmt.Sprintf("%d min ago", int(d.Minutes()))
+		case d < 48*time.Hour:
+			return fmt.Sprintf("%d h ago", int(d.Hours()))
+		}
+		return t.Format("2006-01-02")
+	},
 	"deref": func(p *string) string {
 		if p == nil {
 			return ""
@@ -219,20 +235,25 @@ func (s *Server) fill(r *http.Request, p *Page) {
 // flashes are the only status messages a redirect can show; using fixed
 // codes means a crafted link cannot put arbitrary text on the page.
 var flashes = map[string]string{
-	"posted":     "Posted. It's live.",
-	"pending":    "Thanks — your post is waiting for review and will appear once approved.",
-	"saved":      "Saved.",
-	"reported":   "Thanks, a moderator will take a look.",
-	"welcome":    "Welcome to Dogear. Post something you think is cool, or save things to your Favorites.",
-	"linked":     "Sign-in method linked.",
-	"unlinked":   "Sign-in method unlinked.",
-	"deleted":    "Your account was deleted.",
-	"profile":    "Profile saved.",
-	"revoked":    "Token revoked.",
-	"connected":  "GitHub repo connected. The first sync runs within a few minutes.",
-	"disconnect": "GitHub sync disconnected. Uninstall the app on GitHub to fully revoke access.",
-	"done":       "Done.",
-	"list":       "List created.",
-	"listdel":    "List deleted.",
-	"invite":     "Invite saved. Sign in to create your account.",
+	"posted":       "Posted. It's live.",
+	"pending":      "Thanks — your post is waiting for review and will appear once approved.",
+	"saved":        "Saved.",
+	"reported":     "Thanks, a moderator will take a look.",
+	"welcome":      "Welcome to Dogear. Post something you think is cool, or save things to your Favorites.",
+	"linked":       "Sign-in method linked.",
+	"unlinked":     "Sign-in method unlinked.",
+	"deleted":      "Your account was deleted.",
+	"profile":      "Profile saved.",
+	"revoked":      "Token revoked.",
+	"connected":    "GitHub repo connected. The first sync runs within a few minutes.",
+	"disconnect":   "GitHub sync disconnected. Uninstall the app on GitHub to fully revoke access.",
+	"done":         "Done.",
+	"list":         "List created.",
+	"listdel":      "List deleted.",
+	"invite":       "Invite saved. Sign in to create your account.",
+	"loggit":       "loggit connected. Open any of your lists to sync it with loggit.",
+	"loggitoff":    "loggit disconnected. Your lists stay on both sites; they just stop syncing.",
+	"listlinked":   "Linked to loggit. Changes on either side now sync every couple of minutes.",
+	"synced":       "Synced with loggit.",
+	"unlinkedlist": "Stopped syncing with loggit.",
 }

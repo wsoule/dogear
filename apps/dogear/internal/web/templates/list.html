@@ -7,7 +7,7 @@
 <nav class="tabs" aria-label="Sort">{{$s := .Sort}}{{range .SortLinks}}<a href="{{.URL}}" {{if eq $s .Key}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}</nav>
 <ol class="feed">
 {{range $i, $e := .L.Entries}}
-{{template "row" (rowData $e.Item $e.Note $.CSRF $.Viewer)}}
+{{template "row" (rowBadge $e.Item $e.Note $.CSRF $.Viewer (index $.Data.Badges $e.Item.ID))}}
 {{if and $.Data.L.IsOwner (eq $.Data.Sort "owner")}}
 <li class="small">
   <form class="actions" method="post" action="/lists/{{$.Data.L.Slug}}/entries/{{$e.Item.ID}}">
@@ -23,6 +23,31 @@
 {{end}}
 </ol>
 {{else}}<p class="muted">This list is empty.{{if .L.IsOwner}} Use “save” on anything in the feed.{{end}}</p>{{end}}
+
+{{if and .L.IsOwner .LoggitEnabled}}
+<h2>loggit</h2>
+{{if .Link}}
+<p class="small">Syncing with <a href="{{.Link.URL}}" rel="noopener" target="_blank">this list on loggit ↗</a>{{if .Link.LastSyncedAt}}, last synced {{ago (derefTime .Link.LastSyncedAt)}}{{end}}. Movies, shows, books, and games sync both ways; other links stay on Dogear.</p>
+{{if .Link.LastError}}<p class="flash error">{{.Link.LastError}}</p>{{end}}
+<form class="actions" method="post" action="/lists/{{.L.Slug}}/loggit">{{template "csrf" $.CSRF}}
+  <button class="btn ghost" name="op" value="sync">sync now</button>
+  <button class="link muted" name="op" value="unlink">stop syncing</button>
+</form>
+{{else if .LoggitConnected}}
+<form class="stack" method="post" action="/lists/{{.L.Slug}}/loggit">{{template "csrf" $.CSRF}}
+  <input type="hidden" name="op" value="link">
+  <label><span>sync this list with a loggit list</span>
+  <select name="loggit_list">
+    <option value="new">create a new loggit list from this one</option>
+    {{range .LoggitLists}}<option value="{{.ID}}">{{.Title}} ({{.EntryCount}})</option>{{end}}
+  </select></label>
+  <div><button class="btn ghost" type="submit">sync with loggit</button></div>
+</form>
+{{if .LoggitError}}<p class="small error">{{.LoggitError}}</p>{{end}}
+{{else}}
+<p class="small"><a href="/integrations/loggit/connect?next=/u/{{.L.Owner}}/{{.L.Slug}}">Connect loggit</a> to keep this list in sync with a loggit list.</p>
+{{end}}
+{{end}}
 
 {{if .L.IsOwner}}
 <h2>edit list</h2>

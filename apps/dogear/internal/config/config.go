@@ -43,9 +43,13 @@ type Config struct {
 
 	IPHashSalt string
 	// TrustedProxyHops is how many proxies append to X-Forwarded-For in
-	// front of the app (1 on Railway). 0 ignores the header.
+	// front of the app (2 on Railway). 0 ignores the header.
 	TrustedProxyHops int
 	ContactEmail     string
+
+	// loggit integration ("Sign in with loggit" + two-way list sync).
+	LoggitAPIURL, LoggitWebURL         string
+	LoggitClientID, LoggitClientSecret string
 }
 
 func (c *Config) Production() bool { return c.Env == "production" }
@@ -90,6 +94,10 @@ func Load(need ...string) (*Config, error) {
 		GitHubAppSlug:          env("GITHUB_APP_SLUG", "dogear-sync"),
 		IPHashSalt:             os.Getenv("IP_HASH_SALT"),
 		ContactEmail:           env("CONTACT_EMAIL", "hello@dogear.fyi"),
+		LoggitAPIURL:           env("LOGGIT_API_URL", "https://api.useloggit.app"),
+		LoggitWebURL:           env("LOGGIT_WEB_URL", "https://useloggit.app"),
+		LoggitClientID:         os.Getenv("LOGGIT_CLIENT_ID"),
+		LoggitClientSecret:     os.Getenv("LOGGIT_CLIENT_SECRET"),
 	}
 	var errs []error
 	// Behind a proxy every request arrives from the proxy's address, so an

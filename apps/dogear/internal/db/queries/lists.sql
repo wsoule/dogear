@@ -39,13 +39,17 @@ SELECT * FROM list_items WHERE list_id = $1 AND item_id = $2;
 INSERT INTO list_items (list_id, item_id, note, position)
 VALUES ($1, $2, $3, COALESCE(sqlc.narg(position)::int, (SELECT COALESCE(max(position) + 1, 0) FROM list_items WHERE list_id = $1)))
 ON CONFLICT (list_id, item_id) DO UPDATE SET note = EXCLUDED.note,
-  position = COALESCE(sqlc.narg(position)::int, list_items.position);
+  position = COALESCE(sqlc.narg(position)::int, list_items.position),
+  updated_at = CASE WHEN list_items.note IS DISTINCT FROM EXCLUDED.note
+    OR list_items.position IS DISTINCT FROM COALESCE(sqlc.narg(position)::int, list_items.position)
+    THEN now() ELSE list_items.updated_at END;
 
 -- name: DeleteListEntry :exec
 DELETE FROM list_items WHERE list_id = $1 AND item_id = $2;
 
 -- name: SetEntryPosition :exec
-UPDATE list_items SET position = $3 WHERE list_id = $1 AND item_id = $2;
+UPDATE list_items SET position = $3, updated_at = CASE WHEN position <> $3 THEN now() ELSE updated_at END
+WHERE list_id = $1 AND item_id = $2;
 
 -- name: ListEntries :many
 SELECT li.note, li.position, li.added_at, i.*
@@ -109,3 +113,75 @@ WHERE l.visibility = 'public' AND u.banned_at IS NULL AND u.shadow_banned_at IS 
   AND EXISTS (SELECT 1 FROM list_items li WHERE li.list_id = l.id)
 ORDER BY l.updated_at DESC
 LIMIT 100;
+
+-- name: GetLoggitAccount :one
+SELECT * FROM loggit_accounts WHERE user_id = $1;
+
+-- name: UpsertLoggitAccount :exec
+INSERT INTO loggit_accounts (user_id, loggit_user_id, loggit_username, access_token_enc, refresh_token_enc, access_expires_at, scope)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (user_id) DO UPDATE SET loggit_user_id = EXCLUDED.loggit_user_id,
+  loggit_username = EXCLUDED.loggit_username, access_token_enc = EXCLUDED.access_token_enc,
+  refresh_token_enc = EXCLUDED.refresh_token_enc, access_expires_at = EXCLUDED.access_expires_at,
+  scope = EXCLUDED.scope;
+
+-- name: DeleteLoggitAccount :exec
+DELETE FROM loggit_accounts WHERE user_id = $1;
+
+-- name: GetListLink :one
+SELECT * FROM list_links WHERE list_id = $1;
+
+-- name: CreateListLink :exec
+INSERT INTO list_links (list_id, user_id, loggit_list_id, dirty_at) VALUES ($1, $2, $3, now());
+
+-- name: DeleteListLink :exec
+DELETE FROM list_links WHERE list_id = $1;
+
+-- name: DeleteUserListLinks :exec
+DELETE FROM list_links WHERE user_id = $1;
+
+-- name: MarkListLinkDirty :exec
+UPDATE list_links SET dirty_at = COALESCE(dirty_at, now()) WHERE list_id = $1 AND status = 'active';
+
+-- name: ListLinksToSync :many
+-- Links edited locally, or not synced for two minutes.
+SELECT * FROM list_links
+WHERE status = 'active' AND (dirty_at IS NOT NULL OR last_synced_at IS NULL OR last_synced_at < now() - interval '2 minutes')
+ORDER BY dirty_at NULLS LAST, last_synced_at NULLS FIRST
+LIMIT $1;
+
+-- name: SaveListLinkSync :exec
+UPDATE list_links SET baseline = $2, last_synced_at = now(), dirty_at = NULL, last_error = '' WHERE list_id = $1;
+
+-- name: SetListLinkError :exec
+UPDATE list_links SET last_error = $2, status = $3, last_synced_at = now(), dirty_at = NULL WHERE list_id = $1;
+
+-- name: LinkedLoggitListIDs :many
+SELECT loggit_list_id FROM list_links WHERE user_id = $1;
+
+-- name: GetItemMedia :many
+SELECT item_id, media_id, resolved_at FROM item_media WHERE item_id = ANY(@ids::bigint[]);
+
+-- name: SetItemMedia :exec
+INSERT INTO item_media (item_id, media_id) VALUES ($1, $2)
+ON CONFLICT (item_id) DO UPDATE SET media_id = EXCLUDED.media_id, resolved_at = now();
+
+-- name: ItemForMedia :one
+SELECT item_id FROM item_media WHERE media_id = $1 LIMIT 1;
+
+-- name: ListEntryTimes :many
+SELECT item_id, note, position, updated_at FROM list_items WHERE list_id = $1 ORDER BY position, added_at;
+
+-- name: GetListByID :one
+SELECT * FROM lists WHERE id = $1;
+
+-- name: SetListFields :exec
+UPDATE lists SET title = $2, description = $3, visibility = $4, updated_at = now() WHERE id = $1;
+
+-- name: InsertListEntryAtEnd :exec
+INSERT INTO list_items (list_id, item_id, note, position)
+VALUES ($1, $2, $3, (SELECT COALESCE(max(position) + 1, 0) FROM list_items WHERE list_id = $1))
+ON CONFLICT (list_id, item_id) DO NOTHING;
+
+-- name: SetEntryNote :exec
+UPDATE list_items SET note = $3, updated_at = now() WHERE list_id = $1 AND item_id = $2;
