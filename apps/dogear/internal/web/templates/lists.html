@@ -1,0 +1,30 @@
+{{define "content"}}
+{{with .Data}}
+<h1>lists</h1>
+<p class="lede">People's picks, each with their own notes, and every awesome list Dogear was seeded from.</p>
+
+<h2>from people</h2>
+{{if .People}}
+<ul class="plain index">
+{{range .People}}<li><a href="/u/{{.Username}}/{{.Slug}}">{{.Title}}</a> <span class="muted small">@{{.Username}} · {{.EntryCount}}</span>{{if .Description}}<br><span class="small muted">{{.Description}}</span>{{end}}</li>{{end}}
+</ul>
+{{else}}
+<p class="muted">No public lists yet.{{if $.Viewer}} Make one from <a href="/u/{{$.Viewer.User.Username}}">your profile</a>, or hit “save” on anything.{{else}} <a href="/signin">Sign in</a> to start one.{{end}}</p>
+{{end}}
+
+<h2>awesome lists <span class="muted small">{{.Total}}</span></h2>
+<nav class="chips" aria-label="Jump to group">{{range .Awesome}}<a href="#{{.Slug}}">{{.Slug}}</a>{{end}}</nav>
+{{range .Awesome}}
+<h2 id="{{.Slug}}" class="group"><a href="/c/{{.Slug}}">{{.Name}}</a></h2>
+<table class="index">
+<tbody>
+{{range .Lists}}<tr>
+  <td><a href="/c/{{.CategorySlug}}">{{.Title}}</a></td>
+  <td class="muted"><a href="https://github.com/{{.Repo}}" rel="noopener">{{.Repo}}</a></td>
+  <td class="num">{{.ItemCount}}</td>
+</tr>{{end}}
+</tbody>
+</table>
+{{end}}
+{{end}}
+{{end}}

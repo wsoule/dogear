@@ -531,6 +531,75 @@ func (q *Queries) SetStars(ctx context.Context, arg SetStarsParams) error {
 	return err
 }
 
+const sourceListByCategory = `-- name: SourceListByCategory :one
+SELECT repo, stars, license FROM source_lists WHERE category_id = $1 LIMIT 1
+`
+
+type SourceListByCategoryRow struct {
+	Repo    string
+	Stars   *int32
+	License *string
+}
+
+func (q *Queries) SourceListByCategory(ctx context.Context, categoryID *int32) (SourceListByCategoryRow, error) {
+	row := q.db.QueryRow(ctx, sourceListByCategory, categoryID)
+	var i SourceListByCategoryRow
+	err := row.Scan(&i.Repo, &i.Stars, &i.License)
+	return i, err
+}
+
+const sourceListIndex = `-- name: SourceListIndex :many
+SELECT s.repo, s.title, s.stars, c.slug AS category_slug, p.name AS parent_name, p.slug AS parent_slug,
+  p.sort_order AS parent_order, COALESCE(n.item_count, 0)::int AS item_count
+FROM source_lists s
+JOIN categories c ON c.id = s.category_id
+JOIN categories p ON p.id = c.parent_id
+LEFT JOIN (SELECT source_list_id, count(*) AS item_count FROM item_sources GROUP BY source_list_id) n
+  ON n.source_list_id = s.id
+ORDER BY p.sort_order, p.name, s.title
+`
+
+type SourceListIndexRow struct {
+	Repo         string
+	Title        string
+	Stars        *int32
+	CategorySlug string
+	ParentName   string
+	ParentSlug   string
+	ParentOrder  int32
+	ItemCount    int32
+}
+
+// Every imported awesome list with its category and item count, for /lists.
+func (q *Queries) SourceListIndex(ctx context.Context) ([]SourceListIndexRow, error) {
+	rows, err := q.db.Query(ctx, sourceListIndex)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SourceListIndexRow
+	for rows.Next() {
+		var i SourceListIndexRow
+		if err := rows.Scan(
+			&i.Repo,
+			&i.Title,
+			&i.Stars,
+			&i.CategorySlug,
+			&i.ParentName,
+			&i.ParentSlug,
+			&i.ParentOrder,
+			&i.ItemCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateImportedText = `-- name: UpdateImportedText :execrows
 UPDATE items SET title = $2, blurb = $3, updated_at = now()
 WHERE id = $1 AND created_by IS NULL AND like_count = 0 AND dislike_count = 0

@@ -120,3 +120,17 @@ WHERE i.id = x.id AND i.github_stars IS DISTINCT FROM x.s;
 UPDATE items i SET prior_score = x.p, score = x.sc
 FROM (SELECT unnest(@ids::bigint[]) AS id, unnest(@priors::real[]) AS p, unnest(@scores::float8[]) AS sc) AS x
 WHERE i.id = x.id;
+
+-- name: SourceListIndex :many
+-- Every imported awesome list with its category and item count, for /lists.
+SELECT s.repo, s.title, s.stars, c.slug AS category_slug, p.name AS parent_name, p.slug AS parent_slug,
+  p.sort_order AS parent_order, COALESCE(n.item_count, 0)::int AS item_count
+FROM source_lists s
+JOIN categories c ON c.id = s.category_id
+JOIN categories p ON p.id = c.parent_id
+LEFT JOIN (SELECT source_list_id, count(*) AS item_count FROM item_sources GROUP BY source_list_id) n
+  ON n.source_list_id = s.id
+ORDER BY p.sort_order, p.name, s.title;
+
+-- name: SourceListByCategory :one
+SELECT repo, stars, license FROM source_lists WHERE category_id = $1 LIMIT 1;

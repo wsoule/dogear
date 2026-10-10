@@ -9,6 +9,8 @@
   <span class="muted">·</span>
   {{$k := .Kind}}{{$b := .KindBase}}{{range kinds}}<a href="{{$b}}{{.}}" {{if eq $k .}}aria-current="page"{{end}}>{{.}}</a>{{end}}
 </nav>{{end}}
+<nav class="tabs view" aria-label="Layout"><a href="/view/rows?next={{.Here}}" rel="nofollow" {{if not .Feed.Compact}}aria-current="page"{{end}}>rows</a><a href="/view/compact?next={{.Here}}" rel="nofollow" {{if .Feed.Compact}}aria-current="page"{{end}}>compact</a></nav>
+{{if .Source}}<p class="small muted">from <a href="https://github.com/{{.Source.Repo}}" rel="noopener">github.com/{{.Source.Repo}}</a>{{if .Source.Stars}} · ★ {{deref32 .Source.Stars}}{{end}}</p>{{end}}
 {{template "feed" .Feed}}
 {{end}}
 {{end}}

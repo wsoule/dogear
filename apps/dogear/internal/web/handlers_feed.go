@@ -6,9 +6,51 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
+	"time"
 
+	"dogear/internal/db"
 	"dogear/internal/service"
 )
+
+const viewCookie = "view"
+
+// compactView reports whether the visitor chose the dense one-line layout.
+func compactView(r *http.Request) bool {
+	c, err := r.Cookie(viewCookie)
+	return err == nil && c.Value == "compact"
+}
+
+// setView stores the feed layout preference in a cookie and returns to the
+// page the toggle was clicked on (same-site paths only).
+func (s *Server) setView(w http.ResponseWriter, r *http.Request) {
+	mode := r.PathValue("mode")
+	if mode != "compact" && mode != "rows" {
+		s.notFound(w, r)
+		return
+	}
+	http.SetCookie(w, &http.Cookie{Name: viewCookie, Value: mode, Path: "/", MaxAge: int((365 * 24 * time.Hour).Seconds()),
+		HttpOnly: true, Secure: s.secureCookies(), SameSite: http.SameSiteLaxMode})
+	next := r.URL.Query().Get("next")
+	if !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") || strings.HasPrefix(next, "/\\") {
+		next = "/"
+	}
+	http.Redirect(w, r, next, http.StatusSeeOther)
+}
+
+type listsPage struct {
+	service.ListIndex
+}
+
+func (s *Server) lists(w http.ResponseWriter, r *http.Request) {
+	idx, err := s.svc.ListsIndex(r.Context())
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	s.render(w, r, http.StatusOK, "lists", &Page{Title: "lists", Nav: "lists", Data: listsPage{idx},
+		Description: "People's lists of things they think are cool, and every awesome list Dogear was seeded from."})
+}
 
 type feedPage struct {
 	Heading, Sub string
@@ -18,6 +60,8 @@ type feedPage struct {
 	Base         string // URL of this feed without sort/kind/cursor
 	KindBase     string // prefix for kind filter links
 	Sort, Kind   string
+	Here         string // current URL, for the layout toggle's return link
+	Source       *db.SourceListByCategoryRow
 	Feed         feedData
 }
 
@@ -27,7 +71,7 @@ func (s *Server) buildFeed(r *http.Request, base string, fq service.FeedQuery) (
 	if err != nil {
 		return page, feedData{}, err
 	}
-	fd := feedData{Items: page.Items, CSRF: reqCtx(r).csrf, Viewer: viewer(r)}
+	fd := feedData{Items: page.Items, CSRF: reqCtx(r).csrf, Viewer: viewer(r), Compact: compactView(r)}
 	if page.NextCursor != "" {
 		q := url.Values{}
 		if fq.Sort == "new" {
@@ -66,6 +110,7 @@ func (s *Server) serveFeed(w http.ResponseWriter, r *http.Request, nav, base str
 		return
 	}
 	fp.Feed = fd
+	fp.Here = r.URL.RequestURI()
 	fp.Sort, fp.Kind = fq.Sort, fq.Kind
 	fp.Base = base
 	if fp.KindBase == "" {
@@ -122,6 +167,7 @@ func (s *Server) category(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	fp.Source = s.svc.SourceForCategory(r.Context(), slug)
 	s.serveFeed(w, r, "", "/c/"+url.PathEscape(slug), fq, fp, slug, false)
 }
 

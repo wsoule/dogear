@@ -483,3 +483,72 @@ ul.tree a {
     margin-left: 0;
   }
 }
+
+/* layout toggle sits quietly under the sort tabs */
+.tabs.view {
+  margin-top: -8px;
+  font-size: 12px;
+}
+
+/* compact layout: one dense line per item, no blurbs */
+.feed.compact .row {
+  grid-template-columns: 64px 1fr;
+  gap: 8px;
+  padding: 5px 0;
+  align-items: baseline;
+}
+.feed.compact .vote {
+  flex-direction: row;
+  gap: 2px;
+}
+.feed.compact .vote button {
+  width: 18px;
+  height: 22px;
+  font-size: 11px;
+}
+.feed.compact .vote .count {
+  min-width: 18px;
+  text-align: center;
+}
+.feed.compact .row > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 10px;
+  min-width: 0;
+}
+.feed.compact .meta {
+  margin: 0;
+}
+.feed.compact .blurb,
+.feed.compact .note {
+  display: none;
+}
+.feed.compact .title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* lists index */
+h2.group {
+  margin-top: 28px;
+}
+table.index td.num {
+  text-align: right;
+  color: var(--muted);
+  width: 4em;
+}
+table.index td:nth-child(2) {
+  font-size: 11px;
+}
+ul.index li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--rule);
+}
+@media (max-width: 520px) {
+  table.index td:nth-child(2) {
+    display: none;
+  }
+}

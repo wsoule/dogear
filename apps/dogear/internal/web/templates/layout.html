@@ -25,6 +25,7 @@
   <nav class="main" aria-label="Main">
     <a href="/" {{if eq .Nav "top"}}aria-current="page"{{end}}>top</a>
     <a href="/new" {{if eq .Nav "new"}}aria-current="page"{{end}}>new</a>
+    <a href="/lists" {{if eq .Nav "lists"}}aria-current="page"{{end}}>lists</a>
     <a href="/search" {{if eq .Nav "search"}}aria-current="page"{{end}}>search</a>
     <a href="/submit" {{if eq .Nav "submit"}}aria-current="page"{{end}}>post</a>
     {{if .Viewer}}
@@ -86,4 +87,4 @@
 
 {{define "rows"}}{{range .Items}}{{template "row" (rowData . "" $.CSRF $.Viewer)}}{{end}}{{if .Next}}<li class="more" hx-get="{{.Next}}" hx-trigger="revealed" hx-swap="outerHTML"><a href="{{.NextPage}}">more →</a></li>{{end}}{{end}}
 
-{{define "feed"}}{{if .Items}}<ol class="feed" id="feed">{{template "rows" .}}</ol>{{else}}<p class="muted">Nothing here yet.</p>{{end}}{{end}}
+{{define "feed"}}{{if .Items}}<ol class="feed{{if .Compact}} compact{{end}}" id="feed">{{template "rows" .}}</ol>{{else}}<p class="muted">Nothing here yet.</p>{{end}}{{end}}

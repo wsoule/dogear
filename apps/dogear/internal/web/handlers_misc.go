@@ -22,7 +22,7 @@ func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) robots(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	fmt.Fprintf(w, "User-agent: *\nDisallow: /settings/\nDisallow: /mod\nDisallow: /submit\nDisallow: /auth/\nDisallow: /search\nDisallow: /u/\nSitemap: %s/sitemap.xml\n", s.cfg.BaseURL)
+	fmt.Fprintf(w, "User-agent: *\nDisallow: /settings/\nDisallow: /mod\nDisallow: /submit\nDisallow: /auth/\nDisallow: /search\nDisallow: /view/\nDisallow: /u/\nSitemap: %s/sitemap.xml\n", s.cfg.BaseURL)
 }
 
 // sitemap lists only items above the indexing bar: imported items and

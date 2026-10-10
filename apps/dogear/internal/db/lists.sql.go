@@ -358,6 +358,53 @@ func (q *Queries) MarkSynced(ctx context.Context, arg MarkSyncedParams) error {
 	return err
 }
 
+const publicLists = `-- name: PublicLists :many
+SELECT l.slug, l.title, l.description, l.updated_at, u.username,
+  (SELECT count(*) FROM list_items li WHERE li.list_id = l.id)::int AS entry_count
+FROM lists l JOIN users u ON u.id = l.user_id
+WHERE l.visibility = 'public' AND u.banned_at IS NULL AND u.shadow_banned_at IS NULL
+  AND EXISTS (SELECT 1 FROM list_items li WHERE li.list_id = l.id)
+ORDER BY l.updated_at DESC
+LIMIT 100
+`
+
+type PublicListsRow struct {
+	Slug        string
+	Title       string
+	Description string
+	UpdatedAt   time.Time
+	Username    string
+	EntryCount  int32
+}
+
+// Recently updated public lists with at least one entry, for /lists.
+func (q *Queries) PublicLists(ctx context.Context) ([]PublicListsRow, error) {
+	rows, err := q.db.Query(ctx, publicLists)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PublicListsRow
+	for rows.Next() {
+		var i PublicListsRow
+		if err := rows.Scan(
+			&i.Slug,
+			&i.Title,
+			&i.Description,
+			&i.UpdatedAt,
+			&i.Username,
+			&i.EntryCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const revokeSyncByInstallation = `-- name: RevokeSyncByInstallation :exec
 UPDATE github_sync SET status = 'revoked' WHERE installation_id = $1
 `

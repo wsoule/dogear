@@ -99,3 +99,13 @@ UPDATE github_sync SET status = 'revoked' WHERE installation_id = $1;
 
 -- name: SyncRowByInstallation :many
 SELECT * FROM github_sync WHERE installation_id = $1;
+
+-- name: PublicLists :many
+-- Recently updated public lists with at least one entry, for /lists.
+SELECT l.slug, l.title, l.description, l.updated_at, u.username,
+  (SELECT count(*) FROM list_items li WHERE li.list_id = l.id)::int AS entry_count
+FROM lists l JOIN users u ON u.id = l.user_id
+WHERE l.visibility = 'public' AND u.banned_at IS NULL AND u.shadow_banned_at IS NULL
+  AND EXISTS (SELECT 1 FROM list_items li WHERE li.list_id = l.id)
+ORDER BY l.updated_at DESC
+LIMIT 100;

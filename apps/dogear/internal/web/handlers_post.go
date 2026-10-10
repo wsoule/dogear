@@ -150,7 +150,7 @@ func (s *Server) profile(w http.ResponseWriter, r *http.Request) {
 	}
 	// Profiles are never indexed: they would otherwise be the main target of SEO spam.
 	s.render(w, r, http.StatusOK, "profile", &Page{Title: "@" + p.User.Username, Nav: nav, NoIndex: true,
-		Data: profilePage{P: p, Feed: feedData{Items: p.Posts, CSRF: reqCtx(r).csrf, Viewer: viewer(r)}}})
+		Data: profilePage{P: p, Feed: feedData{Items: p.Posts, CSRF: reqCtx(r).csrf, Viewer: viewer(r), Compact: compactView(r)}}})
 }
 
 func (s *Server) block(w http.ResponseWriter, r *http.Request) {

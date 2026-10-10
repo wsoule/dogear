@@ -59,6 +59,7 @@ type feedData struct {
 	NextPage string // plain link for no-JS paging
 	CSRF     string
 	Viewer   *service.Actor
+	Compact  bool // dense one-line rows instead of rows with blurbs
 }
 
 // assetVersions maps a static file name to a short content hash. Pages link
@@ -105,6 +106,12 @@ var funcs = template.FuncMap{
 	"deref": func(p *string) string {
 		if p == nil {
 			return ""
+		}
+		return *p
+	},
+	"deref32": func(p *int32) int32 {
+		if p == nil {
+			return 0
 		}
 		return *p
 	},
