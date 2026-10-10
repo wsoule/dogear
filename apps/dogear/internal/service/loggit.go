@@ -380,8 +380,13 @@ func (s *Service) mediaForItems(ctx context.Context, tok string, rows []db.ListE
 		}
 		resolved++
 		ref, ok, err := s.Loggit.Resolve(ctx, tok, it.Url)
-		if err != nil {
+		if errors.Is(err, loggit.ErrUnauthorized) {
 			return nil, err
+		} else if err != nil {
+			// A temporary upstream outage (loggit answers 502) shouldn't
+			// fail the whole sync or cache "unresolvable"; try next run.
+			s.Log.Warn("loggit resolve", "item", id, "err", err)
+			continue
 		}
 		var mid *string
 		if ok {
