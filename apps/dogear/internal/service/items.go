@@ -13,6 +13,10 @@ import (
 	"dogear/internal/db"
 )
 
+// FeedSorts are the orders every feed offers: Wilson score, newest user
+// posts, GitHub stars, and title A–Z.
+var FeedSorts = []string{"top", "new", "stars", "az"}
+
 // Kinds lists every item format in display order.
 var Kinds = []string{"site", "tool", "app", "book", "device", "video", "article", "other"}
 
@@ -217,7 +221,7 @@ type FeedPage struct {
 func (s *Service) Feed(ctx context.Context, viewer *Actor, fq FeedQuery) (FeedPage, error) {
 	var page FeedPage
 	p := db.FeedParams{Sort: fq.Sort, Query: fq.Q, IncludeDead: fq.IncludeDead}
-	if p.Sort != "new" {
+	if !slices.Contains(FeedSorts, p.Sort) {
 		p.Sort = "top"
 	}
 	p.Limit = fq.Limit
@@ -290,15 +294,27 @@ func (s *Service) Feed(ctx context.Context, viewer *Actor, fq FeedQuery) (FeedPa
 	return page, nil
 }
 
-// Cursors are opaque base64 of "t|score|id" or "n|unixnano|id".
+// Cursors are opaque base64 of "<sort>|<id>|<last sort value>", e.g.
+// "t|42|0.61" or "a|42|ripgrep". The value comes last because titles may
+// contain the separator.
 func encodeCursor(sort string, last db.Item) string {
-	var raw string
-	if sort == "new" {
-		raw = "n|" + strconv.FormatInt(last.CreatedAt.UnixNano(), 10) + "|" + strconv.FormatInt(last.ID, 10)
-	} else {
-		raw = "t|" + strconv.FormatFloat(last.Score, 'g', -1, 64) + "|" + strconv.FormatInt(last.ID, 10)
+	var val string
+	switch sort {
+	case "new":
+		val = strconv.FormatInt(last.CreatedAt.UnixNano(), 10)
+	case "stars":
+		n := int64(-1)
+		if last.GithubStars != nil {
+			n = int64(*last.GithubStars)
+		}
+		val = strconv.FormatInt(n, 10)
+	case "az":
+		val = "-" // the sort key is looked up from the id in SQL
+	default:
+		sort = "top"
+		val = strconv.FormatFloat(last.Score, 'g', -1, 64)
 	}
-	return base64.RawURLEncoding.EncodeToString([]byte(raw))
+	return base64.RawURLEncoding.EncodeToString([]byte(sort[:1] + "|" + strconv.FormatInt(last.ID, 10) + "|" + val))
 }
 
 func decodeCursor(c string, p *db.FeedParams) error {
@@ -306,31 +322,38 @@ func decodeCursor(c string, p *db.FeedParams) error {
 	if err != nil {
 		return err
 	}
-	parts := strings.Split(string(b), "|")
+	parts := strings.SplitN(string(b), "|", 3)
 	if len(parts) != 3 {
 		return fmt.Errorf("cursor parts")
 	}
-	id, err := strconv.ParseInt(parts[2], 10, 64)
+	id, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
 		return err
 	}
 	p.AfterID = id
+	val := parts[2]
 	switch parts[0] {
 	case "t":
-		f, err := strconv.ParseFloat(parts[1], 64)
+		f, err := strconv.ParseFloat(val, 64)
 		if err != nil {
 			return err
 		}
-		p.AfterScore = &f
-		p.Sort = "top"
+		p.AfterScore, p.Sort = &f, "top"
 	case "n":
-		n, err := strconv.ParseInt(parts[1], 10, 64)
+		n, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
 			return err
 		}
 		t := time.Unix(0, n)
-		p.AfterCreated = &t
-		p.Sort = "new"
+		p.AfterCreated, p.Sort = &t, "new"
+	case "s":
+		n, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			return err
+		}
+		p.AfterStars, p.Sort = &n, "stars"
+	case "a":
+		p.AfterTitle, p.Sort = &val, "az"
 	default:
 		return fmt.Errorf("cursor kind")
 	}

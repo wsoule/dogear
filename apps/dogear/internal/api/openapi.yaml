@@ -104,7 +104,7 @@ paths:
         - { name: q, in: query, schema: { type: string } }
         - { name: category, in: query, schema: { type: string } }
         - { name: kind, in: query, schema: { type: string } }
-        - { name: sort, in: query, schema: { type: string, enum: [top, new] } }
+        - { name: sort, in: query, schema: { type: string, enum: [top, new, stars, az] } }
         - { name: cursor, in: query, schema: { type: string } }
         - { name: limit, in: query, schema: { type: integer, maximum: 50 } }
         - { name: include_dead, in: query, schema: { type: integer, enum: [0, 1] } }

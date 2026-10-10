@@ -552,3 +552,17 @@ ul.index li {
     display: none;
   }
 }
+
+/* infinite scroll: an invisible trigger a dozen rows before the end, and
+   a no-JS "more" link that only shows on the last page loaded */
+.feed .sentinel {
+  height: 1px;
+  list-style: none;
+}
+.feed .more:not(:last-child) {
+  display: none;
+}
+
+.meta a.out {
+  color: var(--accent);
+}

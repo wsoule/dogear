@@ -48,6 +48,8 @@ func localPath(next string) string {
 
 type listsPage struct {
 	service.ListIndex
+	Sort      string
+	SortLinks []tabLink
 }
 
 func (s *Server) lists(w http.ResponseWriter, r *http.Request) {
@@ -56,8 +58,40 @@ func (s *Server) lists(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.render(w, r, http.StatusOK, "lists", &Page{Title: "lists", Nav: "lists", Data: listsPage{idx},
+	sort := r.URL.Query().Get("sort")
+	if !slices.Contains(service.IndexSorts, sort) {
+		sort = "name"
+	}
+	lp := listsPage{ListIndex: service.SortIndex(idx, sort), Sort: sort}
+	for _, k := range service.IndexSorts {
+		u := "/lists"
+		if k != "name" {
+			u += "?sort=" + k
+		}
+		lp.SortLinks = append(lp.SortLinks, tabLink{Key: k, Label: k, URL: u})
+	}
+	s.render(w, r, http.StatusOK, "lists", &Page{Title: "lists", Nav: "lists", Data: lp,
 		Description: "People's lists of things they think are cool, and every awesome list Dogear was seeded from."})
+}
+
+type tabLink struct{ Key, Label, URL string }
+
+var sortLabels = map[string]string{"top": "top", "new": "new", "stars": "stars", "az": "a–z"}
+
+// feedURL builds a feed link that keeps the other filter: changing the sort
+// keeps the kind and vice versa.
+func feedURL(base, sort, kind string) string {
+	q := url.Values{}
+	if sort != "" && sort != "top" {
+		q.Set("sort", sort)
+	}
+	if kind != "" {
+		q.Set("kind", kind)
+	}
+	if len(q) == 0 {
+		return base
+	}
+	return base + "?" + q.Encode()
 }
 
 type feedPage struct {
@@ -66,9 +100,10 @@ type feedPage struct {
 	Children     []*service.CategoryNode
 	Tabs         bool
 	Base         string // URL of this feed without sort/kind/cursor
-	KindBase     string // prefix for kind filter links
 	Sort, Kind   string
 	Here         string // current URL, for the layout toggle's return link
+	SortLinks    []tabLink
+	KindLinks    []tabLink
 	Source       *db.SourceListByCategoryRow
 	Feed         feedData
 }
@@ -79,11 +114,12 @@ func (s *Server) buildFeed(r *http.Request, base string, fq service.FeedQuery) (
 	if err != nil {
 		return page, feedData{}, err
 	}
-	fd := feedData{Items: page.Items, CSRF: reqCtx(r).csrf, Viewer: viewer(r), Compact: compactView(r)}
+	fd := feedData{Items: page.Items, CSRF: reqCtx(r).csrf, Viewer: viewer(r), Compact: compactView(r),
+		PrefetchAt: max(0, len(page.Items)-12)}
 	if page.NextCursor != "" {
 		q := url.Values{}
-		if fq.Sort == "new" {
-			q.Set("sort", "new")
+		if fq.Sort != "" && fq.Sort != "top" {
+			q.Set("sort", fq.Sort)
 		}
 		if fq.Kind != "" {
 			q.Set("kind", fq.Kind)
@@ -102,8 +138,12 @@ func (s *Server) buildFeed(r *http.Request, base string, fq service.FeedQuery) (
 // feedQuery reads sort, kind, and cursor from the URL.
 func feedQuery(r *http.Request) service.FeedQuery {
 	q := r.URL.Query()
-	return service.FeedQuery{Sort: q.Get("sort"), Kind: q.Get("kind"), Cursor: q.Get("cursor"),
+	fq := service.FeedQuery{Sort: q.Get("sort"), Kind: q.Get("kind"), Cursor: q.Get("cursor"),
 		IncludeDead: q.Get("include_dead") == "1"}
+	if fq.Cursor != "" {
+		fq.Limit = 50
+	}
+	return fq
 }
 
 // serveFeed renders a feed page, or only the next rows for infinite scroll.
@@ -120,12 +160,16 @@ func (s *Server) serveFeed(w http.ResponseWriter, r *http.Request, nav, base str
 	fp.Feed = fd
 	fp.Here = r.URL.RequestURI()
 	fp.Sort, fp.Kind = fq.Sort, fq.Kind
+	if fp.Sort == "" {
+		fp.Sort = "top"
+	}
 	fp.Base = base
-	if fp.KindBase == "" {
-		fp.KindBase = base + "?kind="
-		if fq.Sort == "new" {
-			fp.KindBase = base + "?sort=new&kind="
-		}
+	for _, k := range service.FeedSorts {
+		fp.SortLinks = append(fp.SortLinks, tabLink{Key: k, Label: sortLabels[k], URL: feedURL(base, k, fq.Kind)})
+	}
+	fp.KindLinks = append(fp.KindLinks, tabLink{Key: "", Label: "all", URL: feedURL(base, fq.Sort, "")})
+	for _, k := range service.Kinds {
+		fp.KindLinks = append(fp.KindLinks, tabLink{Key: k, Label: k, URL: feedURL(base, fq.Sort, k)})
 	}
 	if fp.Heading == "" && page.Category != nil {
 		fp.Heading = page.Category.Name
@@ -151,7 +195,7 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 func (s *Server) newFeed(w http.ResponseWriter, r *http.Request) {
 	fq := feedQuery(r)
 	fq.Sort = "new"
-	s.serveFeed(w, r, "new", "/new", fq, feedPage{Heading: "new", Sub: "Fresh posts from people (imports excluded).", KindBase: "/new?kind="}, "new", true)
+	s.serveFeed(w, r, "new", "/new", fq, feedPage{Heading: "new", Sub: "Fresh posts from people (imports excluded)."}, "new", true)
 }
 
 func (s *Server) category(w http.ResponseWriter, r *http.Request) {

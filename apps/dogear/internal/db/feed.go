@@ -15,7 +15,7 @@ type FeedParams struct {
 	ViewerID    *int64  // hides items from users the viewer blocked; shows their own shadow-banned items
 	CategoryIDs []int32 // empty means every category
 	Kind        string
-	Sort        string // "top" or "new"
+	Sort        string // "top", "new", "stars", or "az"
 	Query       string // trigram search over title, blurb, and domain
 	IncludeDead bool
 	CreatedBy   *int64 // a single user's posts (profile page)
@@ -23,6 +23,8 @@ type FeedParams struct {
 	// Keyset cursor: the last row of the previous page.
 	AfterScore   *float64
 	AfterCreated *time.Time
+	AfterStars   *int64
+	AfterTitle   *string
 	AfterID      int64
 
 	Limit int
@@ -78,11 +80,25 @@ func (q *Queries) Feed(ctx context.Context, p FeedParams) ([]Item, error) {
 	where = append(where, "(i.created_by IS NULL OR NOT EXISTS (SELECT 1 FROM users u WHERE u.id = i.created_by AND ("+hidden+")))")
 
 	order := "i.score DESC, i.id DESC"
-	switch {
-	case p.Sort == "new":
+	switch p.Sort {
+	case "new":
 		order = "i.created_at DESC, i.id DESC"
 		if p.AfterCreated != nil {
 			where = append(where, "(i.created_at, i.id) < ("+arg(*p.AfterCreated)+", "+arg(p.AfterID)+")")
+		}
+	case "stars":
+		order = "COALESCE(i.github_stars, -1) DESC, i.id DESC"
+		if p.AfterStars != nil {
+			where = append(where, "(COALESCE(i.github_stars, -1), i.id) < ("+arg(*p.AfterStars)+"::bigint, "+arg(p.AfterID)+")")
+		}
+	case "az":
+		key := `regexp_replace(lower(%s), '^[^[:alnum:]]+', '') COLLATE "C"`
+		order = fmt.Sprintf(key, "i.title") + " ASC, i.id ASC"
+		if p.AfterTitle != nil {
+			// The cursor carries only the last id; its sort key is looked up
+			// here so it always matches the index expression exactly.
+			id := arg(p.AfterID)
+			where = append(where, "("+fmt.Sprintf(key, "i.title")+", i.id) > ((SELECT "+fmt.Sprintf(key, "t.title")+" FROM items t WHERE t.id = "+id+"), "+id+")")
 		}
 	default:
 		if p.AfterScore != nil {

@@ -68,12 +68,12 @@
 {{define "row"}}<li class="row">
 {{template "vote" (voteState .Item $.CSRF)}}
 <div>
-  <a class="title" href="{{.Item.URL}}" rel="nofollow noopener ugc">{{.Item.Title}}</a>
+  <a class="title" href="/i/{{.Item.ID}}">{{.Item.Title}}</a>
   <span class="domain small">{{.Item.Domain}}</span>
   <div class="meta">
     <span>{{.Item.Kind}}{{if .Item.Creator}} · {{.Item.Creator}}{{end}}</span>
     {{with .Item.Category}}<a href="/c/{{.Slug}}">#{{.Slug}}</a>{{end}}
-    <a href="/i/{{.Item.ID}}">details</a>
+    <a class="out" href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank">link ↗</a>
     {{if $.Viewer}}<a href="/i/{{.Item.ID}}#save" hx-get="/items/{{.Item.ID}}/save" hx-target="#save-{{.Item.ID}}" hx-swap="innerHTML">save</a>{{end}}
     {{if .Item.Agent}}<span class="label" title="posted by an agent">agent</span>{{end}}
     {{if ne .Item.Status "live"}}<span class="label warn">{{.Item.Status}}</span>{{end}}
@@ -85,6 +85,6 @@
 </div>
 </li>{{end}}
 
-{{define "rows"}}{{range .Items}}{{template "row" (rowData . "" $.CSRF $.Viewer)}}{{end}}{{if .Next}}<li class="more" hx-get="{{.Next}}" hx-trigger="revealed" hx-swap="outerHTML"><a href="{{.NextPage}}">more →</a></li>{{end}}{{end}}
+{{define "rows"}}{{range $i, $it := .Items}}{{if and $.Next (eq $i $.PrefetchAt)}}<li class="sentinel" aria-hidden="true" hx-get="{{$.Next}}" hx-trigger="revealed once" hx-target="closest ol" hx-swap="beforeend" hx-indicator="next .loading"></li>{{end}}{{template "row" (rowData $it "" $.CSRF $.Viewer)}}{{end}}{{if .Next}}<li class="more"><a href="{{.NextPage}}">more →</a><span class="loading htmx-indicator"> loading…</span></li>{{end}}{{end}}
 
 {{define "feed"}}{{if .Items}}<ol class="feed{{if .Compact}} compact{{end}}" id="feed">{{template "rows" .}}</ol>{{else}}<p class="muted">Nothing here yet.</p>{{end}}{{end}}

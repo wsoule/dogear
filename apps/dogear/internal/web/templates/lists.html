@@ -2,6 +2,7 @@
 {{with .Data}}
 <h1>lists</h1>
 <p class="lede">People's picks, each with their own notes, and every awesome list Dogear was seeded from.</p>
+<nav class="tabs" aria-label="Sort">{{$s := .Sort}}{{range .SortLinks}}<a href="{{.URL}}" {{if eq $s .Key}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}</nav>
 
 <h2>from people</h2>
 {{if .People}}
@@ -21,6 +22,7 @@
 {{range .Lists}}<tr>
   <td><a href="/c/{{.CategorySlug}}">{{.Title}}</a></td>
   <td class="muted"><a href="https://github.com/{{.Repo}}" rel="noopener">{{.Repo}}</a></td>
+  <td class="num">{{if .Stars}}★{{deref32 .Stars}}{{end}}</td>
   <td class="num">{{.ItemCount}}</td>
 </tr>{{end}}
 </tbody>

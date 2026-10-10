@@ -60,6 +60,9 @@ type feedData struct {
 	CSRF     string
 	Viewer   *service.Actor
 	Compact  bool // dense one-line rows instead of rows with blurbs
+	// PrefetchAt is the row index where the next page starts loading, about
+	// a dozen rows before the end so scrolling rarely waits.
+	PrefetchAt int
 }
 
 // assetVersions maps a static file name to a short content hash. Pages link

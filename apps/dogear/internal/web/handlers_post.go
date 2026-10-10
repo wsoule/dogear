@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 
 	"dogear/internal/service"
@@ -162,7 +163,13 @@ func (s *Server) block(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/u/"+url.PathEscape(username)+"?m=done", http.StatusSeeOther)
 }
 
-type listPage struct{ L service.ListView }
+type listPage struct {
+	L         service.ListView
+	Sort      string
+	SortLinks []tabLink
+}
+
+var listSortLabels = map[string]string{"owner": "their order", "top": "top", "added": "recently added", "az": "a–z"}
 
 func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 	lv, err := s.svc.GetList(r.Context(), viewer(r), r.PathValue("username"), r.PathValue("slug"))
@@ -170,8 +177,22 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 		s.serviceError(w, r, err)
 		return
 	}
+	sort := r.URL.Query().Get("sort")
+	if !slices.Contains(service.ListSorts, sort) {
+		sort = "owner"
+	}
+	service.SortEntries(lv.Entries, sort)
+	lp := listPage{L: lv, Sort: sort}
+	base := "/u/" + url.PathEscape(lv.Owner) + "/" + url.PathEscape(lv.Slug)
+	for _, k := range service.ListSorts {
+		u := base
+		if k != "owner" {
+			u += "?sort=" + k
+		}
+		lp.SortLinks = append(lp.SortLinks, tabLink{Key: k, Label: listSortLabels[k], URL: u})
+	}
 	s.render(w, r, http.StatusOK, "list", &Page{Title: lv.Title + " · @" + lv.Owner, Description: lv.Description,
-		NoIndex: !lv.Indexable, Data: listPage{L: lv}})
+		NoIndex: !lv.Indexable, Data: lp})
 }
 
 func (s *Server) createList(w http.ResponseWriter, r *http.Request) {

@@ -4,10 +4,11 @@
 <h1>{{.L.Title}}</h1>
 {{if .L.Description}}<p class="lede">{{.L.Description}}</p>{{end}}
 {{if .L.Entries}}
+<nav class="tabs" aria-label="Sort">{{$s := .Sort}}{{range .SortLinks}}<a href="{{.URL}}" {{if eq $s .Key}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}</nav>
 <ol class="feed">
 {{range $i, $e := .L.Entries}}
 {{template "row" (rowData $e.Item $e.Note $.CSRF $.Viewer)}}
-{{if $.Data.L.IsOwner}}
+{{if and $.Data.L.IsOwner (eq $.Data.Sort "owner")}}
 <li class="small">
   <form class="actions" method="post" action="/lists/{{$.Data.L.Slug}}/entries/{{$e.Item.ID}}">
     {{template "csrf" $.CSRF}}

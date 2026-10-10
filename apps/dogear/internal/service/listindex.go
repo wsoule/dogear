@@ -1,8 +1,11 @@
 package service
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 
 	"dogear/internal/db"
 )
@@ -64,4 +67,54 @@ func (s *Service) SourceForCategory(ctx context.Context, slug string) *db.Source
 		return nil
 	}
 	return &src
+}
+
+// ListSorts are the orders a single list can be viewed in: the owner's own
+// order, score, most recently added, and title A–Z.
+var ListSorts = []string{"owner", "top", "added", "az"}
+
+// SortEntries reorders a list's entries for display. Unknown sorts keep the
+// owner's order.
+func SortEntries(entries []Entry, sort string) {
+	switch sort {
+	case "top":
+		slices.SortStableFunc(entries, func(a, b Entry) int { return cmp.Compare(b.Item.Score, a.Item.Score) })
+	case "added":
+		slices.SortStableFunc(entries, func(a, b Entry) int { return b.AddedAt.Compare(a.AddedAt) })
+	case "az":
+		slices.SortStableFunc(entries, func(a, b Entry) int {
+			return cmp.Compare(strings.ToLower(a.Item.Title), strings.ToLower(b.Item.Title))
+		})
+	}
+}
+
+// IndexSorts are the orders for the awesome lists on /lists.
+var IndexSorts = []string{"name", "items", "stars"}
+
+// SortIndex returns a copy of the index with each group's awesome lists and
+// the people's lists reordered.
+func SortIndex(idx ListIndex, sort string) ListIndex {
+	out := idx
+	out.Awesome = make([]AwesomeGroup, len(idx.Awesome))
+	for i, g := range idx.Awesome {
+		lists := slices.Clone(g.Lists)
+		switch sort {
+		case "items":
+			slices.SortStableFunc(lists, func(a, b db.SourceListIndexRow) int { return cmp.Compare(b.ItemCount, a.ItemCount) })
+		case "stars":
+			star := func(r db.SourceListIndexRow) int32 {
+				if r.Stars == nil {
+					return -1
+				}
+				return *r.Stars
+			}
+			slices.SortStableFunc(lists, func(a, b db.SourceListIndexRow) int { return cmp.Compare(star(b), star(a)) })
+		}
+		out.Awesome[i] = AwesomeGroup{Name: g.Name, Slug: g.Slug, Lists: lists}
+	}
+	out.People = slices.Clone(idx.People)
+	if sort == "items" {
+		slices.SortStableFunc(out.People, func(a, b db.PublicListsRow) int { return cmp.Compare(b.EntryCount, a.EntryCount) })
+	}
+	return out
 }

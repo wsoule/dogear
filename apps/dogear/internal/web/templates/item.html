@@ -1,6 +1,7 @@
 {{define "content"}}
 {{with .Data}}
 <ol class="feed">{{template "row" (rowData .Item "" $.CSRF $.Viewer)}}</ol>
+<p><a class="btn ghost" href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank">visit {{.Item.Domain}} ↗</a></p>
 <dl class="kv small">
   {{if .Item.Poster}}<dt>posted by</dt><dd><a href="/u/{{.Item.Poster}}">@{{.Item.Poster}}</a> via {{.Item.Via}}</dd>{{else if eq .Item.Via "import"}}<dt>source</dt><dd>imported from awesome lists</dd>{{end}}
   <dt>added</dt><dd>{{date .Item.CreatedAt}}</dd>
