@@ -52,8 +52,8 @@ type Config struct {
 	CloudflareOriginSecret string
 	ContactEmail           string
 
-	// VoyageAPIKey enables semantic search (Voyage AI embeddings).
-	VoyageAPIKey string
+	// OpenAIAPIKey enables semantic search (OpenAI embeddings).
+	OpenAIAPIKey string
 
 	// loggit integration ("Sign in with loggit" + two-way list sync).
 	LoggitAPIURL, LoggitWebURL         string
@@ -113,7 +113,7 @@ func Load(need ...string) (*Config, error) {
 		IPHashSalt:             os.Getenv("IP_HASH_SALT"),
 		ContactEmail:           env("CONTACT_EMAIL", "hello@dogear.fyi"),
 		CloudflareOriginSecret: os.Getenv("CLOUDFLARE_ORIGIN_SECRET"),
-		VoyageAPIKey:           os.Getenv("VOYAGE_API_KEY"),
+		OpenAIAPIKey:           os.Getenv("OPENAI_API_KEY"),
 		LoggitAPIURL:           env("LOGGIT_API_URL", "https://api.useloggit.app"),
 		LoggitWebURL:           env("LOGGIT_WEB_URL", "https://useloggit.app"),
 		LoggitClientID:         os.Getenv("LOGGIT_CLIENT_ID"),

@@ -46,15 +46,15 @@ type rowData struct {
 	Note   string
 	CSRF   string
 	Viewer *service.Actor
-	Badge  string // small extra label, e.g. "not on loggit"
+	Badge  string      // small extra label, e.g. "not on loggit"
 	Owner  *entryTools // owner controls on their own list page
 }
 
 // entryTools are the list owner's controls shown inside a list entry row.
 type entryTools struct {
-	Slug          string
-	First, Last   bool
-	CanReorder    bool // only in the owner's own order
+	Slug        string
+	First, Last bool
+	CanReorder  bool // only in the owner's own order
 }
 
 // dogearState drives the corner dog-ear button on item pages.

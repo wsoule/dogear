@@ -14,9 +14,9 @@ import (
 	"dogear/internal/embed"
 )
 
-// fakeVoyage embeds text as a hashed bag of words, so texts sharing words
+// fakeEmbeddings embeds text as a hashed bag of words, so texts sharing words
 // are close. Enough to exercise the pipeline without the real API.
-func fakeVoyage(t *testing.T) *httptest.Server {
+func fakeEmbeddings(t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Input []string `json:"input"`
@@ -46,7 +46,7 @@ func fakeVoyage(t *testing.T) *httptest.Server {
 func TestHybridSearch(t *testing.T) {
 	s := newTestService(t)
 	ctx := context.Background()
-	srv := fakeVoyage(t)
+	srv := fakeEmbeddings(t)
 	defer srv.Close()
 	s.Embed = &embed.Client{APIKey: "k", URL: srv.URL, HTTP: srv.Client()}
 	s.Vectors = embed.NewIndex()
@@ -98,7 +98,7 @@ func liveItemTitled(t *testing.T, s *Service, by *Actor, title string) int64 {
 
 func TestHybridBadCursor(t *testing.T) {
 	s := newTestService(t)
-	srv := fakeVoyage(t)
+	srv := fakeEmbeddings(t)
 	defer srv.Close()
 	s.Embed = &embed.Client{APIKey: "k", URL: srv.URL, HTTP: srv.Client()}
 	s.Vectors = embed.NewIndex()

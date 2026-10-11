@@ -1,7 +1,7 @@
-// Package embed computes Voyage AI text embeddings and keeps an in-memory
-// index of item vectors for semantic search. Vectors are 256-dimension int8
-// (256 bytes per item), so ~100k items fit in about 25 MB and a full scan
-// takes a few milliseconds, without needing pgvector.
+// Package embed computes OpenAI text embeddings and keeps an in-memory
+// index of item vectors for semantic search. Vectors are 256 dimensions,
+// quantized to int8 (256 bytes per item), so ~100k items fit in about 25 MB
+// and a full scan takes a few milliseconds, without needing pgvector.
 package embed
 
 import (
@@ -19,27 +19,27 @@ import (
 )
 
 const (
-	Model = "voyage-4-lite"
+	Model = "text-embedding-3-small"
 	Dims  = 256
 )
 
-// Client calls the Voyage embeddings API.
+// Client calls the OpenAI embeddings API.
 type Client struct {
 	APIKey string
 	HTTP   *http.Client
-	URL    string // default https://api.voyageai.com/v1/embeddings
+	URL    string // default https://api.openai.com/v1/embeddings
 }
 
 func (c *Client) Enabled() bool { return c != nil && c.APIKey != "" }
 
-// Embed returns one int8 vector per input. kind is "document" for items and
-// "query" for searches (Voyage tunes the two differently).
+// Embed returns one int8 vector per input. kind ("document" or "query") is
+// accepted for callers' clarity; OpenAI embeds both the same way.
 func (c *Client) Embed(ctx context.Context, inputs []string, kind string) ([][]int8, error) {
-	body, _ := json.Marshal(map[string]any{"input": inputs, "model": Model, "input_type": kind,
-		"output_dimension": Dims, "output_dtype": "int8", "truncation": true})
+	_ = kind
+	body, _ := json.Marshal(map[string]any{"input": inputs, "model": Model, "dimensions": Dims})
 	u := c.URL
 	if u == "" {
-		u = "https://api.voyageai.com/v1/embeddings"
+		u = "https://api.openai.com/v1/embeddings"
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(body))
 	if err != nil {
@@ -62,34 +62,48 @@ func (c *Client) Embed(ctx context.Context, inputs []string, kind string) ([][]i
 		if len(msg) > 300 {
 			msg = msg[:300]
 		}
-		return nil, fmt.Errorf("voyage: status %d: %s", resp.StatusCode, msg)
+		return nil, fmt.Errorf("openai embeddings: status %d: %s", resp.StatusCode, msg)
 	}
 	var out struct {
 		Data []struct {
-			Embedding []int `json:"embedding"`
-			Index     int   `json:"index"`
+			Embedding []float64 `json:"embedding"`
+			Index     int       `json:"index"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, fmt.Errorf("voyage decode: %w", err)
+		return nil, fmt.Errorf("openai embeddings decode: %w", err)
 	}
 	vecs := make([][]int8, len(inputs))
 	for _, d := range out.Data {
 		if d.Index < 0 || d.Index >= len(vecs) || len(d.Embedding) != Dims {
-			return nil, fmt.Errorf("voyage: unexpected embedding shape")
+			return nil, fmt.Errorf("openai embeddings: unexpected shape")
 		}
-		v := make([]int8, Dims)
-		for i, x := range d.Embedding {
-			v[i] = int8(max(-128, min(127, x)))
-		}
-		vecs[d.Index] = v
+		vecs[d.Index] = quantize(d.Embedding)
 	}
 	for i, v := range vecs {
 		if v == nil {
-			return nil, fmt.Errorf("voyage: missing embedding %d", i)
+			return nil, fmt.Errorf("openai embeddings: missing embedding %d", i)
 		}
 	}
 	return vecs, nil
+}
+
+// quantize scales a float vector so its largest component maps to ±127 and
+// rounds to int8. Cosine similarity ignores scale, so rankings are preserved
+// while storage and scans stay four times smaller than float32.
+func quantize(f []float64) []int8 {
+	var peak float64
+	for _, x := range f {
+		peak = max(peak, math.Abs(x))
+	}
+	v := make([]int8, len(f))
+	if peak == 0 {
+		return v
+	}
+	for i, x := range f {
+		v[i] = int8(math.Round(x / peak * 127))
+	}
+	return v
 }
 
 // Bytes and FromBytes convert vectors for storage in a BYTEA column.

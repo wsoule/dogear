@@ -92,7 +92,7 @@ func (s *Service) BackfillEmbeddings(ctx context.Context, n int) (int, error) {
 
 // RunEmbeddings loads the index, then keeps embedding new items: quickly
 // while there is a backlog, every few minutes after that, backing off when
-// Voyage rate-limits.
+// OpenAI rate-limits.
 func (s *Service) RunEmbeddings(ctx context.Context) {
 	if !s.Embed.Enabled() {
 		return

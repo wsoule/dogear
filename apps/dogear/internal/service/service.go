@@ -70,7 +70,7 @@ func New(pool *pgxpool.Pool, cfg *config.Config, cl classify.Classifier, log *sl
 		feedCache:     newTTLCache[FeedPage](time.Minute),
 		indexCache:    newTTLCache[ListIndex](time.Minute),
 		queryCache:    newTTLCache[[]int8](10 * time.Minute),
-		Embed:         &embed.Client{APIKey: cfg.VoyageAPIKey},
+		Embed:         &embed.Client{APIKey: cfg.OpenAIAPIKey},
 		Vectors:       embed.NewIndex(),
 	}
 }
