@@ -387,13 +387,7 @@ func (s *Service) GetList(ctx context.Context, viewer *Actor, username, slug str
 	var items []db.Item
 	var keep []db.ListEntriesRow
 	for _, r := range rows {
-		it := db.Item{ID: r.ID, Url: r.Url, UrlNorm: r.UrlNorm, Domain: r.Domain, Title: r.Title, Blurb: r.Blurb,
-			CreatedBy: r.CreatedBy, CreatedViaToken: r.CreatedViaToken, Via: r.Via, Status: r.Status,
-			LinkStatus: r.LinkStatus, LinkFailCount: r.LinkFailCount, LinkCheckedAt: r.LinkCheckedAt,
-			GithubStars: r.GithubStars, ListCount: r.ListCount, PriorScore: r.PriorScore, LikeCount: r.LikeCount,
-			DislikeCount: r.DislikeCount, Score: r.Score, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
-			Kind: r.Kind, Creator: r.Creator, Flags: r.Flags, RemovedAt: r.RemovedAt,
-			ImageUrl: r.ImageUrl, ImageState: r.ImageState, ImageCheckedAt: r.ImageCheckedAt}
+		it := r.Item
 		if !owner {
 			if it.Status != "live" || it.LinkStatus == "dead" {
 				continue

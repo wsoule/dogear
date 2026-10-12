@@ -3,10 +3,10 @@
 <h1>search</h1>
 <form class="stack" method="get" action="/search" role="search">
   <label><span class="sr-only">Search</span>
-  <input type="search" name="q" value="{{.Q}}" placeholder="title, reason, or domain" autofocus
+  <input type="search" name="q" value="{{.Q}}" placeholder="a topic, a title, a channel or person" autofocus
     hx-get="/search" hx-trigger="input changed delay:300ms, search" hx-target="#results" hx-push-url="true"></label>
 </form>
 <div id="results">{{template "results" .}}</div>
 {{end}}
 {{end}}
-{{define "results"}}{{if .Q}}{{template "feed" .Feed}}{{else}}<p class="muted">Type to search {{.Total}} things people recommend.</p>{{end}}{{end}}
+{{define "results"}}{{if .Q}}{{if .Creators.Items}}<section class="creators" aria-label="Channels and people"><h2 class="small muted">channels &amp; people</h2>{{template "feed" .Creators}}</section>{{end}}{{template "feed" .Feed}}{{else}}<p class="muted">Type to search {{.Total}} things people recommend.</p>{{end}}{{end}}

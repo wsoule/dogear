@@ -52,11 +52,12 @@ func (st SyncStore) LoadProfile(ctx context.Context, userID int64, includePosted
 		}
 		gl := ghsync.List{Title: l.Title, Slug: l.Slug, Description: l.Description}
 		for _, r := range rows {
-			if r.Status != "live" || r.LinkStatus == "dead" {
+			it := r.Item
+			if it.Status != "live" || it.LinkStatus == "dead" {
 				continue
 			}
-			gl.Entries = append(gl.Entries, ghsync.Entry{Title: r.Title, URL: r.Url, Note: r.Note, Blurb: r.Blurb})
-			inList[r.ID] = true
+			gl.Entries = append(gl.Entries, ghsync.Entry{Title: it.Title, URL: it.Url, Note: r.Note, Blurb: it.Blurb})
+			inList[it.ID] = true
 			count++
 		}
 		p.Lists = append(p.Lists, gl)

@@ -351,6 +351,7 @@ func (s *Service) RunBackground(ctx context.Context) {
 			s.RetryClassification(ctx)
 			s.BackfillImages(ctx, 60)
 			s.BackfillTranscripts(ctx, 10)
+			s.BackfillMedia(ctx, 10)
 		case <-hour.C:
 			s.Maintenance(ctx)
 		}

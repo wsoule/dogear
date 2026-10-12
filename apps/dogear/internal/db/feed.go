@@ -67,7 +67,9 @@ func (q *Queries) Feed(ctx context.Context, p FeedParams) ([]Item, error) {
 			" OR EXISTS (SELECT 1 FROM item_transcripts t WHERE t.item_id = i.id AND t.ok AND t.text ILIKE "+pat+"))")
 	}
 	if p.Sort == "new" {
-		where = append(where, "i.via <> 'import'")
+		// New means things people posted, not imports or the channels and
+		// people Dogear added from them.
+		where = append(where, "i.via NOT IN ('import', 'auto')")
 	}
 	// Items by banned users are hidden; shadow-banned users' items are
 	// visible only to themselves. NOT EXISTS (rather than a join) keeps the

@@ -1141,3 +1141,14 @@ details.note-edit[open] > summary {
   color: var(--ink);
   overflow-wrap: anywhere;
 }
+
+/* channels and people above search results */
+.creators {
+  margin: 0 0 20px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule);
+}
+.creators h2 {
+  margin: 0 0 4px;
+  font-weight: normal;
+}

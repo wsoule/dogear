@@ -93,6 +93,12 @@ type Item struct {
 	ImageCheckedAt  *time.Time
 	Embedding       []byte
 	EmbeddedHash    []byte
+	CreatorID       *int64
+	DurationSeconds *int32
+	PublishedAt     *time.Time
+	ReadingMinutes  *int16
+	SiteName        string
+	MediaCheckedAt  *time.Time
 }
 
 type ItemCategory struct {

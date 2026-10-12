@@ -12,7 +12,7 @@ import (
 )
 
 // Kinds is the fixed set of item kinds, matching the items.kind CHECK constraint.
-var Kinds = []string{"site", "tool", "app", "book", "device", "video", "article", "other"}
+var Kinds = []string{"site", "tool", "app", "book", "device", "video", "article", "channel", "person", "other"}
 
 // IsKind reports whether k is one of Kinds.
 func IsKind(k string) bool {

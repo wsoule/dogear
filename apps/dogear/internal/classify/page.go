@@ -18,6 +18,12 @@ type Page struct {
 	// Image is the og:image or twitter:image URL as written on the page
 	// (possibly relative); callers resolve it against the page URL.
 	Image string
+	// OGType is og:type ("article", "website", ...) and Published is
+	// article:published_time as written on the page.
+	OGType, Published string
+	// Words counts every visible word, not just the kept Text, for reading
+	// time.
+	Words int
 }
 
 // hiddenElems are elements whose text content is never visible.
@@ -44,8 +50,18 @@ func ExtractPage(doc []byte) Page {
 		title                 strings.Builder
 		lastSpace             = true
 	)
-	// addText appends s with whitespace collapsed, stopping at maxPageText runes.
+	// addText appends s with whitespace collapsed, stopping at maxPageText
+	// runes, and counts its words.
+	inWord := false
 	addText := func(s string) {
+		for _, r := range s {
+			if unicode.IsSpace(r) {
+				inWord = false
+			} else if !inWord {
+				inWord = true
+				p.Words++
+			}
+		}
 		for _, r := range s {
 			if textLen >= maxPageText {
 				return
@@ -111,6 +127,10 @@ func ExtractPage(doc []byte) Page {
 					setOnce(&p.Image)
 				case prop == "article:author" || name == "article:author":
 					setOnce(&artAuthor)
+				case prop == "og:type" || name == "og:type":
+					setOnce(&p.OGType)
+				case prop == "article:published_time" || name == "article:published_time":
+					setOnce(&p.Published)
 				}
 			case atom.Br, atom.P, atom.Div, atom.Li, atom.Td, atom.Th, atom.Tr,
 				atom.H1, atom.H2, atom.H3, atom.H4, atom.H5, atom.H6, atom.Section, atom.Article:

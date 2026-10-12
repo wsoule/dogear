@@ -233,3 +233,41 @@ LIMIT $2;
 
 -- name: ItemsByIDs :many
 SELECT * FROM items WHERE id = ANY(@ids::bigint[]);
+
+-- name: SetItemDetails :exec
+-- Records what the media lookup found. The creator name fills in only when
+-- the poster left it blank; media_checked_at is set even when nothing was
+-- found so the backfill moves on.
+UPDATE items SET
+  creator_id = COALESCE(sqlc.narg(creator_id)::bigint, creator_id),
+  creator = CASE WHEN creator = '' THEN @creator::text ELSE creator END,
+  duration_seconds = COALESCE(sqlc.narg(duration_seconds)::int, duration_seconds),
+  published_at = COALESCE(sqlc.narg(published_at)::timestamptz, published_at),
+  reading_minutes = COALESCE(sqlc.narg(reading_minutes)::smallint, reading_minutes),
+  site_name = CASE WHEN @site_name::text <> '' THEN @site_name::text ELSE site_name END,
+  media_checked_at = now()
+WHERE id = @id;
+
+-- name: ItemsNeedingMedia :many
+-- Videos, articles, and newsletter posts not yet looked at; people's own
+-- posts first, then by rank.
+SELECT id, url_norm, kind FROM items
+WHERE status = 'live' AND media_checked_at IS NULL
+  AND (kind IN ('video','article') OR domain LIKE '%.substack.com' OR domain = 'medium.com')
+ORDER BY (via IN ('web','api','mcp')) DESC, score DESC
+LIMIT $1;
+
+-- name: CreatorWorks :many
+-- A creator's works on Dogear, best first.
+SELECT * FROM items
+WHERE creator_id = $1 AND status = 'live' AND link_status <> 'dead'
+ORDER BY score DESC, id DESC
+LIMIT $2;
+
+-- name: CreatorsByName :many
+-- Live channels and people whose name or address contains q, best first.
+SELECT * FROM items
+WHERE kind IN ('channel','person') AND status = 'live' AND link_status <> 'dead'
+  AND (title ILIKE '%' || @q::text || '%' OR url_norm ILIKE '%' || @q::text || '%')
+ORDER BY score DESC, id DESC
+LIMIT @lim;

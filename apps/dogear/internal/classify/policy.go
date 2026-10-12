@@ -3,6 +3,8 @@ package classify
 import (
 	"net/url"
 	"strings"
+
+	"dogear/internal/safety"
 )
 
 // UnsortedSlug is the hidden category for items the classifier cannot place.
@@ -138,6 +140,9 @@ func kindFromDomain(raw string) string {
 	host := strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.")
 	switch host {
 	case "youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be":
+		if safety.IsYouTubeChannel(raw) {
+			return "channel"
+		}
 		return "video"
 	case "apps.apple.com", "play.google.com":
 		return "app"

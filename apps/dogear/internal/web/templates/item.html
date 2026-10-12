@@ -3,7 +3,7 @@
 {{with .Item.Category}}<nav class="crumbs" aria-label="Breadcrumb"><a href="/categories">categories</a> / {{if .Parent}}<a href="/c/{{.Parent}}">{{$.Data.ParentName}}</a> / {{end}}<a href="/c/{{.Slug}}"><span class="sr-only">list </span>{{.Name}}</a></nav>{{end}}
 <h1 class="item-title">{{.Item.Title}}</h1>
 <p class="item-meta">
-  <span>{{.Item.Domain}}</span><span>{{.Item.Kind}}</span>{{if .Item.Creator}}<span>{{.Item.Creator}}</span>{{end}}
+  <span>{{.Item.Domain}}</span><span>{{.Item.Kind}}</span>{{with .Item.Length}}<span>{{.}}</span>{{end}}{{if .Item.Creator}}<span>{{if .Item.CreatorID}}by <a href="/i/{{.Item.CreatorID}}">{{.Item.Creator}}</a>{{else}}{{.Item.Creator}}{{end}}</span>{{end}}
   {{if .Item.Agent}}<span class="label" title="posted by an agent">agent</span>{{end}}
   {{if ne .Item.Status "live"}}<span class="label warn">{{.Item.Status}}</span>{{end}}
   {{if eq .Item.LinkStatus "dead"}}<span class="label warn">dead link</span>{{end}}
@@ -27,9 +27,11 @@
 
 <dl class="kv small">
   {{if .Item.Poster}}<dt>posted by</dt><dd><a href="/u/{{.Item.Poster}}">@{{.Item.Poster}}</a></dd>{{else if eq .Item.Via "import"}}<dt>from</dt><dd>{{range $i, $s := .Item.Sources}}{{if $i}}, {{end}}<a href="https://github.com/{{$s.Repo}}" rel="nofollow noopener">{{$s.Title}}</a>{{end}}</dd>{{end}}
+  {{with .Item.PublishedAt}}<dt>published</dt><dd>{{date (derefTime .)}}</dd>{{end}}
   <dt>added</dt><dd>{{date .Item.CreatedAt}}</dd>
   <dt>likes</dt><dd>{{.Item.Likes}}</dd>
 </dl>
+{{if .Works.Items}}<h2>{{if eq .Item.Kind "channel"}}from this channel{{else}}their work{{end}} on dogear</h2>{{template "feed" .Works}}{{end}}
 {{if .Similar.Items}}<h2>similar</h2>{{template "feed" .Similar}}{{end}}
 {{range .Item.Sources}}{{if .Description}}<p class="small muted quote">{{.Title}}{{if .HeadingPath}} › {{.HeadingPath}}{{end}}: “{{.Description}}”</p>{{end}}{{end}}
 

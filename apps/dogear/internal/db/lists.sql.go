@@ -400,7 +400,7 @@ func (q *Queries) LinkedLoggitListIDs(ctx context.Context, userID int64) ([]stri
 }
 
 const listEntries = `-- name: ListEntries :many
-SELECT COALESCE(s.note, '')::text AS note, li.position, li.added_at, i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at, i.image_url, i.image_state, i.image_checked_at, i.embedding, i.embedded_hash
+SELECT COALESCE(s.note, '')::text AS note, li.position, li.added_at, i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at, i.image_url, i.image_state, i.image_checked_at, i.embedding, i.embedded_hash, i.creator_id, i.duration_seconds, i.published_at, i.reading_minutes, i.site_name, i.media_checked_at
 FROM list_items li JOIN lists l ON l.id = li.list_id JOIN items i ON i.id = li.item_id
 LEFT JOIN saves s ON s.user_id = l.user_id AND s.item_id = li.item_id
 WHERE li.list_id = $1
@@ -408,39 +408,10 @@ ORDER BY li.position, li.added_at
 `
 
 type ListEntriesRow struct {
-	Note            string
-	Position        int32
-	AddedAt         time.Time
-	ID              int64
-	Url             string
-	UrlNorm         string
-	Domain          string
-	Title           string
-	Blurb           string
-	CreatedBy       *int64
-	CreatedViaToken *int64
-	Via             string
-	Status          string
-	LinkStatus      string
-	LinkFailCount   int16
-	LinkCheckedAt   *time.Time
-	GithubStars     *int32
-	ListCount       int32
-	PriorScore      float32
-	LikeCount       int32
-	DislikeCount    int32
-	Score           float64
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	Kind            string
-	Creator         string
-	Flags           []string
-	RemovedAt       *time.Time
-	ImageUrl        *string
-	ImageState      string
-	ImageCheckedAt  *time.Time
-	Embedding       []byte
-	EmbeddedHash    []byte
+	Note     string
+	Position int32
+	AddedAt  time.Time
+	Item     Item
 }
 
 // A tag's entries; the note comes from the owner's save of the item.
@@ -457,36 +428,42 @@ func (q *Queries) ListEntries(ctx context.Context, listID int64) ([]ListEntriesR
 			&i.Note,
 			&i.Position,
 			&i.AddedAt,
-			&i.ID,
-			&i.Url,
-			&i.UrlNorm,
-			&i.Domain,
-			&i.Title,
-			&i.Blurb,
-			&i.CreatedBy,
-			&i.CreatedViaToken,
-			&i.Via,
-			&i.Status,
-			&i.LinkStatus,
-			&i.LinkFailCount,
-			&i.LinkCheckedAt,
-			&i.GithubStars,
-			&i.ListCount,
-			&i.PriorScore,
-			&i.LikeCount,
-			&i.DislikeCount,
-			&i.Score,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Kind,
-			&i.Creator,
-			&i.Flags,
-			&i.RemovedAt,
-			&i.ImageUrl,
-			&i.ImageState,
-			&i.ImageCheckedAt,
-			&i.Embedding,
-			&i.EmbeddedHash,
+			&i.Item.ID,
+			&i.Item.Url,
+			&i.Item.UrlNorm,
+			&i.Item.Domain,
+			&i.Item.Title,
+			&i.Item.Blurb,
+			&i.Item.CreatedBy,
+			&i.Item.CreatedViaToken,
+			&i.Item.Via,
+			&i.Item.Status,
+			&i.Item.LinkStatus,
+			&i.Item.LinkFailCount,
+			&i.Item.LinkCheckedAt,
+			&i.Item.GithubStars,
+			&i.Item.ListCount,
+			&i.Item.PriorScore,
+			&i.Item.LikeCount,
+			&i.Item.DislikeCount,
+			&i.Item.Score,
+			&i.Item.CreatedAt,
+			&i.Item.UpdatedAt,
+			&i.Item.Kind,
+			&i.Item.Creator,
+			&i.Item.Flags,
+			&i.Item.RemovedAt,
+			&i.Item.ImageUrl,
+			&i.Item.ImageState,
+			&i.Item.ImageCheckedAt,
+			&i.Item.Embedding,
+			&i.Item.EmbeddedHash,
+			&i.Item.CreatorID,
+			&i.Item.DurationSeconds,
+			&i.Item.PublishedAt,
+			&i.Item.ReadingMinutes,
+			&i.Item.SiteName,
+			&i.Item.MediaCheckedAt,
 		); err != nil {
 			return nil, err
 		}

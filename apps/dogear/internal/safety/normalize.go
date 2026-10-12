@@ -249,6 +249,13 @@ func YouTubeID(normURL string) (string, bool) {
 	return id, true
 }
 
+// youTubeChannelRe matches a normalized YouTube channel URL: a handle, a
+// channel id, or the legacy /c/ and /user/ forms, with nothing after it.
+var youTubeChannelRe = regexp.MustCompile(`^https://youtube\.com/(@[^/?#]+|channel/[^/?#]+|c/[^/?#]+|user/[^/?#]+)$`)
+
+// IsYouTubeChannel reports whether normURL is a YouTube channel's home page.
+func IsYouTubeChannel(normURL string) bool { return youTubeChannelRe.MatchString(normURL) }
+
 // shortenerDomains are URL shorteners rejected at submit time because they
 // hide the real destination and defeat domain-based rules.
 var shortenerDomains = map[string]bool{

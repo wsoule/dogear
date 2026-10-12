@@ -44,7 +44,7 @@ var seq = time.Now().UnixNano() % 1_000_000
 func newUser(t *testing.T, s *Service, trust int16) *Actor {
 	t.Helper()
 	seq++
-	name := fmt.Sprintf("u%d", seq)
+	name := fmt.Sprintf("u%07d", seq)
 	u, err := s.SignUp(context.Background(), ExternalIdentity{Provider: "github", ProviderUserID: name}, name, "", "127.0.0.1")
 	if err != nil {
 		t.Fatal(err)

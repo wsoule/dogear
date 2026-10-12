@@ -35,7 +35,7 @@ FROM saves s WHERE s.user_id = $1 AND s.item_id = ANY(@ids::bigint[]);
 -- One page of a user's archive, newest first, keyset-paginated on
 -- (saved_at, item_id). With public_only, a save is hidden when any of its
 -- tags is not public, so private tags never leak through the archive.
-SELECT s.note, s.saved_at, i.*
+SELECT s.note, s.saved_at, sqlc.embed(i)
 FROM saves s JOIN items i ON i.id = s.item_id
 WHERE s.user_id = @user_id
   AND (sqlc.narg(before_at)::timestamptz IS NULL

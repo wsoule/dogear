@@ -79,7 +79,7 @@ func TestKindFor(t *testing.T) {
 	}{
 		{"book", "https://www.youtube.com/watch?v=x", conf("video", 1), "book"},
 		{"", "https://www.youtube.com/watch?v=abc", conf("article", 0.99), "video"},
-		{"", "https://youtube.com/@channel", Result{}, "video"},
+		{"", "https://youtube.com/@channel", Result{}, "channel"},
 		{"", "https://youtu.be/abc", Result{}, "video"},
 		{"", "https://m.youtube.com/watch?v=abc", Result{}, "video"},
 		{"", "https://github.com/BurntSushi/ripgrep", conf("site", 0.9), "tool"},
@@ -129,6 +129,7 @@ directories.</p><svg><text>svg text</text></svg>
 		Author:      "Andrew Gallant",
 		SiteName:    "GitHub",
 		OGTitle:     "ripgrep on GitHub",
+		Words:       8,
 	}
 	if p != want {
 		t.Errorf("ExtractPage =\n%+v\nwant\n%+v", p, want)

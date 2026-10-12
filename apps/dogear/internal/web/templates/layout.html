@@ -102,7 +102,7 @@
   <a class="title" href="/i/{{.Item.ID}}">{{.Item.Title}}</a>
   <span class="domain small">{{.Item.Domain}}</span>
   <div class="meta">
-    <span>{{.Item.Kind}}{{if .Item.Creator}} · {{.Item.Creator}}{{end}}</span>
+    <span>{{.Item.Kind}}{{with .Item.Length}} · {{.}}{{end}}{{if .Item.Creator}} · {{if .Item.CreatorID}}<a class="creator" href="/i/{{.Item.CreatorID}}">{{.Item.Creator}}</a>{{else}}{{.Item.Creator}}{{end}}{{else if and .Item.SiteName (ne .Item.SiteName .Item.Domain)}} · {{.Item.SiteName}}{{end}}</span>
     {{with .Item.Category}}<a href="/c/{{.Slug}}"><span class="sr-only">category </span>#{{.Slug}}</a>{{end}}
     <a class="out" href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank">link ↗</a>
     {{if $.Viewer}}{{template "dogearinline" (dogearData .Item $.CSRF)}}{{end}}

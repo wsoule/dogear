@@ -261,6 +261,8 @@ type searchPage struct {
 	Q     string
 	Total string
 	Feed  feedData
+	// Creators are channels and people for the query, shown above results.
+	Creators feedData
 }
 
 func (s *Server) search(w http.ResponseWriter, r *http.Request) {
@@ -279,12 +281,23 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 			s.fragment(w, http.StatusOK, "feed", "rows", fd)
 			return
 		}
+		if cs, err := s.svc.SearchCreators(r.Context(), viewer(r), q, fd.Items, 6); err == nil && len(cs) > 0 {
+			sp.Creators = feedData{Items: cs, CSRF: fd.CSRF, Viewer: fd.Viewer, Compact: true}
+			// Don't list a creator twice: drop the strip's entries from the
+			// results below it.
+			sp.Feed.Items = slices.DeleteFunc(slices.Clone(fd.Items), func(it service.Item) bool {
+				return slices.ContainsFunc(cs, func(c service.Item) bool { return c.ID == it.ID })
+			})
+		}
 	}
 	if t := r.Header.Get("HX-Target"); r.Header.Get("HX-Request") != "" && (t == "results" || t == "cmdk-results") {
 		if t == "cmdk-results" {
 			// The ⌘K dialog shows a short, compact result list.
 			if len(sp.Feed.Items) > 8 {
 				sp.Feed.Items = sp.Feed.Items[:8]
+			}
+			if len(sp.Creators.Items) > 3 {
+				sp.Creators.Items = sp.Creators.Items[:3]
 			}
 			sp.Feed.Next, sp.Feed.NextPage, sp.Feed.Compact = "", "", true
 		}
@@ -310,6 +323,7 @@ type itemPage struct {
 	Item       service.Item
 	ParentName string
 	Similar    feedData // closest items by meaning
+	Works      feedData // a channel's or person's works, on their own page
 	Save       saveMenuData
 	Reasons    []string
 }
@@ -328,6 +342,11 @@ func (s *Server) item(w http.ResponseWriter, r *http.Request) {
 	ip := itemPage{Item: it, Reasons: []string{"spam", "dead", "offensive", "duplicate", "other"}}
 	if sim, err := s.svc.Similar(r.Context(), viewer(r), it.ID, 6); err == nil && len(sim) > 0 {
 		ip.Similar = feedData{Items: sim, CSRF: reqCtx(r).csrf, Viewer: viewer(r), Compact: true}
+	}
+	if it.IsCreator() {
+		if works, err := s.svc.CreatorWorks(r.Context(), viewer(r), it.ID, 50); err == nil && len(works) > 0 {
+			ip.Works = feedData{Items: works, CSRF: reqCtx(r).csrf, Viewer: viewer(r), Compact: true}
+		}
 	}
 	if it.Category != nil && it.Category.Parent != "" {
 		ip.ParentName = it.Category.Parent

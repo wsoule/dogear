@@ -124,8 +124,10 @@ var kindCriteria = map[string]string{
 	"app":     "An installable end-user application for phone, desktop, or tablet, such as an App Store or Google Play listing or an app's home page.",
 	"book":    "A book or ebook, including a free online book, a publisher's page, or a store listing for a book.",
 	"device":  "A physical product or hardware: a computer, phone, keyboard, headphones, wearable, or gadget.",
-	"video":   "A video, video series, talk recording, or video channel.",
+	"video":   "A single video, video series, or talk recording.",
 	"article": "A single article, essay, blog post, tutorial, or paper.",
+	"channel": "A creator's channel or publication as a whole: a YouTube channel, podcast, newsletter, or Substack.",
+	"person":  "A person's own page: their homepage, portfolio, or author profile.",
 	"other":   "Something that fits none of the other kinds.",
 }
 

@@ -52,7 +52,7 @@ WHERE list_id = $1 AND item_id = $2;
 
 -- name: ListEntries :many
 -- A tag's entries; the note comes from the owner's save of the item.
-SELECT COALESCE(s.note, '')::text AS note, li.position, li.added_at, i.*
+SELECT COALESCE(s.note, '')::text AS note, li.position, li.added_at, sqlc.embed(i)
 FROM list_items li JOIN lists l ON l.id = li.list_id JOIN items i ON i.id = li.item_id
 LEFT JOIN saves s ON s.user_id = l.user_id AND s.item_id = li.item_id
 WHERE li.list_id = $1

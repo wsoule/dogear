@@ -201,19 +201,13 @@ func (s *Service) Archive(ctx context.Context, viewer *Actor, userID int64, curs
 	var out ArchiveView
 	if len(rows) > archivePageSize {
 		last := rows[archivePageSize-1]
-		out.Next = encodeArchiveCursor(last.SavedAt, last.ID)
+		out.Next = encodeArchiveCursor(last.SavedAt, last.Item.ID)
 		rows = rows[:archivePageSize]
 	}
 	var items []db.Item
 	var keep []db.ArchivePageRow
 	for _, r := range rows {
-		it := db.Item{ID: r.ID, Url: r.Url, UrlNorm: r.UrlNorm, Domain: r.Domain, Title: r.Title, Blurb: r.Blurb,
-			CreatedBy: r.CreatedBy, CreatedViaToken: r.CreatedViaToken, Via: r.Via, Status: r.Status,
-			LinkStatus: r.LinkStatus, LinkFailCount: r.LinkFailCount, LinkCheckedAt: r.LinkCheckedAt,
-			GithubStars: r.GithubStars, ListCount: r.ListCount, PriorScore: r.PriorScore, LikeCount: r.LikeCount,
-			DislikeCount: r.DislikeCount, Score: r.Score, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
-			Kind: r.Kind, Creator: r.Creator, Flags: r.Flags, RemovedAt: r.RemovedAt,
-			ImageUrl: r.ImageUrl, ImageState: r.ImageState, ImageCheckedAt: r.ImageCheckedAt}
+		it := r.Item
 		if !owner {
 			if it.Status != "live" || it.LinkStatus == "dead" {
 				continue
@@ -235,7 +229,7 @@ func (s *Service) Archive(ctx context.Context, viewer *Actor, userID int64, curs
 	}
 	out.Entries = make([]Entry, len(keep))
 	for i, r := range keep {
-		out.Entries[i] = Entry{Item: decorated[i], Note: r.Note, AddedAt: r.SavedAt, Tags: tags[r.ID]}
+		out.Entries[i] = Entry{Item: decorated[i], Note: r.Note, AddedAt: r.SavedAt, Tags: tags[r.Item.ID]}
 	}
 	return out, nil
 }

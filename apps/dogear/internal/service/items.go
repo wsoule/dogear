@@ -38,26 +38,33 @@ type Source struct {
 
 // Item is the read model shared by templates, the REST API, and MCP.
 type Item struct {
-	ID         int64        `json:"id"`
-	URL        string       `json:"url"`
-	Title      string       `json:"title"`
-	Blurb      string       `json:"blurb"`
-	Domain     string       `json:"domain"`
-	Kind       string       `json:"kind"`
-	Creator    string       `json:"creator,omitempty"`
-	Category   *CategoryRef `json:"category,omitempty"`
-	Likes      int          `json:"likes"`
-	Score      float64      `json:"score"`
-	Via        string       `json:"via"`
-	Status     string       `json:"status"`
-	LinkStatus string       `json:"link_status,omitempty"`
-	CreatedAt  time.Time    `json:"created_at"`
-	MyVote     *int         `json:"my_vote,omitempty"`
-	Sources    []Source     `json:"sources,omitempty"`
-	Poster     string       `json:"posted_by,omitempty"`
-	Image      string       `json:"image,omitempty"`      // /img/{id} thumbnail path when one is available
-	Transcript string       `json:"transcript,omitempty"` // video captions, item detail only
-	Dogeared   bool         `json:"dogeared,omitempty"`   // saved in the viewer's archive
+	ID        int64  `json:"id"`
+	URL       string `json:"url"`
+	Title     string `json:"title"`
+	Blurb     string `json:"blurb"`
+	Domain    string `json:"domain"`
+	Kind      string `json:"kind"`
+	Creator   string `json:"creator,omitempty"`
+	CreatorID int64  `json:"creator_id,omitempty"` // the creator's own item (a channel or person)
+	// Media details, when known: a video's length, an article's site and
+	// reading time, and when either was published.
+	DurationSeconds int          `json:"duration_seconds,omitempty"`
+	ReadingMinutes  int          `json:"reading_minutes,omitempty"`
+	SiteName        string       `json:"site_name,omitempty"`
+	PublishedAt     *time.Time   `json:"published_at,omitempty"`
+	Category        *CategoryRef `json:"category,omitempty"`
+	Likes           int          `json:"likes"`
+	Score           float64      `json:"score"`
+	Via             string       `json:"via"`
+	Status          string       `json:"status"`
+	LinkStatus      string       `json:"link_status,omitempty"`
+	CreatedAt       time.Time    `json:"created_at"`
+	MyVote          *int         `json:"my_vote,omitempty"`
+	Sources         []Source     `json:"sources,omitempty"`
+	Poster          string       `json:"posted_by,omitempty"`
+	Image           string       `json:"image,omitempty"`      // /img/{id} thumbnail path when one is available
+	Transcript      string       `json:"transcript,omitempty"` // video captions, item detail only
+	Dogeared        bool         `json:"dogeared,omitempty"`   // saved in the viewer's archive
 	// TagCount is how many of the viewer's tags hold the item; unsaving it
 	// asks for confirmation when this is above zero.
 	TagCount  int      `json:"-"`
@@ -65,6 +72,30 @@ type Item struct {
 	createdBy *int64
 	listCount int
 }
+
+// Length is a short human length for rows: "12 min" or "1 h 5 min" for a
+// video, "6 min read" for an article, or "" when unknown.
+func (it Item) Length() string {
+	switch {
+	case it.DurationSeconds > 0 && it.DurationSeconds < 60:
+		return strconv.Itoa(it.DurationSeconds) + " s"
+	case it.DurationSeconds > 0:
+		m := (it.DurationSeconds + 30) / 60
+		if m < 60 {
+			return strconv.Itoa(m) + " min"
+		}
+		if m%60 == 0 {
+			return strconv.Itoa(m/60) + " h"
+		}
+		return strconv.Itoa(m/60) + " h " + strconv.Itoa(m%60) + " min"
+	case it.ReadingMinutes > 0:
+		return strconv.Itoa(it.ReadingMinutes) + " min read"
+	}
+	return ""
+}
+
+// IsCreator reports whether the item is a channel or person page.
+func (it Item) IsCreator() bool { return it.Kind == "channel" || it.Kind == "person" }
 
 // Agent reports whether an agent created the item (shown as a small label).
 func (it Item) Agent() bool { return it.Via == "api" || it.Via == "mcp" }
@@ -84,6 +115,16 @@ func toItem(r db.Item) Item {
 		Score: math.Round(r.Score*1000) / 1000, Via: r.Via, Status: r.Status,
 		LinkStatus: r.LinkStatus, CreatedAt: r.CreatedAt, Flags: r.Flags,
 		createdBy: r.CreatedBy, listCount: int(r.ListCount),
+		SiteName: r.SiteName, PublishedAt: r.PublishedAt,
+	}
+	if r.CreatorID != nil {
+		it.CreatorID = *r.CreatorID
+	}
+	if r.DurationSeconds != nil {
+		it.DurationSeconds = int(*r.DurationSeconds)
+	}
+	if r.ReadingMinutes != nil {
+		it.ReadingMinutes = int(*r.ReadingMinutes)
 	}
 	if hasImage(r) {
 		it.Image = "/img/" + strconv.FormatInt(r.ID, 10)
