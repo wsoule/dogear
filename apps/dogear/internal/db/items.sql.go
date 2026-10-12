@@ -25,7 +25,7 @@ func (q *Queries) AddItemCategory(ctx context.Context, arg AddItemCategoryParams
 }
 
 const allItemsByUser = `-- name: AllItemsByUser :many
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at FROM items WHERE created_by = $1 ORDER BY created_at DESC
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at, topics_filed_at FROM items WHERE created_by = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) AllItemsByUser(ctx context.Context, createdBy *int64) ([]Item, error) {
@@ -74,6 +74,7 @@ func (q *Queries) AllItemsByUser(ctx context.Context, createdBy *int64) ([]Item,
 			&i.ReadingMinutes,
 			&i.SiteName,
 			&i.MediaCheckedAt,
+			&i.TopicsFiledAt,
 		); err != nil {
 			return nil, err
 		}
@@ -154,7 +155,7 @@ func (q *Queries) CreateReport(ctx context.Context, arg CreateReportParams) erro
 }
 
 const creatorWorks = `-- name: CreatorWorks :many
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at FROM items
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at, topics_filed_at FROM items
 WHERE creator_id = $1 AND status = 'live' AND link_status <> 'dead'
 ORDER BY score DESC, id DESC
 LIMIT $2
@@ -212,6 +213,7 @@ func (q *Queries) CreatorWorks(ctx context.Context, arg CreatorWorksParams) ([]I
 			&i.ReadingMinutes,
 			&i.SiteName,
 			&i.MediaCheckedAt,
+			&i.TopicsFiledAt,
 		); err != nil {
 			return nil, err
 		}
@@ -224,7 +226,7 @@ func (q *Queries) CreatorWorks(ctx context.Context, arg CreatorWorksParams) ([]I
 }
 
 const creatorsByName = `-- name: CreatorsByName :many
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at FROM items
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at, topics_filed_at FROM items
 WHERE kind IN ('channel','person') AND status = 'live' AND link_status <> 'dead'
   AND (title ILIKE '%' || $1::text || '%' OR url_norm ILIKE '%' || $1::text || '%')
 ORDER BY score DESC, id DESC
@@ -283,6 +285,7 @@ func (q *Queries) CreatorsByName(ctx context.Context, arg CreatorsByNameParams) 
 			&i.ReadingMinutes,
 			&i.SiteName,
 			&i.MediaCheckedAt,
+			&i.TopicsFiledAt,
 		); err != nil {
 			return nil, err
 		}
@@ -295,7 +298,7 @@ func (q *Queries) CreatorsByName(ctx context.Context, arg CreatorsByNameParams) 
 }
 
 const deadItems = `-- name: DeadItems :many
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at FROM items WHERE link_status = 'dead' AND status <> 'removed'
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at, topics_filed_at FROM items WHERE link_status = 'dead' AND status <> 'removed'
 ORDER BY link_checked_at DESC LIMIT 100
 `
 
@@ -345,6 +348,7 @@ func (q *Queries) DeadItems(ctx context.Context) ([]Item, error) {
 			&i.ReadingMinutes,
 			&i.SiteName,
 			&i.MediaCheckedAt,
+			&i.TopicsFiledAt,
 		); err != nil {
 			return nil, err
 		}
@@ -452,7 +456,7 @@ func (q *Queries) GetClassification(ctx context.Context, itemID int64) (ItemClas
 }
 
 const getItem = `-- name: GetItem :one
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at FROM items WHERE id = $1
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at, topics_filed_at FROM items WHERE id = $1
 `
 
 func (q *Queries) GetItem(ctx context.Context, id int64) (Item, error) {
@@ -495,12 +499,13 @@ func (q *Queries) GetItem(ctx context.Context, id int64) (Item, error) {
 		&i.ReadingMinutes,
 		&i.SiteName,
 		&i.MediaCheckedAt,
+		&i.TopicsFiledAt,
 	)
 	return i, err
 }
 
 const getItemByNorm = `-- name: GetItemByNorm :one
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at FROM items WHERE url_norm = $1
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at, topics_filed_at FROM items WHERE url_norm = $1
 `
 
 func (q *Queries) GetItemByNorm(ctx context.Context, urlNorm string) (Item, error) {
@@ -543,12 +548,13 @@ func (q *Queries) GetItemByNorm(ctx context.Context, urlNorm string) (Item, erro
 		&i.ReadingMinutes,
 		&i.SiteName,
 		&i.MediaCheckedAt,
+		&i.TopicsFiledAt,
 	)
 	return i, err
 }
 
 const getItemForUpdate = `-- name: GetItemForUpdate :one
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at FROM items WHERE id = $1 FOR UPDATE
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at, topics_filed_at FROM items WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) GetItemForUpdate(ctx context.Context, id int64) (Item, error) {
@@ -591,6 +597,7 @@ func (q *Queries) GetItemForUpdate(ctx context.Context, id int64) (Item, error) 
 		&i.ReadingMinutes,
 		&i.SiteName,
 		&i.MediaCheckedAt,
+		&i.TopicsFiledAt,
 	)
 	return i, err
 }
@@ -654,7 +661,7 @@ func (q *Queries) GetVote(ctx context.Context, arg GetVoteParams) (Vote, error) 
 const insertItem = `-- name: InsertItem :one
 INSERT INTO items (url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, kind, creator, flags)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at
+RETURNING id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at, topics_filed_at
 `
 
 type InsertItemParams struct {
@@ -725,6 +732,7 @@ func (q *Queries) InsertItem(ctx context.Context, arg InsertItemParams) (Item, e
 		&i.ReadingMinutes,
 		&i.SiteName,
 		&i.MediaCheckedAt,
+		&i.TopicsFiledAt,
 	)
 	return i, err
 }
@@ -860,7 +868,7 @@ func (q *Queries) ItemSources(ctx context.Context, itemID int64) ([]ItemSourcesR
 }
 
 const itemsByIDs = `-- name: ItemsByIDs :many
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at FROM items WHERE id = ANY($1::bigint[])
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at, topics_filed_at FROM items WHERE id = ANY($1::bigint[])
 `
 
 func (q *Queries) ItemsByIDs(ctx context.Context, ids []int64) ([]Item, error) {
@@ -909,6 +917,7 @@ func (q *Queries) ItemsByIDs(ctx context.Context, ids []int64) ([]Item, error) {
 			&i.ReadingMinutes,
 			&i.SiteName,
 			&i.MediaCheckedAt,
+			&i.TopicsFiledAt,
 		); err != nil {
 			return nil, err
 		}
@@ -921,7 +930,7 @@ func (q *Queries) ItemsByIDs(ctx context.Context, ids []int64) ([]Item, error) {
 }
 
 const itemsByUser = `-- name: ItemsByUser :many
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at FROM items WHERE created_by = $1 AND status <> 'removed'
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at, topics_filed_at FROM items WHERE created_by = $1 AND status <> 'removed'
 ORDER BY created_at DESC, id DESC LIMIT $2
 `
 
@@ -976,6 +985,7 @@ func (q *Queries) ItemsByUser(ctx context.Context, arg ItemsByUserParams) ([]Ite
 			&i.ReadingMinutes,
 			&i.SiteName,
 			&i.MediaCheckedAt,
+			&i.TopicsFiledAt,
 		); err != nil {
 			return nil, err
 		}
@@ -988,7 +998,7 @@ func (q *Queries) ItemsByUser(ctx context.Context, arg ItemsByUserParams) ([]Ite
 }
 
 const itemsNeedingClassification = `-- name: ItemsNeedingClassification :many
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at FROM items WHERE status = 'pending' AND 'classifier_error' = ANY(flags)
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at, topics_filed_at FROM items WHERE status = 'pending' AND 'classifier_error' = ANY(flags)
 ORDER BY created_at LIMIT 20
 `
 
@@ -1038,6 +1048,7 @@ func (q *Queries) ItemsNeedingClassification(ctx context.Context) ([]Item, error
 			&i.ReadingMinutes,
 			&i.SiteName,
 			&i.MediaCheckedAt,
+			&i.TopicsFiledAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1134,10 +1145,13 @@ func (q *Queries) ItemsNeedingImage(ctx context.Context, limit int32) ([]ItemsNe
 }
 
 const itemsNeedingMedia = `-- name: ItemsNeedingMedia :many
-SELECT id, url_norm, kind FROM items
-WHERE status = 'live' AND media_checked_at IS NULL
-  AND (kind IN ('video','article') OR domain LIKE '%.substack.com' OR domain = 'medium.com')
-ORDER BY (via IN ('web','api','mcp')) DESC, score DESC
+SELECT i.id, i.url_norm, i.kind,
+  (i.created_by IS NULL OR EXISTS (SELECT 1 FROM users u WHERE u.id = i.created_by
+     AND u.trust_level >= 1 AND u.shadow_banned_at IS NULL AND u.banned_at IS NULL))::bool AS trusted
+FROM items i
+WHERE i.status = 'live' AND i.media_checked_at IS NULL
+  AND (i.kind IN ('video','article') OR i.domain LIKE '%.substack.com' OR i.domain = 'medium.com')
+ORDER BY (i.via IN ('web','api','mcp')) DESC, i.score DESC
 LIMIT $1
 `
 
@@ -1145,10 +1159,12 @@ type ItemsNeedingMediaRow struct {
 	ID      int64
 	UrlNorm string
 	Kind    string
+	Trusted bool
 }
 
 // Videos, articles, and newsletter posts not yet looked at; people's own
-// posts first, then by rank.
+// posts first, then by rank. trusted is true for imports and for posts by
+// trusted, unflagged users: only their works may add new creator pages.
 func (q *Queries) ItemsNeedingMedia(ctx context.Context, limit int32) ([]ItemsNeedingMediaRow, error) {
 	rows, err := q.db.Query(ctx, itemsNeedingMedia, limit)
 	if err != nil {
@@ -1158,7 +1174,12 @@ func (q *Queries) ItemsNeedingMedia(ctx context.Context, limit int32) ([]ItemsNe
 	var items []ItemsNeedingMediaRow
 	for rows.Next() {
 		var i ItemsNeedingMediaRow
-		if err := rows.Scan(&i.ID, &i.UrlNorm, &i.Kind); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.UrlNorm,
+			&i.Kind,
+			&i.Trusted,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1319,7 +1340,7 @@ func (q *Queries) OpenReports(ctx context.Context) ([]OpenReportsRow, error) {
 }
 
 const pendingItems = `-- name: PendingItems :many
-SELECT i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at, i.image_url, i.image_state, i.image_checked_at, i.embedding, i.embedded_hash, i.creator_id, i.duration_seconds, i.published_at, i.reading_minutes, i.site_name, i.media_checked_at, u.username AS poster
+SELECT i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at, i.image_url, i.image_state, i.image_checked_at, i.embedding, i.embedded_hash, i.creator_id, i.duration_seconds, i.published_at, i.reading_minutes, i.site_name, i.media_checked_at, i.topics_filed_at, u.username AS poster
 FROM items i LEFT JOIN users u ON u.id = i.created_by
 WHERE i.status = 'pending' ORDER BY i.created_at LIMIT 200
 `
@@ -1361,6 +1382,7 @@ type PendingItemsRow struct {
 	ReadingMinutes  *int16
 	SiteName        string
 	MediaCheckedAt  *time.Time
+	TopicsFiledAt   *time.Time
 	Poster          *string
 }
 
@@ -1410,6 +1432,7 @@ func (q *Queries) PendingItems(ctx context.Context) ([]PendingItemsRow, error) {
 			&i.ReadingMinutes,
 			&i.SiteName,
 			&i.MediaCheckedAt,
+			&i.TopicsFiledAt,
 			&i.Poster,
 		); err != nil {
 			return nil, err

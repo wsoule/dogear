@@ -11,7 +11,7 @@ import (
 )
 
 const archivePage = `-- name: ArchivePage :many
-SELECT s.note, s.saved_at, i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at, i.image_url, i.image_state, i.image_checked_at, i.embedding, i.embedded_hash, i.creator_id, i.duration_seconds, i.published_at, i.reading_minutes, i.site_name, i.media_checked_at
+SELECT s.note, s.saved_at, i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at, i.image_url, i.image_state, i.image_checked_at, i.embedding, i.embedded_hash, i.creator_id, i.duration_seconds, i.published_at, i.reading_minutes, i.site_name, i.media_checked_at, i.topics_filed_at
 FROM saves s JOIN items i ON i.id = s.item_id
 WHERE s.user_id = $1
   AND ($2::timestamptz IS NULL
@@ -94,6 +94,7 @@ func (q *Queries) ArchivePage(ctx context.Context, arg ArchivePageParams) ([]Arc
 			&i.Item.ReadingMinutes,
 			&i.Item.SiteName,
 			&i.Item.MediaCheckedAt,
+			&i.Item.TopicsFiledAt,
 		); err != nil {
 			return nil, err
 		}

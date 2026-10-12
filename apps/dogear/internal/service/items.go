@@ -228,21 +228,6 @@ func (s *Service) Categories(ctx context.Context) ([]*CategoryNode, error) {
 	return roots, nil
 }
 
-// TopCategories returns the n top-level categories with the most live items,
-// for the front-page chips.
-func (s *Service) TopCategories(ctx context.Context, n int) ([]*CategoryNode, error) {
-	roots, err := s.Categories(ctx)
-	if err != nil {
-		return nil, err
-	}
-	roots = slices.DeleteFunc(slices.Clone(roots), func(c *CategoryNode) bool { return c.Count == 0 })
-	slices.SortStableFunc(roots, func(a, b *CategoryNode) int { return b.Count - a.Count })
-	if len(roots) > n {
-		roots = roots[:n]
-	}
-	return roots, nil
-}
-
 // LeafCategories returns every subcategory, used by the submit form select.
 func (s *Service) LeafCategories(ctx context.Context) ([]*CategoryNode, error) {
 	roots, err := s.Categories(ctx)
@@ -262,6 +247,7 @@ func (s *Service) LeafCategories(ctx context.Context) ([]*CategoryNode, error) {
 
 type FeedQuery struct {
 	Category    string
+	Topic       string
 	Kind        string
 	Sort        string
 	Q           string
@@ -275,6 +261,7 @@ type FeedPage struct {
 	NextCursor string        `json:"next_cursor,omitempty"`
 	Category   *CategoryNode `json:"-"`
 	Parent     *CategoryRef  `json:"-"`
+	Topic      *Topic        `json:"-"`
 }
 
 // Feed returns one keyset-paginated page of the top or new feed.
@@ -316,10 +303,20 @@ func (s *Service) Feed(ctx context.Context, viewer *Actor, fq FeedQuery) (FeedPa
 			p.CategoryIDs = append(p.CategoryIDs, kids...)
 		}
 	}
+	if fq.Topic != "" {
+		t, err := s.Q.GetTopic(ctx, fq.Topic)
+		if notFound(err) {
+			return page, ErrNotFound
+		} else if err != nil {
+			return page, fmt.Errorf("topic: %w", err)
+		}
+		page.Topic = &Topic{Slug: t.Slug, Name: t.Name, Description: t.Description}
+		p.TopicID = &t.ID
+	}
 	// Searches in the default order use semantic + keyword ranking when
-	// semantic search is available; explicit sorts and category-scoped
-	// searches stay keyword-only.
-	if strings.TrimSpace(fq.Q) != "" && p.Sort == "top" && fq.Category == "" && s.SemanticEnabled() {
+	// semantic search is available; explicit sorts and category- or
+	// topic-scoped searches stay keyword-only.
+	if strings.TrimSpace(fq.Q) != "" && p.Sort == "top" && fq.Category == "" && fq.Topic == "" && s.SemanticEnabled() {
 		hp, err := s.hybridFeed(ctx, viewer, fq, p.Limit)
 		if err == nil {
 			return hp, nil
@@ -341,7 +338,7 @@ func (s *Service) Feed(ctx context.Context, viewer *Actor, fq FeedQuery) (FeedPa
 	// visitor, so they are cached for a minute.
 	cacheKey := ""
 	if viewer == nil && fq.Cursor == "" && fq.Q == "" {
-		cacheKey = fmt.Sprintf("%s|%s|%s|%d|%t", fq.Category, p.Kind, p.Sort, p.Limit, p.IncludeDead)
+		cacheKey = fmt.Sprintf("%s|%s|%s|%s|%d|%t", fq.Category, fq.Topic, p.Kind, p.Sort, p.Limit, p.IncludeDead)
 		if cached, ok := s.feedCache.Get(cacheKey); ok {
 			cached.Category, cached.Parent = page.Category, page.Parent
 			return cached, nil

@@ -400,7 +400,7 @@ func (q *Queries) LinkedLoggitListIDs(ctx context.Context, userID int64) ([]stri
 }
 
 const listEntries = `-- name: ListEntries :many
-SELECT COALESCE(s.note, '')::text AS note, li.position, li.added_at, i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at, i.image_url, i.image_state, i.image_checked_at, i.embedding, i.embedded_hash, i.creator_id, i.duration_seconds, i.published_at, i.reading_minutes, i.site_name, i.media_checked_at
+SELECT COALESCE(s.note, '')::text AS note, li.position, li.added_at, i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at, i.image_url, i.image_state, i.image_checked_at, i.embedding, i.embedded_hash, i.creator_id, i.duration_seconds, i.published_at, i.reading_minutes, i.site_name, i.media_checked_at, i.topics_filed_at
 FROM list_items li JOIN lists l ON l.id = li.list_id JOIN items i ON i.id = li.item_id
 LEFT JOIN saves s ON s.user_id = l.user_id AND s.item_id = li.item_id
 WHERE li.list_id = $1
@@ -464,6 +464,7 @@ func (q *Queries) ListEntries(ctx context.Context, listID int64) ([]ListEntriesR
 			&i.Item.ReadingMinutes,
 			&i.Item.SiteName,
 			&i.Item.MediaCheckedAt,
+			&i.Item.TopicsFiledAt,
 		); err != nil {
 			return nil, err
 		}

@@ -99,6 +99,7 @@ type Item struct {
 	ReadingMinutes  *int16
 	SiteName        string
 	MediaCheckedAt  *time.Time
+	TopicsFiledAt   *time.Time
 }
 
 type ItemCategory struct {
@@ -140,6 +141,12 @@ type ItemThumb struct {
 	Width     int32
 	Height    int32
 	FetchedAt time.Time
+}
+
+type ItemTopic struct {
+	ItemID  int64
+	TopicID int32
+	Source  string
 }
 
 type ItemTranscript struct {
@@ -246,6 +253,15 @@ type SourceList struct {
 	Stars          *int32
 	ReadmeSha      *string
 	LastImportedAt *time.Time
+}
+
+type Topic struct {
+	ID          int32
+	Slug        string
+	Name        string
+	Description string
+	Pattern     string
+	SortOrder   int32
 }
 
 type User struct {

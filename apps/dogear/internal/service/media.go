@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -168,9 +169,16 @@ func parsePlayerDetails(r io.Reader) (int, *time.Time) {
 	return secs, parsePublished(p.Microformat.Renderer.PublishDate)
 }
 
-// ensureCreator returns the item id for a creator's page, adding it as an
-// automatic item (via "auto") the first time anyone links one of their works.
-func (s *Service) ensureCreator(ctx context.Context, ref creatorRef) (int64, error) {
+// errNoNewCreator means the creator has no page yet and this work may not
+// add one.
+var errNoNewCreator = errors.New("creator page not created")
+
+// ensureCreator returns the item id for a creator's page. With create, it
+// adds the page as an automatic item (via "auto") when none exists. Callers
+// pass create only for works that are imports or posted by trusted users,
+// since the page goes live without review; its name is checked like a
+// post's title, and a blocked domain never gets a page.
+func (s *Service) ensureCreator(ctx context.Context, ref creatorRef, create bool) (int64, error) {
 	norm, err := safety.NormalizeURL(ref.URL)
 	if err != nil {
 		return 0, err
@@ -180,9 +188,16 @@ func (s *Service) ensureCreator(ctx context.Context, ref creatorRef) (int64, err
 	} else if !notFound(err) {
 		return 0, fmt.Errorf("find creator: %w", err)
 	}
+	if !create {
+		return 0, errNoNewCreator
+	}
+	if blocked, err := s.Q.DomainBlocked(ctx, safety.Domain(norm)); err != nil || blocked {
+		return 0, errNoNewCreator
+	}
 	name := truncateRunes(safety.SanitizeText(ref.Name), 120)
-	if name == "" {
-		name = norm
+	if name == "" || safety.HasMarkupOrURL(name) || safety.LooksLikeInjection(name) {
+		// Fall back to the address, which the work's own review covered.
+		name = strings.TrimPrefix(norm, "https://")
 	}
 	it, err := s.Q.InsertItem(ctx, db.InsertItemParams{Url: norm, UrlNorm: norm, Domain: safety.Domain(norm), Title: truncateRunes(name, 120),
 		Via: "auto", Status: "live", Kind: ref.Kind, Flags: []string{}})
@@ -199,9 +214,10 @@ func (s *Service) ensureCreator(ctx context.Context, ref creatorRef) (int64, err
 }
 
 // refreshMedia looks up one item's media details and stores them, linking
-// it to its creator's item. It records the attempt even when the lookup
-// fails, so the backfill never retries the same item forever.
-func (s *Service) refreshMedia(ctx context.Context, id int64, norm, kind string) error {
+// it to its creator's item (adding that page only when trusted). It records
+// the attempt even when the lookup fails, so the backfill never retries the
+// same item forever.
+func (s *Service) refreshMedia(ctx context.Context, id int64, norm, kind string, trusted bool) error {
 	cctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	d, lookupErr := s.lookupMedia(cctx, norm, kind)
@@ -219,9 +235,9 @@ func (s *Service) refreshMedia(ctx context.Context, id int64, norm, kind string)
 		p.ReadingMinutes = ptr(int16(min(d.ReadingMinutes, 32000)))
 	}
 	if d.Creator != nil {
-		if cid, err := s.ensureCreator(ctx, *d.Creator); err == nil && cid != id {
+		if cid, err := s.ensureCreator(ctx, *d.Creator, trusted); err == nil && cid != id {
 			p.CreatorID = &cid
-		} else if err != nil {
+		} else if err != nil && !errors.Is(err, errNoNewCreator) {
 			s.Log.Warn("ensure creator", "item", id, "err", err)
 		}
 	}
@@ -241,7 +257,7 @@ func (s *Service) BackfillMedia(ctx context.Context, n int) {
 	}
 	found := 0
 	for _, r := range rows {
-		if err := s.refreshMedia(ctx, r.ID, r.UrlNorm, r.Kind); err == nil {
+		if err := s.refreshMedia(ctx, r.ID, r.UrlNorm, r.Kind, r.Trusted); err == nil {
 			found++
 		}
 		time.Sleep(time.Second) // stay gentle with YouTube and publishers

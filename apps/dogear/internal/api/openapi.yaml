@@ -84,6 +84,12 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
 paths:
+  /topics:
+    get:
+      operationId: listTopics
+      summary: "Broad, any-medium topics (AI, Design, History, ...) with slugs and live item counts. Filter items with ?topic=slug."
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ok" } } } }
   /categories:
     get:
       operationId: listCategories
@@ -104,6 +110,7 @@ paths:
         - { name: q, in: query, schema: { type: string } }
         - { name: category, in: query, schema: { type: string } }
         - { name: kind, in: query, schema: { type: string } }
+        - { name: topic, in: query, schema: { type: string }, description: "A topic slug from /topics." }
         - { name: sort, in: query, schema: { type: string, enum: [top, new, stars, az] } }
         - { name: cursor, in: query, schema: { type: string } }
         - { name: limit, in: query, schema: { type: integer, maximum: 50 } }

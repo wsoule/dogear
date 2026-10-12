@@ -107,18 +107,21 @@ func feedURL(base, sort, kind string) string {
 
 type feedPage struct {
 	Heading, Sub string
-	Chips        []*service.CategoryNode
-	Children     []*service.CategoryNode
-	Tabs         bool
-	Base         string // URL of this feed without sort/kind/cursor
-	Sort, Kind   string
-	Here         string // current URL, for the layout toggle's return link
-	SortLinks    []tabLink
-	KindLinks    []tabLink
-	Intro        bool      // show the one-line explanation (home, signed out)
-	Crumbs       []tabLink // breadcrumb trail above the heading
-	Source       *db.SourceListByCategoryRow
-	Feed         feedData
+	// Topics are the any-medium topic chips; TopicHere marks the current one.
+	Topics     []service.Topic
+	TopicHere  string
+	Chips      []*service.CategoryNode
+	Children   []*service.CategoryNode
+	Tabs       bool
+	Base       string // URL of this feed without sort/kind/cursor
+	Sort, Kind string
+	Here       string // current URL, for the layout toggle's return link
+	SortLinks  []tabLink
+	KindLinks  []tabLink
+	Intro      bool      // show the one-line explanation (home, signed out)
+	Crumbs     []tabLink // breadcrumb trail above the heading
+	Source     *db.SourceListByCategoryRow
+	Feed       feedData
 }
 
 // buildFeed loads one page of a feed and the links for the next page.
@@ -192,7 +195,7 @@ func (s *Server) serveFeed(w http.ResponseWriter, r *http.Request, nav, base str
 }
 
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
-	chips, err := s.svc.TopCategories(r.Context(), 12)
+	topics, err := s.svc.Topics(r.Context())
 	if err != nil {
 		s.serverError(w, r, err)
 		return
@@ -202,7 +205,32 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	if fq.Sort == "new" {
 		nav = "new"
 	}
-	s.serveFeed(w, r, nav, "/", fq, feedPage{Chips: chips, Tabs: true, Intro: fq.Cursor == ""}, "", false)
+	s.serveFeed(w, r, nav, "/", fq, feedPage{Topics: topics, Tabs: true, Intro: fq.Cursor == ""}, "", false)
+}
+
+// topic is /t/{slug}: everything filed under one broad topic, any medium.
+func (s *Server) topic(w http.ResponseWriter, r *http.Request) {
+	slug := r.PathValue("slug")
+	topics, err := s.svc.Topics(r.Context())
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	i := slices.IndexFunc(topics, func(t service.Topic) bool { return t.Slug == slug })
+	if i < 0 {
+		s.notFound(w, r)
+		return
+	}
+	fq := feedQuery(r)
+	fq.Topic = slug
+	fp := feedPage{Heading: topics[i].Name, Sub: topics[i].Description, Topics: topics, TopicHere: slug, Tabs: true}
+	s.serveFeed(w, r, "", "/t/"+url.PathEscape(slug), fq, fp, topics[i].Name, false)
+}
+
+// categoriesPage is /categories: the broad topics, then the category tree.
+type categoriesPage struct {
+	Topics []service.Topic
+	Roots  []*service.CategoryNode
 }
 
 func (s *Server) newFeed(w http.ResponseWriter, r *http.Request) {
@@ -254,7 +282,12 @@ func (s *Server) categories(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.render(w, r, http.StatusOK, "static_pages", &Page{Title: "categories", Page: "categories", Data: roots})
+	topics, err := s.svc.Topics(r.Context())
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	s.render(w, r, http.StatusOK, "static_pages", &Page{Title: "categories", Page: "categories", Data: categoriesPage{Topics: topics, Roots: roots}})
 }
 
 type searchPage struct {
@@ -324,6 +357,7 @@ type itemPage struct {
 	ParentName string
 	Similar    feedData // closest items by meaning
 	Works      feedData // a channel's or person's works, on their own page
+	Topics     []service.Topic
 	Save       saveMenuData
 	Reasons    []string
 }
@@ -343,6 +377,7 @@ func (s *Server) item(w http.ResponseWriter, r *http.Request) {
 	if sim, err := s.svc.Similar(r.Context(), viewer(r), it.ID, 6); err == nil && len(sim) > 0 {
 		ip.Similar = feedData{Items: sim, CSRF: reqCtx(r).csrf, Viewer: viewer(r), Compact: true}
 	}
+	ip.Topics = s.svc.ItemTopics(r.Context(), it.ID)
 	if it.IsCreator() {
 		if works, err := s.svc.CreatorWorks(r.Context(), viewer(r), it.ID, 50); err == nil && len(works) > 0 {
 			ip.Works = feedData{Items: works, CSRF: reqCtx(r).csrf, Viewer: viewer(r), Compact: true}

@@ -46,6 +46,7 @@ var (
 func New(svc *service.Service, session SessionFunc, signer auth.Signer, baseURL string, proxy safety.ProxyTrust) *API {
 	a := &API{svc: svc, session: session, signer: signer, baseURL: baseURL, proxy: proxy, mux: http.NewServeMux()}
 	a.handle("GET /categories", a.categories)
+	a.handle("GET /topics", a.topics)
 	a.handle("GET /items", a.listItems)
 	a.handle("GET /items/{id}", a.getItem)
 	a.handle("POST /items", a.auth("post", a.createItem))

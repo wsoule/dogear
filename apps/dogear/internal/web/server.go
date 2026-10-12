@@ -80,6 +80,7 @@ func (s *Server) routes(api, mcp http.Handler) {
 	m.HandleFunc("GET /new", s.newFeed)
 	m.HandleFunc("GET /c/{slug}", s.category)
 	m.HandleFunc("GET /k/{kind}", s.kind)
+	m.HandleFunc("GET /t/{slug}", s.topic)
 	m.HandleFunc("GET /categories", s.categories)
 	m.HandleFunc("GET /lists", s.lists)
 	m.HandleFunc("GET /view/{mode}", s.setView)

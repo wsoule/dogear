@@ -250,11 +250,15 @@ WHERE id = @id;
 
 -- name: ItemsNeedingMedia :many
 -- Videos, articles, and newsletter posts not yet looked at; people's own
--- posts first, then by rank.
-SELECT id, url_norm, kind FROM items
-WHERE status = 'live' AND media_checked_at IS NULL
-  AND (kind IN ('video','article') OR domain LIKE '%.substack.com' OR domain = 'medium.com')
-ORDER BY (via IN ('web','api','mcp')) DESC, score DESC
+-- posts first, then by rank. trusted is true for imports and for posts by
+-- trusted, unflagged users: only their works may add new creator pages.
+SELECT i.id, i.url_norm, i.kind,
+  (i.created_by IS NULL OR EXISTS (SELECT 1 FROM users u WHERE u.id = i.created_by
+     AND u.trust_level >= 1 AND u.shadow_banned_at IS NULL AND u.banned_at IS NULL))::bool AS trusted
+FROM items i
+WHERE i.status = 'live' AND i.media_checked_at IS NULL
+  AND (i.kind IN ('video','article') OR i.domain LIKE '%.substack.com' OR i.domain = 'medium.com')
+ORDER BY (i.via IN ('web','api','mcp')) DESC, i.score DESC
 LIMIT $1;
 
 -- name: CreatorWorks :many

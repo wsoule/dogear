@@ -304,6 +304,9 @@ func (s *Service) BlockDomain(ctx context.Context, a *Actor, domain, reason stri
 // Maintenance runs the periodic jobs: automatic promotion, ring detection,
 // retention cleanup, and classifier retries. serve calls it on a timer.
 func (s *Service) Maintenance(ctx context.Context) {
+	if err := s.FileTopics(ctx); err != nil {
+		s.Log.Error("file topics", "err", err)
+	}
 	ids, err := s.Q.PromotionCandidates(ctx)
 	if err != nil {
 		s.Log.Error("promotion candidates", "err", err)

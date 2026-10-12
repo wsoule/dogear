@@ -14,6 +14,7 @@ import (
 type FeedParams struct {
 	ViewerID    *int64  // hides items from users the viewer blocked; shows their own shadow-banned items
 	CategoryIDs []int32 // empty means every category
+	TopicID     *int32  // one topic's items (ignored with CategoryIDs)
 	Kind        string
 	Sort        string // "top", "new", "stars", or "az"
 	Query       string // trigram search over title, blurb, and domain
@@ -53,6 +54,10 @@ func (q *Queries) Feed(ctx context.Context, p FeedParams) ([]Item, error) {
 		// look each up by primary key; otherwise the planner may walk the
 		// global score index and rescan the CTE per row (minutes, not ms).
 		// OFFSET 0 stops Postgres from flattening the subquery back into a join.
+		join = "cat CROSS JOIN LATERAL (SELECT * FROM items WHERE items.id = cat.item_id OFFSET 0) i"
+	} else if p.TopicID != nil {
+		// Same plan as a category feed, starting from the topic's items.
+		with = "WITH cat AS MATERIALIZED (SELECT item_id FROM item_topics WHERE topic_id = " + arg(*p.TopicID) + "::int) "
 		join = "cat CROSS JOIN LATERAL (SELECT * FROM items WHERE items.id = cat.item_id OFFSET 0) i"
 	}
 	if p.Kind != "" {

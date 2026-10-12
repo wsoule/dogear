@@ -25,6 +25,7 @@
 {{if .Item.Image}}<a href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank" class="hero" tabindex="-1" aria-hidden="true"><img src="{{.Item.Image}}" alt="" decoding="async" width="480" height="240"></a>{{end}}
 {{if .Item.Transcript}}<details class="transcript"><summary>transcript</summary><p>{{.Item.Transcript}}</p></details>{{end}}
 
+{{if .Topics}}<nav class="chips" aria-label="Topics">{{range .Topics}}<a href="/t/{{.Slug}}"><span class="sr-only">topic </span>{{lower .Name}}</a>{{end}}</nav>{{end}}
 <dl class="kv small">
   {{if .Item.Poster}}<dt>posted by</dt><dd><a href="/u/{{.Item.Poster}}">@{{.Item.Poster}}</a></dd>{{else if eq .Item.Via "import"}}<dt>from</dt><dd>{{range $i, $s := .Item.Sources}}{{if $i}}, {{end}}<a href="https://github.com/{{$s.Repo}}" rel="nofollow noopener">{{$s.Title}}</a>{{end}}</dd>{{end}}
   {{with .Item.PublishedAt}}<dt>published</dt><dd>{{date (derefTime .)}}</dd>{{end}}

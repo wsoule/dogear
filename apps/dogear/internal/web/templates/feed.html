@@ -4,6 +4,7 @@
 {{if .Intro}}{{if not $.Viewer}}<p class="intro">Things people think are cool — sites, tools, books, videos — each with a one-line reason. <a href="/signin">Sign in</a> to like things and <em>dogear</em> the ones you want to keep.</p>{{end}}{{end}}
 {{if .Heading}}<h1>{{.Heading}}</h1>{{end}}
 {{if .Sub}}<p class="lede">{{.Sub}}{{if .Source}} from <a href="https://github.com/{{.Source.Repo}}" rel="noopener">{{.Source.Repo}}</a>{{if .Source.Stars}} ★{{commas32 .Source.Stars}}{{end}}{{end}}</p>{{end}}
+{{if .Topics}}<nav class="chips scroll" aria-label="Topics">{{range .Topics}}{{if .Count}}<a href="/t/{{.Slug}}" {{if eq $.Data.TopicHere .Slug}}aria-current="page"{{end}}><span class="sr-only">topic </span>{{lower .Name}}</a>{{end}}{{end}}<a class="all" href="/categories">all categories</a></nav>{{end}}
 {{if .Chips}}<nav class="chips scroll" aria-label="Categories">{{range .Chips}}<a href="/c/{{.Slug}}"><span class="sr-only">category </span>{{lower .Name}}</a>{{end}}<a class="all" href="/categories">all categories</a></nav>{{end}}
 {{if .Children}}<nav class="chips scroll" aria-label="Lists in this category">{{range .Children}}{{if not .Hidden}}<a href="/c/{{.Slug}}"><span class="sr-only">list </span>{{lower .Name}}</a>{{end}}{{end}}</nav>{{end}}
 <div class="toolbar">

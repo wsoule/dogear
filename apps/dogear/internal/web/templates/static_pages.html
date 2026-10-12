@@ -49,7 +49,10 @@
 
 {{if eq .Page "categories"}}
 <h1>categories</h1>
-{{range .Data}}{{if not .Hidden}}<h2><a href="/c/{{.Slug}}">{{.Name}}</a> <span class="muted small">{{.Count}}</span></h2>
+{{with .Data.Topics}}<h2>topics</h2>
+<ul class="tree">{{range .}}{{if .Count}}<li><a href="/t/{{.Slug}}">{{.Name}}</a> <span class="small">{{.Count}}</span></li>{{end}}{{end}}</ul>
+<h2 class="muted small">from awesome lists</h2>{{end}}
+{{range .Data.Roots}}{{if not .Hidden}}<h2><a href="/c/{{.Slug}}">{{.Name}}</a> <span class="muted small">{{.Count}}</span></h2>
 <ul class="tree">{{range .Children}}{{if not .Hidden}}<li><a href="/c/{{.Slug}}">{{.Name}}</a> <span class="small">{{.Count}}</span></li>{{end}}{{end}}</ul>{{end}}{{end}}
 {{end}}
 

@@ -49,6 +49,7 @@ type Service struct {
 	feedCache     *ttlCache[FeedPage]
 	indexCache    *ttlCache[ListIndex]
 	queryCache    *ttlCache[[]int8]
+	topics        topicCache // topic list with counts, and embedded topic descriptions
 }
 
 func New(pool *pgxpool.Pool, cfg *config.Config, cl classify.Classifier, log *slog.Logger) *Service {

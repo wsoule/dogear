@@ -29,11 +29,20 @@ func (a *API) categories(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"categories": out})
 }
 
+func (a *API) topics(w http.ResponseWriter, r *http.Request) {
+	ts, err := a.svc.Topics(r.Context())
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"topics": ts})
+}
+
 func (a *API) listItems(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	page, err := a.svc.Feed(r.Context(), a.optionalActor(r), service.FeedQuery{
-		Category: q.Get("category"), Kind: q.Get("kind"), Sort: q.Get("sort"), Q: q.Get("q"),
+		Category: q.Get("category"), Topic: q.Get("topic"), Kind: q.Get("kind"), Sort: q.Get("sort"), Q: q.Get("q"),
 		Cursor: q.Get("cursor"), Limit: limit, IncludeDead: q.Get("include_dead") == "1",
 	})
 	if err != nil {

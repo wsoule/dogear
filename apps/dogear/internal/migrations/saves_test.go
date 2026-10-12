@@ -2,10 +2,7 @@ package migrations
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
-	"net/url"
-	"os"
 	"testing"
 	"time"
 
@@ -15,41 +12,10 @@ import (
 // TestSavesMigration builds a database at version 12 holding lists, notes,
 // and a Dogeared list, then checks that 00013 turns them into saves and that
 // its down migration puts them back. It creates and drops its own database
-// next to TEST_DATABASE_URL.
+// with scratchDB.
 func TestSavesMigration(t *testing.T) {
-	base := os.Getenv("TEST_DATABASE_URL")
-	if base == "" {
-		t.Skip("TEST_DATABASE_URL not set")
-	}
 	ctx := context.Background()
-	admin, err := sql.Open("pgx", base)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer admin.Close()
-	name := fmt.Sprintf("dogear_mig_%d", time.Now().UnixNano())
-	if _, err := admin.ExecContext(ctx, "CREATE DATABASE "+name); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		_, _ = admin.ExecContext(context.Background(), "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)")
-	})
-	u, err := url.Parse(base)
-	if err != nil {
-		t.Fatal(err)
-	}
-	u.Path = "/" + name
-	db, err := sql.Open("pgx", u.String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-
-	goose.SetBaseFS(files)
-	goose.SetLogger(goose.NopLogger())
-	if err := goose.SetDialect("postgres"); err != nil {
-		t.Fatal(err)
-	}
+	db := scratchDB(t)
 	if err := goose.UpToContext(ctx, db, ".", 12); err != nil {
 		t.Fatal(err)
 	}
