@@ -227,10 +227,14 @@ func (s *Service) CreateItem(ctx context.Context, a *Actor, in NewItem) (Item, e
 				return err
 			}
 		}
+		// Everything you post also goes in your archive, tagged if you
+		// picked a tag.
 		if list != nil {
-			if err := s.addEntry(ctx, q, a, *list, created.ID, note, nil); err != nil {
+			if err := s.addEntry(ctx, q, a, *list, created.ID, &note, nil); err != nil {
 				return err
 			}
+		} else if err := s.saveItem(ctx, q, a, created.ID, &note); err != nil {
+			return err
 		}
 		return nil
 	})

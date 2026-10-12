@@ -216,6 +216,14 @@ type Report struct {
 	CreatedAt  time.Time
 }
 
+type Safe struct {
+	UserID    int64
+	ItemID    int64
+	Note      string
+	SavedAt   time.Time
+	UpdatedAt time.Time
+}
+
 type Session struct {
 	IDHash    []byte
 	UserID    int64

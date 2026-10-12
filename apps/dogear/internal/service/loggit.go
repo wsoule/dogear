@@ -425,8 +425,12 @@ func (s *Service) applyPlan(ctx context.Context, tok string, link db.ListLink, l
 			delete(p.Next.Entries, k)
 			continue
 		}
-		note := truncateRunes(safety.SanitizeText(e.Note), 280)
-		if err := s.Q.InsertListEntryAtEnd(ctx, db.InsertListEntryAtEndParams{ListID: link.ListID, ItemID: itemID, Note: note}); err != nil {
+		note, err := s.Q.UpsertSaveFromSync(ctx, db.UpsertSaveFromSyncParams{UserID: link.UserID, ItemID: itemID,
+			Note: truncateRunes(safety.SanitizeText(e.Note), 280)})
+		if err != nil {
+			return err
+		}
+		if err := s.Q.InsertListEntryAtEnd(ctx, db.InsertListEntryAtEndParams{ListID: link.ListID, ItemID: itemID}); err != nil {
 			return err
 		}
 		localByKey[k] = localEntry{itemID: itemID, note: note}
@@ -437,10 +441,11 @@ func (s *Service) applyPlan(ctx context.Context, tok string, link db.ListLink, l
 		}
 	}
 	for k, note := range p.LocalNote {
-		if err := s.Q.SetEntryNote(ctx, db.SetEntryNoteParams{ListID: link.ListID, ItemID: localByKey[k].itemID,
+		if err := s.Q.SetSaveNote(ctx, db.SetSaveNoteParams{UserID: link.UserID, ItemID: localByKey[k].itemID,
 			Note: truncateRunes(safety.SanitizeText(note), 280)}); err != nil {
 			return err
 		}
+		s.markDirty(ctx, link.UserID) // the GitHub README shows notes too
 	}
 	if p.LocalMeta != nil {
 		vis := p.LocalMeta.Visibility

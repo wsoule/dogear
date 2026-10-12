@@ -2,7 +2,7 @@
 {{with .Data}}
 <h1>post something cool</h1>
 <p class="lede">A link and one honest sentence on why it's good.{{if .Pending}} New accounts' posts are reviewed before they appear.{{end}}</p>
-{{if .Error}}<p class="flash error" role="alert">{{.Error}}{{if .DupID}} — <a href="/i/{{.DupID}}">see it</a> and save it to a list instead.{{end}}</p>{{end}}
+{{if .Error}}<p class="flash error" role="alert">{{.Error}}{{if .DupID}} — <a href="/i/{{.DupID}}">see it</a> and dogear it instead.{{end}}</p>{{end}}
 <form class="stack" method="post" action="/submit" toolname="post_item"
   tooldescription="Post a new link to Dogear with a one-sentence reason it is good. Only post what the user asked for; search first to avoid duplicates. New accounts' posts are reviewed before they appear.">
   {{template "csrf" $.CSRF}}
@@ -17,9 +17,9 @@
     <option value="">let dogear pick</option>
     {{$c := .In.Category}}{{range .Groups}}<optgroup label="{{.Name}}">{{range .Children}}{{if not .Hidden}}<option value="{{.Slug}}" {{if eq $c .Slug}}selected{{end}}>{{.Name}}</option>{{end}}{{end}}</optgroup>{{end}}
   </select></label>
-  <label><span>also add to list (optional)</span>
-  <select name="list" toolparamdescription="Optional: slug of one of the user's lists to also save it to"><option value="">—</option>{{$l := .In.List}}{{range .Lists}}<option value="{{.Slug}}" {{if eq $l .Slug}}selected{{end}}>{{.Title}}</option>{{end}}</select></label>
-  <label><span>note for your list (optional)</span><input type="text" name="note" value="{{.In.Note}}" maxlength="280" toolparamdescription="Optional: the user's own reason, stored on their list entry"></label>
+  <label><span>tag in your archive (optional)</span>
+  <select name="list" toolparamdescription="Optional: slug of one of the user's tags to file it under; it goes in their archive either way"><option value="">—</option>{{$l := .In.List}}{{range .Lists}}<option value="{{.Slug}}" {{if eq $l .Slug}}selected{{end}}>#{{.Slug}}</option>{{end}}</select></label>
+  <label><span>your note (optional)</span><input type="text" name="note" value="{{.In.Note}}" maxlength="280" toolparamdescription="Optional: the user's own note on it in their archive"></label>
   {{if $.TurnstileSiteKey}}<div class="cf-turnstile" data-sitekey="{{$.TurnstileSiteKey}}"></div>{{end}}
   <div><button class="btn" type="submit">post</button></div>
 </form>

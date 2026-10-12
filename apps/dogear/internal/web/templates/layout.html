@@ -66,9 +66,9 @@
 </body>
 </html>{{end}}
 
-{{define "dogearbtn"}}<form class="dogear-form" id="dogear" method="post" action="/items/{{.ItemID}}/dogear" hx-post="/items/{{.ItemID}}/dogear" hx-target="#dogear" hx-swap="outerHTML">
+{{define "dogearbtn"}}<form class="dogear-form" id="dogear" method="post" action="/items/{{.ItemID}}/dogear" hx-post="/items/{{.ItemID}}/dogear" hx-target="#dogear" hx-swap="outerHTML"{{template "unsaveconfirm" .}}>
 <input type="hidden" name="csrf" value="{{.CSRF}}">
-<button type="submit" class="dogear{{if .On}} on{{end}}" aria-pressed="{{if .On}}true{{else}}false{{end}}" aria-label="{{if .On}}Dogeared — remove from your Dogeared list{{else}}Dogear this: save it to your profile{{end}}" title="{{if .On}}dogeared · tap to undo{{else}}dogear this · save to your profile{{end}}"><svg viewBox="0 0 48 48" overflow="visible" aria-hidden="true" focusable="false"><path class="cut" d="M0.6 0 H48 V47.4 Z"/><path class="flap" d="M0.6 0 V47.4 H48 Z" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="miter" vector-effect="non-scaling-stroke"/></svg></button>
+<button type="submit" class="dogear{{if .On}} on{{end}}" aria-pressed="{{if .On}}true{{else}}false{{end}}" aria-label="{{if .On}}Dogeared — remove from your archive{{else}}Dogear this: save it to your archive{{end}}" title="{{if .On}}dogeared · tap to undo{{else}}dogear this · save to your archive{{end}}"><svg viewBox="0 0 48 48" overflow="visible" aria-hidden="true" focusable="false"><path class="cut" d="M0.6 0 H48 V47.4 Z"/><path class="flap" d="M0.6 0 V47.4 H48 Z" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="miter" vector-effect="non-scaling-stroke"/></svg></button>
 </form>{{end}}
 
 {{define "like"}}<div class="vote like" id="vote-{{.ItemID}}">
@@ -78,10 +78,12 @@
 </form>
 </div>{{end}}
 
-{{define "dogearinline"}}<form class="inline dogear-inline" id="dg-{{.ItemID}}" method="post" action="/items/{{.ItemID}}/dogear" hx-post="/items/{{.ItemID}}/dogear?ui=inline" hx-target="#dg-{{.ItemID}}" hx-swap="outerHTML">
+{{define "dogearinline"}}<form class="inline dogear-inline" id="dg-{{.ItemID}}" method="post" action="/items/{{.ItemID}}/dogear" hx-post="/items/{{.ItemID}}/dogear?ui=inline" hx-target="#dg-{{.ItemID}}" hx-swap="outerHTML"{{template "unsaveconfirm" .}}>
 <input type="hidden" name="csrf" value="{{.CSRF}}">
-<button type="submit" class="link dg{{if .On}} on{{end}}" aria-pressed="{{if .On}}true{{else}}false{{end}}" title="{{if .On}}in your Dogeared list · tap to undo{{else}}keep this in your Dogeared list{{end}}"><svg class="dg-icon" viewBox="0 0 10 10" aria-hidden="true"><path d="M0.5 0.5H6.5L9.5 3.5V9.5H0.5Z M6.5 0.5V3.5H9.5" fill="none" stroke="currentColor"/></svg>{{if .On}}dogeared{{else}}dogear{{end}}</button>
+<button type="submit" class="link dg{{if .On}} on{{end}}" aria-pressed="{{if .On}}true{{else}}false{{end}}" title="{{if .On}}in your archive · tap to undo{{else}}keep this in your archive{{end}}"><svg class="dg-icon" viewBox="0 0 10 10" aria-hidden="true"><path d="M0.5 0.5H6.5L9.5 3.5V9.5H0.5Z M6.5 0.5V3.5H9.5" fill="none" stroke="currentColor"/></svg>{{if .On}}dogeared{{else}}dogear{{end}}</button>
 </form>{{end}}
+
+{{define "unsaveconfirm"}}{{if and .On .Tags}} hx-confirm="Un-dogear this? It also comes off your {{.Tags}} tag{{if gt .Tags 1}}s{{end}}, and your note goes with it."{{end}}{{end}}
 
 {{define "csrf"}}<input type="hidden" name="csrf" value="{{.}}">{{end}}
 
@@ -103,7 +105,7 @@
     <span>{{.Item.Kind}}{{if .Item.Creator}} · {{.Item.Creator}}{{end}}</span>
     {{with .Item.Category}}<a href="/c/{{.Slug}}"><span class="sr-only">category </span>#{{.Slug}}</a>{{end}}
     <a class="out" href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank">link ↗</a>
-    {{if $.Viewer}}{{template "dogearinline" (dogearData .Item.ID .Item.Dogeared $.CSRF)}}{{end}}
+    {{if $.Viewer}}{{template "dogearinline" (dogearData .Item $.CSRF)}}{{end}}
     {{if .Item.Agent}}<span class="label" title="posted by an agent">agent</span>{{end}}
     {{if ne .Item.Status "live"}}<span class="label warn">{{.Item.Status}}</span>{{end}}
     {{if eq .Item.LinkStatus "dead"}}<span class="label warn">dead link</span>{{end}}
@@ -111,17 +113,18 @@
   </div>
   {{if .Item.Blurb}}<p class="blurb">{{.Item.Blurb}}</p>{{end}}
   {{if .Note}}<p class="note">{{.Note}}</p>{{end}}
+  {{if .Tags}}<p class="mytags small">{{range .Tags}}<a href="/u/{{$.TagsOf}}/{{.Slug}}">{{.Slug}}</a>{{if ne .Visibility "public"}}<span class="muted"> ({{.Visibility}})</span>{{end}} {{end}}</p>{{end}}
   {{with .Owner}}<div class="entry-tools small">
     <form class="inline" method="post" action="/lists/{{.Slug}}/entries/{{$.Item.ID}}">
       <input type="hidden" name="csrf" value="{{$.CSRF}}">
       {{if .CanReorder}}{{if not .First}}<button class="link" name="op" value="up" aria-label="Move {{$.Item.Title}} up">move up</button>{{end}}
       {{if not .Last}}<button class="link" name="op" value="down" aria-label="Move {{$.Item.Title}} down">move down</button>{{end}}{{end}}
-      <button class="link muted" name="op" value="remove" aria-label="Remove {{$.Item.Title}} from this list">remove</button>
+      <button class="link muted" name="op" value="remove" aria-label="Remove {{$.Item.Title}} from this tag">untag</button>
     </form>
     <details class="note-edit"><summary>{{if $.Note}}edit note{{else}}add a note{{end}}</summary>
       <form class="note-form" method="post" action="/lists/{{.Slug}}/entries/{{$.Item.ID}}">
         <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="op" value="note">
-        <label><span class="sr-only">Note for {{$.Item.Title}}</span><textarea name="note" maxlength="280" rows="2" placeholder="why it's on this list">{{$.Note}}</textarea></label>
+        <label><span class="sr-only">Note for {{$.Item.Title}}</span><textarea name="note" maxlength="280" rows="2" placeholder="why it's worth it (shows on every tag)">{{$.Note}}</textarea></label>
         <button class="btn ghost" type="submit">save note</button>
       </form>
     </details>

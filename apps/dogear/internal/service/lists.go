@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -15,8 +14,8 @@ import (
 )
 
 const (
-	maxListsPerUser   = 50
-	maxEntriesPerList = 500
+	maxListsPerUser   = 200
+	maxEntriesPerList = 2000
 )
 
 type List struct {
@@ -29,11 +28,14 @@ type List struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// Entry is one item in a tag or in the archive. Note is the owner's note on
+// their save of the item (the same on every tag).
 type Entry struct {
 	Item     Item      `json:"item"`
 	Note     string    `json:"note"`
 	Position int       `json:"position"`
 	AddedAt  time.Time `json:"added_at"`
+	Tags     []TagRef  `json:"tags,omitempty"`
 }
 
 type ListView struct {
@@ -113,7 +115,7 @@ func (s *Service) CreateList(ctx context.Context, a *Actor, in ListInput) (List,
 		return List{}, fmt.Errorf("count lists: %w", err)
 	}
 	if n >= maxListsPerUser {
-		return List{}, errf("invalid", "you can have at most %d lists", maxListsPerUser)
+		return List{}, errf("invalid", "you can have at most %d tags", maxListsPerUser)
 	}
 	if err := s.limit("list:"+strconv.FormatInt(a.ID(), 10), listCreateRules...); err != nil {
 		return List{}, err
@@ -233,9 +235,13 @@ func (s *Service) entryLimit(a *Actor) error {
 	return s.limit("entry:"+strconv.FormatInt(a.ID(), 10), entryRules[level(a.User.TrustLevel)]...)
 }
 
-// addEntry inserts or updates one list entry inside a transaction.
-func (s *Service) addEntry(ctx context.Context, q *db.Queries, a *Actor, l db.List, itemID int64, note string, position *int) error {
+// addEntry tags an item (saving it to the archive first) or moves it,
+// inside a transaction. A nil note keeps the save's existing note.
+func (s *Service) addEntry(ctx context.Context, q *db.Queries, a *Actor, l db.List, itemID int64, note *string, position *int) error {
 	if err := s.entryLimit(a); err != nil {
+		return err
+	}
+	if err := s.saveItem(ctx, q, a, itemID, note); err != nil {
 		return err
 	}
 	if _, err := q.GetListEntry(ctx, db.GetListEntryParams{ListID: l.ID, ItemID: itemID}); notFound(err) {
@@ -244,7 +250,7 @@ func (s *Service) addEntry(ctx context.Context, q *db.Queries, a *Actor, l db.Li
 			return fmt.Errorf("count entries: %w", err)
 		}
 		if n >= maxEntriesPerList {
-			return errf("invalid", "a list can hold at most %d entries", maxEntriesPerList)
+			return errf("invalid", "a tag can hold at most %d things", maxEntriesPerList)
 		}
 	} else if err != nil {
 		return fmt.Errorf("get entry: %w", err)
@@ -253,7 +259,7 @@ func (s *Service) addEntry(ctx context.Context, q *db.Queries, a *Actor, l db.Li
 	if position != nil {
 		pos = ptr(int32(*position))
 	}
-	if err := q.UpsertListEntry(ctx, db.UpsertListEntryParams{ListID: l.ID, ItemID: itemID, Note: note, Position: pos}); err != nil {
+	if err := q.UpsertListEntry(ctx, db.UpsertListEntryParams{ListID: l.ID, ItemID: itemID, Position: pos}); err != nil {
 		return fmt.Errorf("upsert entry: %w", err)
 	}
 	if err := q.TouchList(ctx, l.ID); err != nil {
@@ -266,9 +272,9 @@ func (s *Service) addEntry(ctx context.Context, q *db.Queries, a *Actor, l db.Li
 	return nil
 }
 
-// SaveToList adds an existing item to one of the actor's lists with a note,
-// or updates the note and position when it is already there. Saving is not
-// a vote and never changes ranking.
+// SaveToList tags an existing item with one of the actor's tags (lists),
+// saving it to their archive. A non-empty note replaces the save's note; an
+// empty one keeps it. Saving is not a vote and never changes ranking.
 func (s *Service) SaveToList(ctx context.Context, a *Actor, slug string, itemID int64, note string, position *int) error {
 	if err := require(a, "post"); err != nil {
 		return err
@@ -277,16 +283,12 @@ func (s *Service) SaveToList(ctx context.Context, a *Actor, slug string, itemID 
 	if err != nil {
 		return err
 	}
-	it, err := s.Q.GetItem(ctx, itemID)
-	if notFound(err) {
-		return ErrNotFound
-	} else if err != nil {
-		return fmt.Errorf("get item: %w", err)
+	var notePtr *string
+	if note != "" {
+		notePtr = &note
 	}
-	if ok, err := s.visibleTo(ctx, a, it); err != nil {
+	if err := s.checkSavable(ctx, a, itemID); err != nil {
 		return err
-	} else if !ok {
-		return ErrNotFound
 	}
 	return s.inTx(ctx, func(q *db.Queries, _ pgx.Tx) error {
 		l, err := q.GetList(ctx, db.GetListParams{UserID: a.ID(), Slug: slug})
@@ -295,11 +297,11 @@ func (s *Service) SaveToList(ctx context.Context, a *Actor, slug string, itemID 
 		} else if err != nil {
 			return fmt.Errorf("get list: %w", err)
 		}
-		return s.addEntry(ctx, q, a, l, itemID, note, position)
+		return s.addEntry(ctx, q, a, l, itemID, notePtr, position)
 	})
 }
 
-// RemoveFromList removes an item from one of the actor's lists.
+// RemoveFromList untags an item; it stays in the actor's archive.
 func (s *Service) RemoveFromList(ctx context.Context, a *Actor, slug string, itemID int64) error {
 	if err := require(a, "post"); err != nil {
 		return err
@@ -344,16 +346,6 @@ func (s *Service) userLists(ctx context.Context, userID int64, all bool) ([]List
 		out = append(out, List{ID: r.ID, Slug: r.Slug, Title: r.Title, Description: r.Description,
 			Visibility: r.Visibility, Count: int(r.EntryCount), UpdatedAt: r.UpdatedAt})
 	}
-	// The Dogeared list (the one-tap save) always comes first.
-	slices.SortStableFunc(out, func(a, b List) int {
-		switch {
-		case a.Slug == DogearSlug && b.Slug != DogearSlug:
-			return -1
-		case b.Slug == DogearSlug && a.Slug != DogearSlug:
-			return 1
-		}
-		return 0
-	})
 	return out, nil
 }
 
@@ -429,31 +421,4 @@ func (s *Service) markDirty(ctx context.Context, userID int64) {
 	if err := s.Q.MarkDirty(ctx, userID); err != nil {
 		s.Log.Warn("mark dirty", "user", userID, "err", err)
 	}
-}
-
-// DogearSlug is the list that tapping the corner dog-ear on an item saves to.
-const DogearSlug = "dogeared"
-
-// ToggleDogear adds an item to the actor's "Dogeared" list (creating the
-// list on first use) or removes it if it's already there. It returns
-// whether the item is dogeared afterwards.
-func (s *Service) ToggleDogear(ctx context.Context, a *Actor, itemID int64) (bool, error) {
-	if err := require(a, "post"); err != nil {
-		return false, err
-	}
-	l, err := s.Q.GetList(ctx, db.GetListParams{UserID: a.ID(), Slug: DogearSlug})
-	if notFound(err) {
-		if _, err := s.Q.CreateList(ctx, db.CreateListParams{UserID: a.ID(), Slug: DogearSlug, Title: "Dogeared",
-			Description: "Things I folded the corner on.", Visibility: "public"}); err != nil && !isUniqueViolation(err) {
-			return false, fmt.Errorf("create dogeared list: %w", err)
-		}
-		l, err = s.Q.GetList(ctx, db.GetListParams{UserID: a.ID(), Slug: DogearSlug})
-	}
-	if err != nil {
-		return false, fmt.Errorf("dogeared list: %w", err)
-	}
-	if _, err := s.Q.GetListEntry(ctx, db.GetListEntryParams{ListID: l.ID, ItemID: itemID}); err == nil {
-		return false, s.RemoveFromList(ctx, a, DogearSlug, itemID)
-	}
-	return true, s.SaveToList(ctx, a, DogearSlug, itemID, "", nil)
 }

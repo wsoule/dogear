@@ -115,7 +115,7 @@ Reading needs no account. Writing (posting, voting, saving to lists) needs a per
 
 - Search before adding; a duplicate URL returns 409 with the existing item id.
 - Only post what your user asked for, with an honest one-sentence reason in the user's voice.
-- Put the user's own reason in "note" when saving to a list.
+- Put the user's own reason in "note" when saving or tagging.
 - Respect rate limits; responses carry X-RateLimit-Remaining and Retry-After.
 
 ## Optional

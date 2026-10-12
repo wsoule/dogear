@@ -190,10 +190,19 @@ paths:
   /users/{username}/lists/{slug}:
     get:
       operationId: getList
-      summary: One list with entries and notes. Private lists 404 for everyone but the owner.
+      summary: One tag (list) with entries and the owner's notes. Private tags 404 for everyone but the owner.
       parameters:
         - { name: username, in: path, required: true, schema: { type: string } }
         - { name: slug, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ok" } } } }
+  /users/{username}/saves:
+    get:
+      operationId: getSaves
+      summary: "One page of a user's archive, newest first, with notes and tags. Saves in non-public tags are hidden from everyone but the owner."
+      parameters:
+        - { name: username, in: path, required: true, schema: { type: string } }
+        - { name: before, in: query, required: false, schema: { type: string }, description: The next cursor from the previous page. }
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ok" } } } }
   /me:
@@ -299,7 +308,7 @@ paths:
   /me/lists/{slug}/items/{item_id}:
     put:
       operationId: addToList
-      summary: Add an existing item to one of your lists with your own note, or update the note.
+      summary: Tag an existing item with one of your tags (lists), saving it to your archive. A non-empty note replaces your note on it.
       security: [{ bearer: [] }]
       parameters:
         - { name: slug, in: path, required: true, schema: { type: string } }
@@ -316,10 +325,34 @@ paths:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ok" } } } }
     delete:
       operationId: removeFromList
-      summary: Remove an entry from a list.
+      summary: Untag an item; it stays in your archive.
       security: [{ bearer: [] }]
       parameters:
         - { name: slug, in: path, required: true, schema: { type: string } }
+        - { name: item_id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ok" } } } }
+  /me/saves/{item_id}:
+    put:
+      operationId: saveItem
+      summary: Save an existing item to your archive (dogear it), optionally setting your note.
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: item_id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string, maxLength: 280, description: "Your note, shown on every tag. Empty clears it; omit to keep it." }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ok" } } } }
+    delete:
+      operationId: unsaveItem
+      summary: Remove an item from your archive and from all of your tags.
+      security: [{ bearer: [] }]
+      parameters:
         - { name: item_id, in: path, required: true, schema: { type: integer } }
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ok" } } } }

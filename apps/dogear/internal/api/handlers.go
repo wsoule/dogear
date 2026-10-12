@@ -278,6 +278,55 @@ func (a *API) deleteList(w http.ResponseWriter, r *http.Request, act *service.Ac
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": true})
 }
 
+// getSaves returns one page of a user's archive as the caller may see it;
+// pass the returned next cursor as ?before= for the following page.
+func (a *API) getSaves(w http.ResponseWriter, r *http.Request) {
+	av, err := a.svc.UserArchive(r.Context(), a.optionalActor(r), r.PathValue("username"), r.URL.Query().Get("before"))
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"saves": av.Entries, "next": av.Next, "note": service.InjectionNote})
+}
+
+// putSave saves an item to the caller's archive. A JSON note sets the note
+// (an empty string clears it); omitting note keeps the existing one.
+func (a *API) putSave(w http.ResponseWriter, r *http.Request, act *service.Actor) {
+	id, err := pathID(r, "item_id")
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	var body struct {
+		Note *string `json:"note"`
+	}
+	if r.ContentLength != 0 {
+		if err := decode(r, &body); err != nil {
+			writeErr(w, err)
+			return
+		}
+	}
+	if err := a.svc.SaveItem(r.Context(), act, id, body.Note); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "item_id": id})
+}
+
+// deleteSave removes an item from the caller's archive and all their tags.
+func (a *API) deleteSave(w http.ResponseWriter, r *http.Request, act *service.Actor) {
+	id, err := pathID(r, "item_id")
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	if err := a.svc.Unsave(r.Context(), act, id); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 func (a *API) putEntry(w http.ResponseWriter, r *http.Request, act *service.Actor) {
 	id, err := pathID(r, "item_id")
 	if err != nil {

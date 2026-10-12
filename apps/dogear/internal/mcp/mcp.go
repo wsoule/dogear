@@ -83,9 +83,14 @@ type createListIn struct {
 }
 
 type addToListIn struct {
-	List   string `json:"list" jsonschema:"slug of the user's list, from list_my_lists"`
+	List   string `json:"list" jsonschema:"slug of the user's tag (list), from list_my_lists"`
 	ItemID int64  `json:"item_id" jsonschema:"the existing item id"`
 	Note   string `json:"note,omitempty" jsonschema:"the user's own reason for this pick"`
+}
+
+type saveItemIn struct {
+	ItemID int64   `json:"item_id" jsonschema:"the existing item id"`
+	Note   *string `json:"note,omitempty" jsonschema:"the user's own note on it, shown on every tag; omit to keep any existing note"`
 }
 
 type empty struct{}
@@ -190,7 +195,17 @@ func newServer(svc *service.Service, act *service.Actor) *sdk.Server {
 			return result("Vote recorded.", map[string]any{"item_id": st.ItemID, "likes": st.Likes, "my_vote": st.MyVote}, false)
 		})
 
-	sdk.AddTool(s, &sdk.Tool{Name: "list_my_lists", Description: "List the user's own lists (slugs, titles, visibility, counts).", Annotations: readOnly},
+	sdk.AddTool(s, &sdk.Tool{Name: "save_item",
+		Description: "Dogear an existing item: save it to the user's archive, optionally with their own note. Use add_to_list to also file it under a tag.",
+		Annotations: writes},
+		func(ctx context.Context, _ *sdk.CallToolRequest, in saveItemIn) (*sdk.CallToolResult, any, error) {
+			if err := svc.SaveItem(ctx, act, in.ItemID, in.Note); err != nil {
+				return toolErr(err)
+			}
+			return result("Saved to the archive.", map[string]any{"item_id": in.ItemID}, false)
+		})
+
+	sdk.AddTool(s, &sdk.Tool{Name: "list_my_lists", Description: "List the user's own tags (a.k.a. lists): slugs, titles, visibility, counts.", Annotations: readOnly},
 		func(ctx context.Context, _ *sdk.CallToolRequest, _ empty) (*sdk.CallToolResult, any, error) {
 			lists, err := svc.MyLists(ctx, act)
 			if err != nil {
@@ -199,7 +214,7 @@ func newServer(svc *service.Service, act *service.Actor) *sdk.Server {
 			return result(fmt.Sprintf("%d lists.", len(lists)), map[string]any{"lists": lists}, false)
 		})
 
-	sdk.AddTool(s, &sdk.Tool{Name: "create_list", Description: "Create a new list for the user. Only when they ask for one.", Annotations: writes},
+	sdk.AddTool(s, &sdk.Tool{Name: "create_list", Description: "Create a new tag (list) in the user's archive. Only when they ask for one.", Annotations: writes},
 		func(ctx context.Context, _ *sdk.CallToolRequest, in createListIn) (*sdk.CallToolResult, any, error) {
 			l, err := svc.CreateList(ctx, act, service.ListInput{Title: in.Title, Description: in.Description, Visibility: in.Visibility})
 			if err != nil {
@@ -209,7 +224,7 @@ func newServer(svc *service.Service, act *service.Actor) *sdk.Server {
 		})
 
 	sdk.AddTool(s, &sdk.Tool{Name: "add_to_list",
-		Description: "Save an existing item to one of the user's lists, with the user's own reason as the note. Use this instead of add_item when the item already exists.",
+		Description: "Tag an existing item with one of the user's tags (lists), saving it to their archive, with the user's own reason as the note. Use this instead of add_item when the item already exists.",
 		Annotations: writes},
 		func(ctx context.Context, _ *sdk.CallToolRequest, in addToListIn) (*sdk.CallToolResult, any, error) {
 			if err := svc.SaveToList(ctx, act, in.List, in.ItemID, in.Note, nil); err != nil {

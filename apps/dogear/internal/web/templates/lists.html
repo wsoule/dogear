@@ -1,16 +1,16 @@
 {{define "content"}}
 {{with .Data}}
 <h1>lists</h1>
-<p class="lede">People's picks, each with their own notes, and every awesome list Dogear was seeded from.</p>
+<p class="lede">People's tagged picks, each with their own notes, and every awesome list Dogear was seeded from.</p>
 <nav class="tabs" aria-label="Sort">{{$s := .Sort}}{{range .SortLinks}}<a href="{{.URL}}" {{if eq $s .Key}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}</nav>
 
-<h2>from people</h2>
+<h2>people's tags</h2>
 {{if .People}}
 <ul class="plain index">
-{{range .People}}<li><a href="/u/{{.Username}}/{{.Slug}}">{{.Title}}</a> <span class="muted small">@{{.Username}} · {{.EntryCount}}</span>{{if .Description}}<br><span class="small muted">{{.Description}}</span>{{end}}</li>{{end}}
+{{range .People}}<li><a href="/u/{{.Username}}/{{.Slug}}">#{{.Slug}}</a> <span class="muted small">@{{.Username}} · {{.EntryCount}}</span>{{if .Description}}<br><span class="small muted">{{.Description}}</span>{{end}}</li>{{end}}
 </ul>
 {{else}}
-<p class="muted">No public lists yet.{{if $.Viewer}} Make one from <a href="/u/{{$.Viewer.User.Username}}">your profile</a>, or hit “save” on anything.{{else}} <a href="/signin">Sign in</a> to start one.{{end}}</p>
+<p class="muted">No public tags yet.{{if $.Viewer}} Dogear anything and tag it, or make a tag from <a href="/u/{{$.Viewer.User.Username}}">your archive</a>.{{else}} <a href="/signin">Sign in</a> to start your archive.{{end}}</p>
 {{end}}
 
 <h2>awesome lists <span class="muted small">{{.Total}}</span></h2>

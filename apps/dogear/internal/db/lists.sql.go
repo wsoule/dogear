@@ -183,37 +183,6 @@ func (q *Queries) DirtySyncRows(ctx context.Context, dirtySince *time.Time) ([]G
 	return items, nil
 }
 
-const dogearedAmong = `-- name: DogearedAmong :many
-SELECT li.item_id FROM list_items li JOIN lists l ON l.id = li.list_id
-WHERE l.user_id = $1 AND l.slug = 'dogeared' AND li.item_id = ANY($2::bigint[])
-`
-
-type DogearedAmongParams struct {
-	UserID int64
-	Ids    []int64
-}
-
-// Which of these items the user has in their Dogeared list.
-func (q *Queries) DogearedAmong(ctx context.Context, arg DogearedAmongParams) ([]int64, error) {
-	rows, err := q.db.Query(ctx, dogearedAmong, arg.UserID, arg.Ids)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []int64
-	for rows.Next() {
-		var item_id int64
-		if err := rows.Scan(&item_id); err != nil {
-			return nil, err
-		}
-		items = append(items, item_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getItemMedia = `-- name: GetItemMedia :many
 SELECT item_id, media_id, resolved_at FROM item_media WHERE item_id = ANY($1::bigint[])
 `
@@ -350,19 +319,18 @@ func (q *Queries) GetLoggitAccount(ctx context.Context, userID int64) (LoggitAcc
 }
 
 const insertListEntryAtEnd = `-- name: InsertListEntryAtEnd :exec
-INSERT INTO list_items (list_id, item_id, note, position)
-VALUES ($1, $2, $3, (SELECT COALESCE(max(position) + 1, 0) FROM list_items WHERE list_id = $1))
+INSERT INTO list_items (list_id, item_id, position)
+VALUES ($1, $2, (SELECT COALESCE(max(position) + 1, 0) FROM list_items WHERE list_id = $1))
 ON CONFLICT (list_id, item_id) DO NOTHING
 `
 
 type InsertListEntryAtEndParams struct {
 	ListID int64
 	ItemID int64
-	Note   string
 }
 
 func (q *Queries) InsertListEntryAtEnd(ctx context.Context, arg InsertListEntryAtEndParams) error {
-	_, err := q.db.Exec(ctx, insertListEntryAtEnd, arg.ListID, arg.ItemID, arg.Note)
+	_, err := q.db.Exec(ctx, insertListEntryAtEnd, arg.ListID, arg.ItemID)
 	return err
 }
 
@@ -432,8 +400,9 @@ func (q *Queries) LinkedLoggitListIDs(ctx context.Context, userID int64) ([]stri
 }
 
 const listEntries = `-- name: ListEntries :many
-SELECT li.note, li.position, li.added_at, i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at, i.image_url, i.image_state, i.image_checked_at, i.embedding, i.embedded_hash
-FROM list_items li JOIN items i ON i.id = li.item_id
+SELECT COALESCE(s.note, '')::text AS note, li.position, li.added_at, i.id, i.url, i.url_norm, i.domain, i.title, i.blurb, i.created_by, i.created_via_token, i.via, i.status, i.link_status, i.link_fail_count, i.link_checked_at, i.github_stars, i.list_count, i.prior_score, i.like_count, i.dislike_count, i.score, i.created_at, i.updated_at, i.kind, i.creator, i.flags, i.removed_at, i.image_url, i.image_state, i.image_checked_at, i.embedding, i.embedded_hash
+FROM list_items li JOIN lists l ON l.id = li.list_id JOIN items i ON i.id = li.item_id
+LEFT JOIN saves s ON s.user_id = l.user_id AND s.item_id = li.item_id
 WHERE li.list_id = $1
 ORDER BY li.position, li.added_at
 `
@@ -474,6 +443,7 @@ type ListEntriesRow struct {
 	EmbeddedHash    []byte
 }
 
+// A tag's entries; the note comes from the owner's save of the item.
 func (q *Queries) ListEntries(ctx context.Context, listID int64) ([]ListEntriesRow, error) {
 	rows, err := q.db.Query(ctx, listEntries, listID)
 	if err != nil {
@@ -529,7 +499,11 @@ func (q *Queries) ListEntries(ctx context.Context, listID int64) ([]ListEntriesR
 }
 
 const listEntryTimes = `-- name: ListEntryTimes :many
-SELECT item_id, note, position, updated_at FROM list_items WHERE list_id = $1 ORDER BY position, added_at
+SELECT li.item_id, COALESCE(s.note, '')::text AS note, li.position,
+  GREATEST(li.updated_at, COALESCE(s.updated_at, li.updated_at))::timestamptz AS updated_at
+FROM list_items li JOIN lists l ON l.id = li.list_id
+LEFT JOIN saves s ON s.user_id = l.user_id AND s.item_id = li.item_id
+WHERE li.list_id = $1 ORDER BY li.position, li.added_at
 `
 
 type ListEntryTimesRow struct {
@@ -539,6 +513,8 @@ type ListEntryTimesRow struct {
 	UpdatedAt time.Time
 }
 
+// Entries with the owner's note and the latest edit to either the entry or
+// the note, for the loggit merge.
 func (q *Queries) ListEntryTimes(ctx context.Context, listID int64) ([]ListEntryTimesRow, error) {
 	rows, err := q.db.Query(ctx, listEntryTimes, listID)
 	if err != nil {
@@ -730,21 +706,6 @@ type SaveListLinkSyncParams struct {
 
 func (q *Queries) SaveListLinkSync(ctx context.Context, arg SaveListLinkSyncParams) error {
 	_, err := q.db.Exec(ctx, saveListLinkSync, arg.ListID, arg.Baseline)
-	return err
-}
-
-const setEntryNote = `-- name: SetEntryNote :exec
-UPDATE list_items SET note = $3, updated_at = now() WHERE list_id = $1 AND item_id = $2
-`
-
-type SetEntryNoteParams struct {
-	ListID int64
-	ItemID int64
-	Note   string
-}
-
-func (q *Queries) SetEntryNote(ctx context.Context, arg SetEntryNoteParams) error {
-	_, err := q.db.Exec(ctx, setEntryNote, arg.ListID, arg.ItemID, arg.Note)
 	return err
 }
 
@@ -959,29 +920,22 @@ func (q *Queries) UpdateList(ctx context.Context, arg UpdateListParams) (List, e
 }
 
 const upsertListEntry = `-- name: UpsertListEntry :exec
-INSERT INTO list_items (list_id, item_id, note, position)
-VALUES ($1, $2, $3, COALESCE($4::int, (SELECT COALESCE(max(position) + 1, 0) FROM list_items WHERE list_id = $1)))
-ON CONFLICT (list_id, item_id) DO UPDATE SET note = EXCLUDED.note,
-  position = COALESCE($4::int, list_items.position),
-  updated_at = CASE WHEN list_items.note IS DISTINCT FROM EXCLUDED.note
-    OR list_items.position IS DISTINCT FROM COALESCE($4::int, list_items.position)
+INSERT INTO list_items (list_id, item_id, position)
+VALUES ($1, $2, COALESCE($3::int, (SELECT COALESCE(max(position) + 1, 0) FROM list_items WHERE list_id = $1)))
+ON CONFLICT (list_id, item_id) DO UPDATE SET
+  position = COALESCE($3::int, list_items.position),
+  updated_at = CASE WHEN list_items.position IS DISTINCT FROM COALESCE($3::int, list_items.position)
     THEN now() ELSE list_items.updated_at END
 `
 
 type UpsertListEntryParams struct {
 	ListID   int64
 	ItemID   int64
-	Note     string
 	Position *int32
 }
 
 func (q *Queries) UpsertListEntry(ctx context.Context, arg UpsertListEntryParams) error {
-	_, err := q.db.Exec(ctx, upsertListEntry,
-		arg.ListID,
-		arg.ItemID,
-		arg.Note,
-		arg.Position,
-	)
+	_, err := q.db.Exec(ctx, upsertListEntry, arg.ListID, arg.ItemID, arg.Position)
 	return err
 }
 

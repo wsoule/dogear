@@ -294,12 +294,16 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, http.StatusOK, "search", &Page{Title: "search", Nav: "search", NoIndex: true, Data: sp})
 }
 
+// saveMenuData drives the "dogear & tag" menu on item pages: the viewer's
+// tags (Lists), which of them hold the item (Saved), and their note on it.
 type saveMenuData struct {
-	ItemID int64
-	Lists  []service.List
-	Saved  []string
-	Error  string
-	CSRF   string
+	ItemID   int64
+	Lists    []service.List
+	Saved    []string
+	Note     string
+	Dogeared bool
+	Error    string
+	CSRF     string
 }
 
 type itemPage struct {
@@ -342,12 +346,7 @@ func (s *Server) item(w http.ResponseWriter, r *http.Request) {
 	if desc == "" {
 		desc = it.Title + " — " + it.Domain
 	}
-	dg := &dogearState{ItemID: it.ID, CSRF: reqCtx(r).csrf}
-	for _, slug := range ip.Save.Saved {
-		if slug == service.DogearSlug {
-			dg.On = true
-		}
-	}
+	dg := &dogearState{ItemID: it.ID, On: it.Dogeared, Tags: it.TagCount, CSRF: reqCtx(r).csrf}
 	s.render(w, r, http.StatusOK, "item", &Page{Title: it.Title, Description: desc, NoIndex: !s.svc.Indexable(r.Context(), it), Data: ip, Dogear: dg})
 }
 
@@ -356,6 +355,7 @@ func (s *Server) saveMenuData(r *http.Request, itemID int64, errMsg string) save
 	d := saveMenuData{ItemID: itemID, Error: errMsg, CSRF: reqCtx(r).csrf}
 	d.Lists, _ = s.svc.MyLists(r.Context(), v)
 	d.Saved, _ = s.svc.SavedIn(r.Context(), v, itemID)
+	d.Note, d.Dogeared = s.svc.SavedNote(r.Context(), v, itemID)
 	return d
 }
 
@@ -392,7 +392,8 @@ func (s *Server) vote(w http.ResponseWriter, r *http.Request) {
 	s.back(w, r, "/i/"+strconv.FormatInt(id, 10))
 }
 
-// dogear toggles the item in the viewer's Dogeared list (the corner mark).
+// dogear saves the item to the viewer's archive, or unsaves it (the corner
+// mark and the inline button).
 func (s *Server) dogear(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
@@ -455,17 +456,38 @@ func (s *Server) save(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Header.Get("HX-Request") != "" {
-		s.fragment(w, http.StatusOK, "item", "savemenu", s.saveMenuData(r, id, ""))
+		// Saving dogears the item, so refresh both dog-ear controls and the
+		// menu's summary line out of band along with the menu.
+		d := s.saveMenuData(r, id, "")
+		st := dogearState{ItemID: id, On: d.Dogeared, Tags: len(d.Saved), CSRF: d.CSRF}
+		var buf strings.Builder
+		if err := s.tmpl["item"].ExecuteTemplate(&buf, "savemenu", d); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		for _, name := range []string{"dogearbtn", "dogearinline"} {
+			var oob strings.Builder
+			if err := s.tmpl["item"].ExecuteTemplate(&oob, name, st); err == nil {
+				buf.WriteString(strings.Replace(oob.String(), "<form ", `<form hx-swap-oob="true" `, 1))
+			}
+		}
+		var sum strings.Builder
+		if err := s.tmpl["item"].ExecuteTemplate(&sum, "savesummary", d); err == nil {
+			buf.WriteString(strings.Replace(sum.String(), "<summary ", `<summary hx-swap-oob="true" `, 1))
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = io.WriteString(w, buf.String())
 		return
 	}
 	http.Redirect(w, r, "/i/"+strconv.FormatInt(id, 10)+"?m=saved#save", http.StatusSeeOther)
 }
 
-// applySave makes the viewer's lists match the save menu. The checklist form
-// (menu=1) sends every list that should hold the item: checked lists gain it
-// and unchecked ones lose it. Older callers send a single "list" and only add.
-// A typed new list name creates that list too. The note goes on newly added
-// entries only, so re-saving never wipes a note written earlier.
+// applySave saves the item to the viewer's archive and makes their tags
+// match the menu. The checklist form (menu=1) sends every tag that should
+// hold the item, so unchecked tags lose it, and its note field (prefilled
+// with the current note) replaces the note. Older callers send a single
+// "list" and only add, and their note only fills in a missing one. A typed
+// new tag name creates that tag too.
 func (s *Server) applySave(r *http.Request, id int64) error {
 	ctx, v := r.Context(), viewer(r)
 	if err := r.ParseForm(); err != nil {
@@ -484,17 +506,30 @@ func (s *Server) applySave(r *http.Request, id int64) error {
 	}
 	menu := r.FormValue("menu") == "1"
 	if len(want) == 0 && !menu {
-		return &service.Error{Code: "invalid", Message: "pick a list or name a new one"}
+		return &service.Error{Code: "invalid", Message: "pick a tag or name a new one"}
 	}
+	// Tag before saving the note, so an item filed only under a private tag
+	// is never briefly an untagged (public) save.
 	have, err := s.svc.SavedIn(ctx, v, id)
 	if err != nil {
 		return err
 	}
 	for _, slug := range want {
 		if !slices.Contains(have, slug) {
-			if err := s.svc.SaveToList(ctx, v, slug, id, r.FormValue("note"), nil); err != nil {
+			if err := s.svc.SaveToList(ctx, v, slug, id, "", nil); err != nil {
 				return err
 			}
+		}
+	}
+	if menu {
+		note := r.FormValue("note")
+		if err := s.svc.SaveItem(ctx, v, id, &note); err != nil {
+			return err
+		}
+	} else if old, _ := s.svc.SavedNote(ctx, v, id); old == "" && r.FormValue("note") != "" {
+		note := r.FormValue("note")
+		if err := s.svc.SaveItem(ctx, v, id, &note); err != nil {
+			return err
 		}
 	}
 	if menu {

@@ -12,11 +12,11 @@
 
 <div class="item-actions">
   <a class="btn" href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank">visit {{.Item.Domain}} ↗</a>
-  {{if $.Viewer}}{{template "dogearinline" (dogearData .Item.ID .Item.Dogeared $.CSRF)}}{{end}}
+  {{if $.Viewer}}{{template "dogearinline" (dogearData .Item $.CSRF)}}{{end}}
   {{template "vote" (voteState .Item $.CSRF)}}
   {{if $.Viewer}}
   <details class="menu save" id="save">
-    <summary>{{if .Save.Saved}}on {{len .Save.Saved}} list{{if gt (len .Save.Saved) 1}}s{{end}}{{else}}add to a list{{end}}</summary>
+    {{template "savesummary" .Save}}
     {{template "savemenu" .Save}}
   </details>
   {{else}}<a class="muted small" href="/signin">sign in to dogear this</a>{{end}}
@@ -58,15 +58,17 @@
 {{end}}
 {{end}}
 
+{{define "savesummary"}}<summary id="save-summary">{{if .Saved}}{{range .Saved}}#{{.}} {{end}}{{else}}tag &amp; note{{end}}</summary>{{end}}
+
 {{define "savemenu"}}<form class="save-menu" method="post" action="/items/{{.ItemID}}/save" hx-post="/items/{{.ItemID}}/save" hx-swap="outerHTML"
-  toolname="save_to_list" tooldescription="Choose which of the user's Dogear lists this item is on (checked lists keep or gain it, unchecked lose it), optionally with a note in the user's own words. Saving is not a vote.">
+  toolname="save_to_list" tooldescription="Save this item to the user's Dogear archive and choose its tags (checked tags keep or gain it, unchecked lose it), with the user's note in their own words. Saving is not a vote.">
   <input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="menu" value="1">
   {{if .Error}}<p class="error small">{{.Error}}</p>{{end}}
   <fieldset class="list-choices">
-    <legend class="small muted">your lists</legend>
-    {{range .Lists}}<label class="choice"><input type="checkbox" name="lists" value="{{.Slug}}" {{if has $.Saved .Slug}}checked{{end}} toolparamdescription="Lists that should contain this item"> {{.Title}}{{if ne .Visibility "public"}} <span class="muted small">({{.Visibility}})</span>{{end}}</label>{{end}}
-    <label class="choice new"><span class="sr-only">New list name</span><input type="text" name="new_list" maxlength="80" placeholder="+ new list name" toolparamdescription="Optional: name of a new list to create and add this item to"></label>
+    <legend class="small muted">your tags</legend>
+    {{range .Lists}}<label class="choice"><input type="checkbox" name="lists" value="{{.Slug}}" {{if has $.Saved .Slug}}checked{{end}} toolparamdescription="Tags that should hold this item"> #{{.Slug}}{{if ne .Visibility "public"}} <span class="muted small">({{.Visibility}})</span>{{end}}</label>{{end}}
+    <label class="choice new"><span class="sr-only">New tag name</span><input type="text" name="new_list" maxlength="80" placeholder="+ new tag" toolparamdescription="Optional: name of a new tag to create and add this item to"></label>
   </fieldset>
-  <label><span class="small muted">note (optional)</span><input type="text" name="note" maxlength="280" placeholder="why you're saving it" toolparamdescription="Optional: the user's own reason, stored on newly added entries"></label>
-  <div class="actions"><button class="btn" type="submit">save</button>{{if .Saved}}<span class="saved small">on {{join (titlesFor .Lists .Saved) ", "}}</span>{{end}}</div>
+  <label><span class="small muted">your note (shows on every tag)</span><input type="text" name="note" value="{{.Note}}" maxlength="280" placeholder="why it's worth it" toolparamdescription="The user's own reason for saving it; replaces any earlier note"></label>
+  <div class="actions"><button class="btn" type="submit">{{if .Dogeared}}save{{else}}dogear it{{end}}</button>{{if .Dogeared}}<span class="saved small">in your archive{{if .Saved}} · {{range .Saved}}#{{.}} {{end}}{{end}}</span>{{end}}</div>
 </form>{{end}}

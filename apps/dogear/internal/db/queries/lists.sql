@@ -36,12 +36,11 @@ SELECT count(*) FROM list_items WHERE list_id = $1;
 SELECT * FROM list_items WHERE list_id = $1 AND item_id = $2;
 
 -- name: UpsertListEntry :exec
-INSERT INTO list_items (list_id, item_id, note, position)
-VALUES ($1, $2, $3, COALESCE(sqlc.narg(position)::int, (SELECT COALESCE(max(position) + 1, 0) FROM list_items WHERE list_id = $1)))
-ON CONFLICT (list_id, item_id) DO UPDATE SET note = EXCLUDED.note,
+INSERT INTO list_items (list_id, item_id, position)
+VALUES ($1, $2, COALESCE(sqlc.narg(position)::int, (SELECT COALESCE(max(position) + 1, 0) FROM list_items WHERE list_id = $1)))
+ON CONFLICT (list_id, item_id) DO UPDATE SET
   position = COALESCE(sqlc.narg(position)::int, list_items.position),
-  updated_at = CASE WHEN list_items.note IS DISTINCT FROM EXCLUDED.note
-    OR list_items.position IS DISTINCT FROM COALESCE(sqlc.narg(position)::int, list_items.position)
+  updated_at = CASE WHEN list_items.position IS DISTINCT FROM COALESCE(sqlc.narg(position)::int, list_items.position)
     THEN now() ELSE list_items.updated_at END;
 
 -- name: DeleteListEntry :exec
@@ -52,8 +51,10 @@ UPDATE list_items SET position = $3, updated_at = CASE WHEN position <> $3 THEN 
 WHERE list_id = $1 AND item_id = $2;
 
 -- name: ListEntries :many
-SELECT li.note, li.position, li.added_at, i.*
-FROM list_items li JOIN items i ON i.id = li.item_id
+-- A tag's entries; the note comes from the owner's save of the item.
+SELECT COALESCE(s.note, '')::text AS note, li.position, li.added_at, i.*
+FROM list_items li JOIN lists l ON l.id = li.list_id JOIN items i ON i.id = li.item_id
+LEFT JOIN saves s ON s.user_id = l.user_id AND s.item_id = li.item_id
 WHERE li.list_id = $1
 ORDER BY li.position, li.added_at;
 
@@ -170,7 +171,13 @@ ON CONFLICT (item_id) DO UPDATE SET media_id = EXCLUDED.media_id, resolved_at = 
 SELECT item_id FROM item_media WHERE media_id = $1 LIMIT 1;
 
 -- name: ListEntryTimes :many
-SELECT item_id, note, position, updated_at FROM list_items WHERE list_id = $1 ORDER BY position, added_at;
+-- Entries with the owner's note and the latest edit to either the entry or
+-- the note, for the loggit merge.
+SELECT li.item_id, COALESCE(s.note, '')::text AS note, li.position,
+  GREATEST(li.updated_at, COALESCE(s.updated_at, li.updated_at))::timestamptz AS updated_at
+FROM list_items li JOIN lists l ON l.id = li.list_id
+LEFT JOIN saves s ON s.user_id = l.user_id AND s.item_id = li.item_id
+WHERE li.list_id = $1 ORDER BY li.position, li.added_at;
 
 -- name: GetListByID :one
 SELECT * FROM lists WHERE id = $1;
@@ -179,14 +186,6 @@ SELECT * FROM lists WHERE id = $1;
 UPDATE lists SET title = $2, description = $3, visibility = $4, updated_at = now() WHERE id = $1;
 
 -- name: InsertListEntryAtEnd :exec
-INSERT INTO list_items (list_id, item_id, note, position)
-VALUES ($1, $2, $3, (SELECT COALESCE(max(position) + 1, 0) FROM list_items WHERE list_id = $1))
+INSERT INTO list_items (list_id, item_id, position)
+VALUES ($1, $2, (SELECT COALESCE(max(position) + 1, 0) FROM list_items WHERE list_id = $1))
 ON CONFLICT (list_id, item_id) DO NOTHING;
-
--- name: SetEntryNote :exec
-UPDATE list_items SET note = $3, updated_at = now() WHERE list_id = $1 AND item_id = $2;
-
--- name: DogearedAmong :many
--- Which of these items the user has in their Dogeared list.
-SELECT li.item_id FROM list_items li JOIN lists l ON l.id = li.list_id
-WHERE l.user_id = $1 AND l.slug = 'dogeared' AND li.item_id = ANY(@ids::bigint[]);

@@ -1,8 +1,9 @@
 {{define "content"}}
 {{with .Data}}
-<p class="small muted"><a href="/u/{{.L.Owner}}">@{{.L.Owner}}</a> / {{.L.Slug}}{{if ne .L.Visibility "public"}} · {{.L.Visibility}}{{end}}</p>
+<nav class="crumbs" aria-label="Breadcrumb"><a href="/u/{{.L.Owner}}">@{{.L.Owner}}'s archive</a> / #{{.L.Slug}}{{if ne .L.Visibility "public"}} · {{.L.Visibility}}{{end}}</nav>
 <h1>{{.L.Title}}</h1>
 {{if .L.Description}}<p class="lede">{{.L.Description}}</p>{{end}}
+{{if ne .L.Visibility "private"}}<p class="share"><span>{{len .L.Entries}} thing{{if ne (len .L.Entries) 1}}s{{end}} · share:</span> <code id="share-tag">{{$.BaseURL}}/u/{{.L.Owner}}/{{.L.Slug}}</code> <button class="link" type="button" data-copy="#share-tag">copy</button></p>{{end}}
 {{if .L.Entries}}
 <nav class="tabs" aria-label="Sort">{{$s := .Sort}}{{range .SortLinks}}<a href="{{.URL}}" {{if eq $s .Key}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}</nav>
 <ol class="feed">
@@ -10,7 +11,7 @@
 {{template "row" (entryRow $e.Item $e.Note $.CSRF $.Viewer (index $.Data.Badges $e.Item.ID) $.Data.L.Slug $i $n $.Data.L.IsOwner (eq $.Data.Sort "owner"))}}
 {{end}}
 </ol>
-{{else}}<p class="muted">This list is empty.{{if .L.IsOwner}} Use “save” on anything in the feed.{{end}}</p>{{end}}
+{{else}}<p class="muted">Nothing tagged #{{.L.Slug}} yet.{{if .L.IsOwner}} Open anything and use “tag &amp; note” to add it here.{{end}}</p>{{end}}
 
 {{if and .L.IsOwner .LoggitEnabled}}
 <h2>loggit</h2>
@@ -24,7 +25,7 @@
 {{else if .LoggitConnected}}
 <form class="stack" method="post" action="/lists/{{.L.Slug}}/loggit">{{template "csrf" $.CSRF}}
   <input type="hidden" name="op" value="link">
-  <label><span>sync this list with a loggit list</span>
+  <label><span>sync this tag with a loggit list</span>
   <select name="loggit_list">
     <option value="new">create a new loggit list from this one</option>
     {{range .LoggitLists}}<option value="{{.ID}}">{{.Title}} ({{.EntryCount}})</option>{{end}}
@@ -33,18 +34,19 @@
 </form>
 {{if .LoggitError}}<p class="small error">{{.LoggitError}}</p>{{end}}
 {{else}}
-<p class="small"><a href="/integrations/loggit/connect?next=/u/{{.L.Owner}}/{{.L.Slug}}">Connect loggit</a> to keep this list in sync with a loggit list.</p>
+<p class="small"><a href="/integrations/loggit/connect?next=/u/{{.L.Owner}}/{{.L.Slug}}">Connect loggit</a> to keep this tag in sync with a loggit list.</p>
 {{end}}
 {{end}}
 
 {{if .L.IsOwner}}
-<h2>edit list</h2>
+<h2>edit tag</h2>
 <form class="stack" method="post" action="/lists/{{.L.Slug}}">
   {{template "csrf" $.CSRF}}
-  <label><span>title</span><input type="text" name="title" value="{{.L.Title}}" maxlength="80" required></label>
+  <label><span>name</span><input type="text" name="title" value="{{.L.Title}}" maxlength="80" required></label>
   <label><span>description</span><input type="text" name="description" value="{{.L.Description}}" maxlength="280"></label>
-  <label><span>visibility</span><select name="visibility">{{$v := .L.Visibility}}{{range list "public" "unlisted" "private"}}<option {{if eq $v .}}selected{{end}}>{{.}}</option>{{end}}</select></label>
-  <div class="actions"><button class="btn ghost" name="op" value="update">save</button> <button class="btn danger" name="op" value="delete">delete list</button></div>
+  <label><span>who can see it</span><select name="visibility">{{$v := .L.Visibility}}{{range list "public" "unlisted" "private"}}<option {{if eq $v .}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+  <p class="small muted">Private and unlisted tags also hide their things from your public archive.</p>
+  <div class="actions"><button class="btn ghost" name="op" value="update">save</button> <button class="btn danger" name="op" value="delete">delete tag</button></div>
 </form>
 {{end}}
 {{end}}

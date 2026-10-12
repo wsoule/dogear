@@ -135,16 +135,55 @@ func (s *Server) preview(w http.ResponseWriter, r *http.Request) {
 	s.fragment(w, http.StatusOK, "submit", "autofill", sp)
 }
 
+// profilePage is /u/{user}: the archive with its tag bar, then posts.
 type profilePage struct {
 	P    service.Profile
 	Feed feedData
+	// NextArchive is the htmx URL for the next page of archive rows.
+	NextArchive string
+}
+
+// archiveRows is one page of archive rows, for the "archiverows" partial.
+type archiveRows struct {
+	Owner   string
+	Archive service.ArchiveView
+	Next    string
+	CSRF    string
+	Viewer  *service.Actor
+}
+
+// archiveNext builds the htmx URL for the page after this one.
+func archiveNext(username string, av service.ArchiveView) string {
+	if av.Next == "" {
+		return ""
+	}
+	return "/u/" + url.PathEscape(username) + "?before=" + url.QueryEscape(av.Next)
 }
 
 func (s *Server) profile(w http.ResponseWriter, r *http.Request) {
+	before := r.URL.Query().Get("before")
+	if before != "" && r.Header.Get("HX-Request") != "" {
+		username := r.PathValue("username")
+		av, err := s.svc.UserArchive(r.Context(), viewer(r), username, before)
+		if err != nil {
+			s.serviceError(w, r, err)
+			return
+		}
+		s.fragment(w, http.StatusOK, "profile", "archiverows", archiveRows{Owner: username, Archive: av,
+			Next: archiveNext(username, av), CSRF: reqCtx(r).csrf, Viewer: viewer(r)})
+		return
+	}
 	p, err := s.svc.GetProfile(r.Context(), viewer(r), r.PathValue("username"))
 	if err != nil {
 		s.serviceError(w, r, err)
 		return
+	}
+	if before != "" {
+		// No-JS paging: the full page, with the archive starting further back.
+		if p.Archive, err = s.svc.Archive(r.Context(), viewer(r), p.User.ID, before); err != nil {
+			s.serviceError(w, r, err)
+			return
+		}
 	}
 	nav := ""
 	if p.IsOwner {
@@ -152,7 +191,8 @@ func (s *Server) profile(w http.ResponseWriter, r *http.Request) {
 	}
 	// Profiles are never indexed: they would otherwise be the main target of SEO spam.
 	s.render(w, r, http.StatusOK, "profile", &Page{Title: "@" + p.User.Username, Nav: nav, NoIndex: true,
-		Data: profilePage{P: p, Feed: feedData{Items: p.Posts, CSRF: reqCtx(r).csrf, Viewer: viewer(r), Compact: compactView(r)}}})
+		Data: profilePage{P: p, NextArchive: archiveNext(p.User.Username, p.Archive),
+			Feed: feedData{Items: p.Posts, CSRF: reqCtx(r).csrf, Viewer: viewer(r), Compact: compactView(r)}}})
 }
 
 func (s *Server) block(w http.ResponseWriter, r *http.Request) {
@@ -253,7 +293,8 @@ func (s *Server) editList(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/u/"+v.User.Username+"/"+l.Slug+"?m=saved", http.StatusSeeOther)
 }
 
-// editEntry updates a note, moves an entry up or down, or removes it.
+// editEntry updates the note, moves an entry up or down in a tag, or
+// untags it.
 func (s *Server) editEntry(w http.ResponseWriter, r *http.Request) {
 	v := viewer(r)
 	slug := r.PathValue("slug")
@@ -288,17 +329,10 @@ func (s *Server) editEntry(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	default:
-		var lv service.ListView
-		lv, err = s.svc.GetList(ctx, v, v.User.Username, slug)
-		if err == nil {
-			pos := 0
-			for _, e := range lv.Entries {
-				if e.Item.ID == id {
-					pos = e.Position
-				}
-			}
-			err = s.svc.SaveToList(ctx, v, slug, id, r.FormValue("note"), &pos)
-		}
+		// The note lives on the save, so editing it here changes it on
+		// every tag; an empty note clears it.
+		note := r.FormValue("note")
+		err = s.svc.SaveItem(ctx, v, id, &note)
 	}
 	if err != nil {
 		s.serviceError(w, r, err)

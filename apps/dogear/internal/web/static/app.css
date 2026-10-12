@@ -1100,3 +1100,44 @@ details.note-edit[open] > summary {
 .note-form button {
   justify-self: start;
 }
+
+/* the archive owner's own tags on a row, and the profile tag bar */
+.mytags {
+  margin: 4px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 10px;
+}
+.mytags a,
+.tagbar a {
+  color: var(--accent);
+}
+.mytags a::before,
+.tagbar a::before {
+  content: '#';
+  opacity: 0.6;
+}
+.tagbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0 0 16px;
+}
+.tagbar .count {
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: 3px;
+}
+.share {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.share code {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}

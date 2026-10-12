@@ -468,15 +468,18 @@ func (s *Service) UpdateProfile(ctx context.Context, u db.User, in ProfileInput)
 	return out, nil
 }
 
+// Profile is a user's page: their archive (first page), tags, and posts.
 type Profile struct {
 	User    db.User
-	Lists   []List
+	Lists   []List // the user's tags; only public ones for other viewers
+	Archive ArchiveView
 	Posts   []Item
 	IsOwner bool
 	Blocked bool
 }
 
-// GetProfile returns a public profile with public lists and posts.
+// GetProfile returns a profile with the archive, tags, and posts as the
+// viewer may see them.
 func (s *Service) GetProfile(ctx context.Context, viewer *Actor, username string) (Profile, error) {
 	u, err := s.GetUserByUsername(ctx, username)
 	if err != nil {
@@ -487,6 +490,9 @@ func (s *Service) GetProfile(ctx context.Context, viewer *Actor, username string
 		return Profile{}, ErrNotFound
 	}
 	if p.Lists, err = s.userLists(ctx, u.ID, p.IsOwner); err != nil {
+		return Profile{}, err
+	}
+	if p.Archive, err = s.Archive(ctx, viewer, u.ID, ""); err != nil {
 		return Profile{}, err
 	}
 	if p.Posts, err = s.UserItems(ctx, viewer, u.ID, 100); err != nil {

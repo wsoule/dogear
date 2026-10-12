@@ -57,10 +57,13 @@ type Item struct {
 	Poster     string       `json:"posted_by,omitempty"`
 	Image      string       `json:"image,omitempty"`      // /img/{id} thumbnail path when one is available
 	Transcript string       `json:"transcript,omitempty"` // video captions, item detail only
-	Dogeared   bool         `json:"dogeared,omitempty"`   // in the viewer's Dogeared list
-	Flags      []string     `json:"-"`
-	createdBy  *int64
-	listCount  int
+	Dogeared   bool         `json:"dogeared,omitempty"`   // saved in the viewer's archive
+	// TagCount is how many of the viewer's tags hold the item; unsaving it
+	// asks for confirmation when this is above zero.
+	TagCount  int      `json:"-"`
+	Flags     []string `json:"-"`
+	createdBy *int64
+	listCount int
 }
 
 // Agent reports whether an agent created the item (shown as a small label).
@@ -112,14 +115,14 @@ func (s *Service) decorate(ctx context.Context, viewer *Actor, rows []db.Item) (
 		byID[c.ItemID] = ref
 	}
 	votes := map[int64]int{}
-	dogeared := map[int64]bool{}
+	saved := map[int64]int{}
 	if viewer != nil {
-		ds, err := s.Q.DogearedAmong(ctx, db.DogearedAmongParams{UserID: viewer.ID(), Ids: ids})
+		ds, err := s.Q.SavedAmong(ctx, db.SavedAmongParams{UserID: viewer.ID(), Ids: ids})
 		if err != nil {
-			return nil, fmt.Errorf("dogeared: %w", err)
+			return nil, fmt.Errorf("saved: %w", err)
 		}
-		for _, id := range ds {
-			dogeared[id] = true
+		for _, d := range ds {
+			saved[d.ItemID] = int(d.TagCount)
 		}
 		vs, err := s.Q.MyVotes(ctx, db.MyVotesParams{UserID: viewer.ID(), Ids: ids})
 		if err != nil {
@@ -134,7 +137,7 @@ func (s *Service) decorate(ctx context.Context, viewer *Actor, rows []db.Item) (
 		if viewer != nil {
 			v := votes[items[i].ID]
 			items[i].MyVote = &v
-			items[i].Dogeared = dogeared[items[i].ID]
+			items[i].TagCount, items[i].Dogeared = saved[items[i].ID]
 		}
 	}
 	return items, nil

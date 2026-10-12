@@ -111,6 +111,14 @@ func (s *Service) Export(ctx context.Context, a *Actor) (map[string]any, error) 
 	for _, v := range votes {
 		voteOut = append(voteOut, map[string]any{"item_id": v.ItemID, "url": v.Url, "title": v.Title, "value": v.Value, "counted": v.Counted, "via": v.Via, "created_at": v.CreatedAt})
 	}
+	saves, err := s.Q.UserSaves(ctx, u.ID)
+	if err != nil {
+		return nil, err
+	}
+	saveOut := []map[string]any{}
+	for _, sv := range saves {
+		saveOut = append(saveOut, map[string]any{"item_id": sv.ID, "url": sv.Url, "title": sv.Title, "note": sv.Note, "saved_at": sv.SavedAt})
+	}
 	for _, t := range tokens {
 		tokOut = append(tokOut, map[string]any{"name": t.Name, "prefix": t.Prefix, "scopes": t.Scopes, "created_at": t.CreatedAt, "last_used_at": t.LastUsedAt})
 	}
@@ -118,7 +126,7 @@ func (s *Service) Export(ctx context.Context, a *Actor) (map[string]any, error) 
 		"exported_at": time.Now().UTC(),
 		"profile": map[string]any{"username": u.Username, "display_name": u.DisplayName, "bio": u.Bio, "website": u.Website,
 			"avatar_url": u.AvatarUrl, "role": u.Role, "trust_level": u.TrustLevel, "created_at": u.CreatedAt},
-		"identities": identOut, "items": itemOut, "lists": listOut, "votes": voteOut, "tokens": tokOut,
+		"identities": identOut, "items": itemOut, "saves": saveOut, "lists": listOut, "votes": voteOut, "tokens": tokOut,
 	}, nil
 }
 

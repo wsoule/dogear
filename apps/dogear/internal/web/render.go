@@ -39,11 +39,13 @@ type Page struct {
 	Data               any
 }
 
-// rowData is what the "row" partial needs: the item, an optional list note,
-// and the viewer's CSRF token for the vote form.
+// rowData is what the "row" partial needs: the item, an optional note from
+// the archive owner, and the viewer's CSRF token for the vote form.
 type rowData struct {
 	Item   service.Item
 	Note   string
+	Tags   []service.TagRef // archive owner's tags on the item, shown as chips
+	TagsOf string           // username the tag chips link under
 	CSRF   string
 	Viewer *service.Actor
 	Badge  string      // small extra label, e.g. "not on loggit"
@@ -57,10 +59,13 @@ type entryTools struct {
 	CanReorder  bool // only in the owner's own order
 }
 
-// dogearState drives the corner dog-ear button on item pages.
+// dogearState drives the dog-ear toggles (the corner mark on item pages and
+// the inline button on rows). Tags is how many of the viewer's tags hold the
+// item; un-dogearing then asks first, since it untags it everywhere.
 type dogearState struct {
 	ItemID int64
 	On     bool
+	Tags   int
 	CSRF   string
 }
 
@@ -120,18 +125,15 @@ var funcs = template.FuncMap{
 		}
 		return rd
 	},
-	"titlesFor": func(lists []service.List, slugs []string) []string {
-		var out []string
-		for _, l := range lists {
-			if slices.Contains(slugs, l.Slug) {
-				out = append(out, l.Title)
-			}
-		}
-		return out
+	"archivePage": func(owner string, av service.ArchiveView, next, csrf string, v *service.Actor) archiveRows {
+		return archiveRows{Owner: owner, Archive: av, Next: next, CSRF: csrf, Viewer: v}
+	},
+	"archiveRow": func(e service.Entry, owner, csrf string, v *service.Actor) rowData {
+		return rowData{Item: e.Item, Note: e.Note, Tags: e.Tags, TagsOf: owner, CSRF: csrf, Viewer: v}
 	},
 	"has": func(xs []string, x string) bool { return slices.Contains(xs, x) },
-	"dogearData": func(id int64, on bool, csrf string) dogearState {
-		return dogearState{ItemID: id, On: on, CSRF: csrf}
+	"dogearData": func(it service.Item, csrf string) dogearState {
+		return dogearState{ItemID: it.ID, On: it.Dogeared, Tags: it.TagCount, CSRF: csrf}
 	},
 	"voteState": func(it service.Item, csrf string) voteData {
 		v := voteData{ItemID: it.ID, Likes: it.Likes, CSRF: csrf}
@@ -292,11 +294,11 @@ var flashes = map[string]string{
 	"connected":    "GitHub repo connected. The first sync runs within a few minutes.",
 	"disconnect":   "GitHub sync disconnected. Uninstall the app on GitHub to fully revoke access.",
 	"done":         "Done.",
-	"list":         "List created.",
-	"listdel":      "List deleted.",
+	"list":         "Tag created.",
+	"listdel":      "Tag deleted. Everything in it is still in your archive.",
 	"invite":       "Invite saved. Sign in to create your account.",
-	"loggit":       "loggit connected. Open any of your lists to sync it with loggit.",
-	"loggitoff":    "loggit disconnected. Your lists stay on both sites; they just stop syncing.",
+	"loggit":       "loggit connected. Open any of your tags to sync it with a loggit list.",
+	"loggitoff":    "loggit disconnected. Your tags and loggit lists stay put; they just stop syncing.",
 	"listlinked":   "Linked to loggit. Changes on either side now sync every couple of minutes.",
 	"synced":       "Synced with loggit.",
 	"unlinkedlist": "Stopped syncing with loggit.",
