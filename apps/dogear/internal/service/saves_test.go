@@ -191,3 +191,20 @@ func TestArchiveTokenWithoutReadGetsPublicView(t *testing.T) {
 		t.Fatalf("post-only token saw %d private saves", len(seen))
 	}
 }
+
+func TestDogearKeepsFilingIntoPrivateDogearedTag(t *testing.T) {
+	s := newTestService(t)
+	ctx := context.Background()
+	me, other := newUser(t, s, 1), newUser(t, s, 1)
+	id := liveItem(t, s, newUser(t, s, 1))
+	newTag(t, s, me, "Dogeared", "private")
+	if on, err := s.ToggleDogear(ctx, me, id); err != nil || !on {
+		t.Fatalf("toggle: on=%v err=%v", on, err)
+	}
+	if tags, _ := s.SavedIn(ctx, me, id); len(tags) != 1 || tags[0] != legacyDogearSlug {
+		t.Fatalf("tags = %v, want the private dogeared tag", tags)
+	}
+	if seen := archiveIDs(t, s, other, me); len(seen) != 0 {
+		t.Fatal("a dogear into a private Dogeared tag should stay hidden")
+	}
+}

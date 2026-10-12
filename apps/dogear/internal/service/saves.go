@@ -129,8 +129,20 @@ func (s *Service) ToggleDogear(ctx context.Context, a *Actor, itemID int64) (boo
 	} else if !notFound(err) {
 		return false, fmt.Errorf("get save: %w", err)
 	}
+	// A Dogeared list that survived the move to saves (it was private,
+	// unlisted, or synced with loggit) keeps receiving one-tap dogears, so
+	// they stay as hidden, or as synced, as they used to be.
+	if _, err := s.Q.GetList(ctx, db.GetListParams{UserID: a.ID(), Slug: legacyDogearSlug}); err == nil {
+		return true, s.SaveToList(ctx, a, legacyDogearSlug, itemID, "", nil)
+	} else if !notFound(err) {
+		return false, fmt.Errorf("dogeared tag: %w", err)
+	}
 	return true, s.SaveItem(ctx, a, itemID, nil)
 }
+
+// legacyDogearSlug is the old one-tap list, kept by migration 00013 only
+// when it was not public or was linked to loggit.
+const legacyDogearSlug = "dogeared"
 
 // SavedNote returns the actor's note on an item and whether it is saved.
 func (s *Service) SavedNote(ctx context.Context, a *Actor, itemID int64) (string, bool) {
