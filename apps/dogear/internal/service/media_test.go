@@ -117,3 +117,30 @@ func TestEnsureCreatorAndWorks(t *testing.T) {
 		t.Fatalf("dogear channel: %v %v", on, err)
 	}
 }
+
+func TestOnlyTrustedWorksMayAddCreators(t *testing.T) {
+	s := newTestService(t)
+	ctx := context.Background()
+	newbie, trusted := newUser(t, s, 0), newUser(t, s, 1)
+	mine, theirs := liveItem(t, s, newbie), liveItem(t, s, trusted)
+	for _, id := range []int64{mine, theirs} {
+		if _, err := s.Pool.Exec(ctx, `UPDATE items SET kind = 'article', score = 99 WHERE id = $1`, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// The newbie deletes their account; their live post keeps no poster.
+	if _, err := s.Pool.Exec(ctx, `UPDATE items SET created_by = NULL WHERE id = $1`, mine); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := s.Q.ItemsNeedingMedia(ctx, 10000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[int64]bool{}
+	for _, r := range rows {
+		got[r.ID] = r.Trusted
+	}
+	if got[mine] || !got[theirs] {
+		t.Fatalf("trusted: orphaned post %v (want false), trusted user's post %v (want true)", got[mine], got[theirs])
+	}
+}

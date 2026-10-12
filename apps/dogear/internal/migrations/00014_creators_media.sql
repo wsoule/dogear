@@ -11,14 +11,16 @@ ALTER TABLE items ADD CONSTRAINT items_via_check CHECK (via IN ('import','web','
 
 -- What a link is beyond its title: a video's length and date, an article's
 -- site and reading time. media_checked_at marks items the backfill has
--- looked at, whether or not it found anything.
+-- looked at; media_ok is false when the lookup failed, so it is retried
+-- after a week rather than never.
 ALTER TABLE items
   ADD COLUMN creator_id       BIGINT REFERENCES items(id) ON DELETE SET NULL,
   ADD COLUMN duration_seconds INT,
   ADD COLUMN published_at     TIMESTAMPTZ,
   ADD COLUMN reading_minutes  SMALLINT,
   ADD COLUMN site_name        TEXT NOT NULL DEFAULT '' CHECK (char_length(site_name) <= 80),
-  ADD COLUMN media_checked_at TIMESTAMPTZ;
+  ADD COLUMN media_checked_at TIMESTAMPTZ,
+  ADD COLUMN media_ok         BOOLEAN NOT NULL DEFAULT false;
 CREATE INDEX items_creator_works ON items (creator_id, score DESC, id DESC) WHERE status = 'live' AND creator_id IS NOT NULL;
 CREATE INDEX items_media_todo ON items (score DESC) WHERE status = 'live' AND media_checked_at IS NULL;
 
@@ -33,7 +35,7 @@ DELETE FROM items WHERE via = 'auto';
 DROP INDEX items_media_todo;
 DROP INDEX items_creator_works;
 ALTER TABLE items DROP COLUMN creator_id, DROP COLUMN duration_seconds, DROP COLUMN published_at,
-  DROP COLUMN reading_minutes, DROP COLUMN site_name, DROP COLUMN media_checked_at;
+  DROP COLUMN reading_minutes, DROP COLUMN site_name, DROP COLUMN media_checked_at, DROP COLUMN media_ok;
 ALTER TABLE items DROP CONSTRAINT items_via_check;
 ALTER TABLE items ADD CONSTRAINT items_via_check CHECK (via IN ('import','web','api','mcp'));
 ALTER TABLE items DROP CONSTRAINT items_kind_check;

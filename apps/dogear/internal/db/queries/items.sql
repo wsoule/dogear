@@ -245,20 +245,24 @@ UPDATE items SET
   published_at = COALESCE(sqlc.narg(published_at)::timestamptz, published_at),
   reading_minutes = COALESCE(sqlc.narg(reading_minutes)::smallint, reading_minutes),
   site_name = CASE WHEN @site_name::text <> '' THEN @site_name::text ELSE site_name END,
-  media_checked_at = now()
+  media_checked_at = now(),
+  media_ok = @ok::bool
 WHERE id = @id;
 
 -- name: ItemsNeedingMedia :many
 -- Videos, articles, and newsletter posts not yet looked at; people's own
 -- posts first, then by rank. trusted is true for imports and for posts by
--- trusted, unflagged users: only their works may add new creator pages.
+-- trusted, unflagged users: only their works may add new creator pages. A
+-- missing poster alone is not trust: created_by also goes NULL when an
+-- account is deleted.
 SELECT i.id, i.url_norm, i.kind,
-  (i.created_by IS NULL OR EXISTS (SELECT 1 FROM users u WHERE u.id = i.created_by
+  (i.via = 'import' OR EXISTS (SELECT 1 FROM users u WHERE u.id = i.created_by
      AND u.trust_level >= 1 AND u.shadow_banned_at IS NULL AND u.banned_at IS NULL))::bool AS trusted
 FROM items i
-WHERE i.status = 'live' AND i.media_checked_at IS NULL
+WHERE i.status = 'live' AND i.via <> 'auto'
+  AND (i.media_checked_at IS NULL OR (NOT i.media_ok AND i.media_checked_at < now() - interval '7 days'))
   AND (i.kind IN ('video','article') OR i.domain LIKE '%.substack.com' OR i.domain = 'medium.com')
-ORDER BY (i.via IN ('web','api','mcp')) DESC, i.score DESC
+ORDER BY (i.media_checked_at IS NULL) DESC, (i.via IN ('web','api','mcp')) DESC, i.score DESC
 LIMIT $1;
 
 -- name: CreatorWorks :many

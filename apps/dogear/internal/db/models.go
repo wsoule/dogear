@@ -99,6 +99,7 @@ type Item struct {
 	ReadingMinutes  *int16
 	SiteName        string
 	MediaCheckedAt  *time.Time
+	MediaOk         bool
 	TopicsFiledAt   *time.Time
 }
 

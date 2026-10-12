@@ -184,6 +184,10 @@ func (s *Service) ensureCreator(ctx context.Context, ref creatorRef, create bool
 		return 0, err
 	}
 	if it, err := s.Q.GetItemByNorm(ctx, norm); err == nil {
+		// A pending or removed page is not linked: the link would 404.
+		if it.Status != "live" {
+			return 0, errNoNewCreator
+		}
 		return it.ID, nil
 	} else if !notFound(err) {
 		return 0, fmt.Errorf("find creator: %w", err)
@@ -215,8 +219,7 @@ func (s *Service) ensureCreator(ctx context.Context, ref creatorRef, create bool
 
 // refreshMedia looks up one item's media details and stores them, linking
 // it to its creator's item (adding that page only when trusted). It records
-// the attempt even when the lookup fails, so the backfill never retries the
-// same item forever.
+// every attempt; a failed one is retried a week later, not every minute.
 func (s *Service) refreshMedia(ctx context.Context, id int64, norm, kind string, trusted bool) error {
 	cctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
@@ -227,7 +230,7 @@ func (s *Service) refreshMedia(ctx context.Context, id int64, norm, kind string,
 		d.CreatorName = d.Creator.Name
 	}
 	p := db.SetItemDetailsParams{ID: id, Creator: truncateRunes(safety.SanitizeText(d.CreatorName), 120),
-		SiteName: d.SiteName, PublishedAt: d.Published}
+		SiteName: d.SiteName, PublishedAt: d.Published, Ok: lookupErr == nil}
 	if d.Duration > 0 {
 		p.DurationSeconds = ptr(int32(d.Duration))
 	}
