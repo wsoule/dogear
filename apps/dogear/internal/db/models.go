@@ -34,6 +34,12 @@ type Category struct {
 	SortOrder int32
 }
 
+type Follow struct {
+	FollowerID int64
+	FolloweeID int64
+	CreatedAt  time.Time
+}
+
 type GithubSync struct {
 	UserID         int64
 	InstallationID int64

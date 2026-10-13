@@ -122,6 +122,7 @@ type feedPage struct {
 	Crumbs     []tabLink // breadcrumb trail above the heading
 	Source     *db.SourceListByCategoryRow
 	Feed       feedData
+	Recent     []service.RecentSave // home only: the "recently saved" strip
 }
 
 // buildFeed loads one page of a feed and the links for the next page.
@@ -206,7 +207,14 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	if fq.Sort == "new" {
 		nav = "new"
 	}
-	s.serveFeed(w, r, nav, "/", fq, feedPage{Topics: topics, Tabs: true, Intro: fq.Cursor == ""}, "", false)
+	fp := feedPage{Topics: topics, Tabs: true, Intro: fq.Cursor == ""}
+	if fq.Cursor == "" && r.URL.Query().Get("partial") != "1" {
+		// The strip is a nice-to-have; a failure only hides it.
+		if fp.Recent, err = s.svc.RecentSaves(r.Context(), viewer(r), recentStripSize); err != nil {
+			s.log.Warn("recent saves", "err", err)
+		}
+	}
+	s.serveFeed(w, r, nav, "/", fq, fp, "", false)
 }
 
 // topic is /t/{slug}: everything filed under one broad topic, any medium.

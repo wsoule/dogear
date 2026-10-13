@@ -4,6 +4,7 @@
 {{if .P.User.Bio}}<p>{{.P.User.Bio}}</p>{{end}}
 {{if .P.User.Website}}<p><a href="{{deref .P.User.Website}}" rel="nofollow ugc noopener">{{deref .P.User.Website}}</a></p>{{end}}
 <p class="small muted">joined {{date .P.User.CreatedAt}}{{if .P.IsOwner}} · <a href="/settings/profile">edit profile</a>{{end}}</p>
+{{template "followbox" (followBox .P $.Viewer $.CSRF)}}
 {{if and .P.IsOwner (eq .P.User.TrustLevel 0)}}<p class="small muted">New accounts' posts are checked by a moderator before they appear. Likes start counting once your account is trusted.</p>{{end}}
 {{if and $.Viewer (not .P.IsOwner)}}
 <form class="inline" method="post" action="/u/{{.P.User.Username}}/block">

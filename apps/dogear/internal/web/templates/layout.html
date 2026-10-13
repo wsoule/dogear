@@ -34,6 +34,7 @@
     <a href="/search" data-cmdk {{if eq .Nav "search"}}aria-current="page"{{end}}>search <kbd>⌘K</kbd></a>
     {{if and .Viewer .Viewer.IsMod}}<a href="/mod" {{if eq .Nav "mod"}}aria-current="page"{{end}}>mod</a>{{end}}
     <a class="post" href="/submit" {{if eq .Nav "submit"}}aria-current="page"{{end}}>post</a>
+    {{if .Viewer}}<a href="/following" {{if eq .Nav "following"}}aria-current="page"{{end}}>following</a>{{end}}
     {{if .Viewer}}<a href="/u/{{.Viewer.User.Username}}" {{if eq .Nav "me"}}aria-current="page"{{end}}>@{{.Viewer.User.Username}}</a>
     {{else}}<a href="/signin" {{if eq .Nav "signin"}}aria-current="page"{{end}}>sign in</a>{{end}}
   </nav>

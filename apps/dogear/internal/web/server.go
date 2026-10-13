@@ -105,6 +105,8 @@ func (s *Server) routes(api, mcp http.Handler) {
 
 	m.HandleFunc("GET /u/{username}", s.profile)
 	m.HandleFunc("POST /u/{username}/block", s.csrf(s.block))
+	m.HandleFunc("POST /u/{username}/follow", s.csrf(s.follow))
+	m.HandleFunc("GET /following", s.following)
 	m.HandleFunc("GET /u/{username}/{slug}", s.list)
 	m.HandleFunc("POST /lists", s.csrf(s.createList))
 	m.HandleFunc("POST /lists/{slug}", s.csrf(s.editList))

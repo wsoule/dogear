@@ -151,6 +151,10 @@ type publicUser struct {
 	Website     string         `json:"website,omitempty"`
 	CreatedAt   string         `json:"created_at"`
 	Lists       []service.List `json:"lists"`
+	Followers   int            `json:"followers"`
+	Following   int            `json:"following"`
+	// FollowedByMe is whether the signed-in caller follows this user.
+	FollowedByMe bool `json:"followed_by_me"`
 }
 
 func (a *API) getUser(w http.ResponseWriter, r *http.Request) {
@@ -159,7 +163,8 @@ func (a *API) getUser(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	u := publicUser{Username: p.User.Username, Bio: p.User.Bio, CreatedAt: p.User.CreatedAt.Format("2006-01-02T15:04:05Z07:00"), Lists: []service.List{}}
+	u := publicUser{Username: p.User.Username, Bio: p.User.Bio, CreatedAt: p.User.CreatedAt.Format("2006-01-02T15:04:05Z07:00"), Lists: []service.List{},
+		Followers: p.FollowerCount, Following: p.FollowingCount, FollowedByMe: p.ViewerFollows}
 	if p.User.DisplayName != nil {
 		u.DisplayName = *p.User.DisplayName
 	}
@@ -386,6 +391,39 @@ func (a *API) unblock(w http.ResponseWriter, r *http.Request, act *service.Actor
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"blocked": false})
+}
+
+// follow makes the caller follow a user; following twice is fine.
+func (a *API) follow(w http.ResponseWriter, r *http.Request, act *service.Actor) {
+	if err := a.svc.Follow(r.Context(), act, r.PathValue("username")); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"following": true})
+}
+
+// unfollow stops the caller following a user.
+func (a *API) unfollow(w http.ResponseWriter, r *http.Request, act *service.Actor) {
+	if err := a.svc.Unfollow(r.Context(), act, r.PathValue("username")); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"following": false})
+}
+
+// followingSaves is one page of recent public saves by people the caller
+// follows, newest first.
+func (a *API) followingSaves(w http.ResponseWriter, r *http.Request, act *service.Actor) {
+	fv, err := a.svc.FollowingFeed(r.Context(), act, r.URL.Query().Get("before"))
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	saves := fv.Saves
+	if saves == nil {
+		saves = []service.FollowedSave{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"saves": saves, "next": fv.Next, "note": service.InjectionNote})
 }
 
 // exchange trades a one-time mobile sign-in code for a device token.

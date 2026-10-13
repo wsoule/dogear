@@ -41,7 +41,7 @@ func (s *Service) DeleteAccount(ctx context.Context, a *Actor, confirm string, d
 			}
 		}
 		// Sessions, tokens, identities, votes, lists, entries, reports, the
-		// sync row, invites, and blocks cascade from the user row; items are
+		// sync row, invites, blocks, and follows cascade from the user row; items are
 		// SET NULL so they stay unattributed.
 		if err := q.DeleteUser(ctx, a.ID()); err != nil {
 			return fmt.Errorf("delete user: %w", err)
@@ -119,6 +119,14 @@ func (s *Service) Export(ctx context.Context, a *Actor) (map[string]any, error) 
 	for _, sv := range saves {
 		saveOut = append(saveOut, map[string]any{"item_id": sv.ID, "url": sv.Url, "title": sv.Title, "note": sv.Note, "saved_at": sv.SavedAt})
 	}
+	following, err := s.Q.UserFollowing(ctx, u.ID)
+	if err != nil {
+		return nil, err
+	}
+	followOut := []map[string]any{}
+	for _, f := range following {
+		followOut = append(followOut, map[string]any{"username": f.Username, "followed_at": f.CreatedAt})
+	}
 	for _, t := range tokens {
 		tokOut = append(tokOut, map[string]any{"name": t.Name, "prefix": t.Prefix, "scopes": t.Scopes, "created_at": t.CreatedAt, "last_used_at": t.LastUsedAt})
 	}
@@ -126,11 +134,13 @@ func (s *Service) Export(ctx context.Context, a *Actor) (map[string]any, error) 
 		"exported_at": time.Now().UTC(),
 		"profile": map[string]any{"username": u.Username, "display_name": u.DisplayName, "bio": u.Bio, "website": u.Website,
 			"avatar_url": u.AvatarUrl, "role": u.Role, "trust_level": u.TrustLevel, "created_at": u.CreatedAt},
-		"identities": identOut, "items": itemOut, "saves": saveOut, "lists": listOut, "votes": voteOut, "tokens": tokOut,
+		"identities": identOut, "items": itemOut, "saves": saveOut, "following": followOut, "lists": listOut, "votes": voteOut, "tokens": tokOut,
 	}, nil
 }
 
 // Block hides a user's items from the actor's feeds, search, and item pages.
+// Blocking also ends follows in both directions, and Follow refuses to
+// recreate them while the block stands.
 func (s *Service) Block(ctx context.Context, a *Actor, username string, block bool) error {
 	if err := require(a, "vote"); err != nil {
 		return err
@@ -145,7 +155,15 @@ func (s *Service) Block(ctx context.Context, a *Actor, username string, block bo
 		return errf("invalid", "you cannot block yourself")
 	}
 	if block {
-		return s.Q.BlockUser(ctx, db.BlockUserParams{BlockerID: a.ID(), BlockedID: u.ID})
+		return s.inTxQ(ctx, func(q *db.Queries) error {
+			if err := q.BlockUser(ctx, db.BlockUserParams{BlockerID: a.ID(), BlockedID: u.ID}); err != nil {
+				return fmt.Errorf("block: %w", err)
+			}
+			if err := q.UnfollowBothWays(ctx, db.UnfollowBothWaysParams{A: a.ID(), B: u.ID}); err != nil {
+				return fmt.Errorf("unfollow: %w", err)
+			}
+			return nil
+		})
 	}
 	return s.Q.UnblockUser(ctx, db.UnblockUserParams{BlockerID: a.ID(), BlockedID: u.ID})
 }

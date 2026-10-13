@@ -212,6 +212,21 @@ paths:
         - { name: before, in: query, required: false, schema: { type: string }, description: The next cursor from the previous page. }
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ok" } } } }
+  /users/{username}/follow:
+    put:
+      operationId: followUser
+      summary: "Follow a user: their public saves show in /me/following/saves. Refused for yourself, across a block, and past 2,000 follows."
+      security: [{ bearer: [] }]
+      parameters: [{ name: username, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ok" } } } }
+    delete:
+      operationId: unfollowUser
+      summary: Stop following a user.
+      security: [{ bearer: [] }]
+      parameters: [{ name: username, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ok" } } } }
   /me:
     get:
       operationId: getMe
@@ -337,6 +352,15 @@ paths:
       parameters:
         - { name: slug, in: path, required: true, schema: { type: string } }
         - { name: item_id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ok" } } } }
+  /me/following/saves:
+    get:
+      operationId: getFollowingSaves
+      summary: "Recent saves by people you follow, newest first, 50 per page. Only saves their public archive shows. Each entry has the newest saver's username, note, and public tags, plus saved_by: everyone you follow who saved it on this page."
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: before, in: query, required: false, schema: { type: string }, description: The next cursor from the previous page. }
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ok" } } } }
   /me/saves/{item_id}:

@@ -476,6 +476,10 @@ type Profile struct {
 	Posts   []Item
 	IsOwner bool
 	Blocked bool
+	// FollowerCount and FollowingCount count visible accounts on each side;
+	// ViewerFollows is true when the signed-in viewer follows this user.
+	FollowerCount, FollowingCount int
+	ViewerFollows                 bool
 }
 
 // GetProfile returns a profile with the archive, tags, and posts as the
@@ -500,6 +504,10 @@ func (s *Service) GetProfile(ctx context.Context, viewer *Actor, username string
 	}
 	if viewer != nil && !p.IsOwner {
 		p.Blocked, _ = s.Q.IsBlocked(ctx, db.IsBlockedParams{BlockerID: viewer.ID(), BlockedID: u.ID})
+		p.ViewerFollows = s.IsFollowing(ctx, viewer, u.ID)
+	}
+	if p.FollowerCount, p.FollowingCount, err = s.FollowCounts(ctx, u.ID); err != nil {
+		return Profile{}, err
 	}
 	return p, nil
 }

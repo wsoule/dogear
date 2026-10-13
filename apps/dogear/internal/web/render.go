@@ -128,6 +128,7 @@ var funcs = template.FuncMap{
 	"archivePage": func(owner string, av service.ArchiveView, next, csrf string, v *service.Actor) archiveRows {
 		return archiveRows{Owner: owner, Archive: av, Next: next, CSRF: csrf, Viewer: v}
 	},
+	"followBox": profileFollowBox,
 	"archiveRow": func(e service.Entry, owner, csrf string, v *service.Actor) rowData {
 		return rowData{Item: e.Item, Note: e.Note, Tags: e.Tags, TagsOf: owner, CSRF: csrf, Viewer: v}
 	},
@@ -200,7 +201,7 @@ func parseTemplates() (templates, error) {
 	}
 	// Partials used across pages are defined in page files too, so every set
 	// also parses the files that define shared partials.
-	shared := []string{"templates/item.html", "templates/search.html", "templates/submit.html", "templates/mod.html"}
+	shared := []string{"templates/item.html", "templates/search.html", "templates/submit.html", "templates/mod.html", "templates/following.html"}
 	pages, err := fs.Glob(templateFS, "templates/*.html")
 	if err != nil {
 		return nil, err

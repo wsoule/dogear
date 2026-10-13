@@ -214,6 +214,15 @@ func newServer(svc *service.Service, act *service.Actor) *sdk.Server {
 			return result(fmt.Sprintf("%d lists.", len(lists)), map[string]any{"lists": lists}, false)
 		})
 
+	sdk.AddTool(s, &sdk.Tool{Name: "list_following_saves", Description: "Recent things saved by the people the user follows on Dogear, newest first, with who saved each.", Annotations: readOnly},
+		func(ctx context.Context, _ *sdk.CallToolRequest, _ empty) (*sdk.CallToolResult, any, error) {
+			fv, err := svc.FollowingFeed(ctx, act, "")
+			if err != nil {
+				return toolErr(err)
+			}
+			return result(fmt.Sprintf("%d recent saves from people you follow.", len(fv.Saves)), map[string]any{"saves": fv.Saves}, true)
+		})
+
 	sdk.AddTool(s, &sdk.Tool{Name: "create_list", Description: "Create a new tag (list) in the user's archive. Only when they ask for one.", Annotations: writes},
 		func(ctx context.Context, _ *sdk.CallToolRequest, in createListIn) (*sdk.CallToolResult, any, error) {
 			l, err := svc.CreateList(ctx, act, service.ListInput{Title: in.Title, Description: in.Description, Visibility: in.Visibility})

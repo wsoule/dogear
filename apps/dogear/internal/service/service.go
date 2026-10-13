@@ -48,6 +48,7 @@ type Service struct {
 	catCache      *ttlCache[[]*CategoryNode]
 	feedCache     *ttlCache[FeedPage]
 	indexCache    *ttlCache[ListIndex]
+	recentCache   *ttlCache[[]RecentSave] // signed-out home "recently saved" strip
 	queryCache    *ttlCache[[]int8]
 	topics        topicCache // topic list with counts, and embedded topic descriptions
 }
@@ -70,6 +71,7 @@ func New(pool *pgxpool.Pool, cfg *config.Config, cl classify.Classifier, log *sl
 		catCache:      newTTLCache[[]*CategoryNode](time.Minute),
 		feedCache:     newTTLCache[FeedPage](time.Minute),
 		indexCache:    newTTLCache[ListIndex](time.Minute),
+		recentCache:   newTTLCache[[]RecentSave](time.Minute),
 		queryCache:    newTTLCache[[]int8](10 * time.Minute),
 		Embed:         &embed.Client{APIKey: cfg.OpenAIAPIKey},
 		Vectors:       embed.NewIndex(),

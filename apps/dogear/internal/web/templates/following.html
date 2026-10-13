@@ -1,0 +1,33 @@
+{{define "content"}}
+{{with .Data}}
+<h1>following</h1>
+<p class="lede">What the people you follow saved lately, newest first.</p>
+{{if .View.Saves}}<ol class="feed" id="following">{{template "followingrows" .}}</ol>
+{{else}}
+<p class="muted">Nothing here yet. Follow people from their profile and their public saves show up here.</p>
+{{if .Suggested}}<h2>people to follow</h2>
+<ul class="follow-people">{{range .Suggested}}<li><a href="/u/{{.Username}}">@{{.Username}}</a>{{if .DisplayName}} <span class="muted">{{.DisplayName}}</span>{{end}} <span class="small muted">{{.Saves}} saves</span></li>{{end}}</ul>{{end}}
+{{end}}
+{{end}}
+{{end}}
+
+{{/* followingrows is one page of /following: a "saved by" line above each
+     reused archive row, then the next-page loader. */}}
+{{define "followingrows"}}{{range .View.Saves}}<li class="follow-by small muted">{{range $i, $u := .SavedBy}}{{if $i}}, {{end}}<a href="/u/{{$u}}">@{{$u}}</a>{{end}} saved · {{ago .AddedAt}}</li>
+{{template "row" (archiveRow .Entry .Username $.CSRF $.Viewer)}}{{end}}{{if .Next}}<li class="more" hx-get="{{.Next}}" hx-trigger="revealed once" hx-swap="outerHTML"><a href="{{.NextPage}}">older saves</a></li>{{end}}{{end}}
+
+{{/* followbox is the follower counts and follow toggle on a profile. */}}
+{{define "followbox"}}<div class="follow-box small" id="follow-box">
+  <span class="muted">{{.Followers}} follower{{if ne .Followers 1}}s{{end}} · {{.Following}} following</span>
+  {{if .CanFollow}}<form class="inline" method="post" action="/u/{{.Username}}/follow" hx-post="/u/{{.Username}}/follow" hx-target="#follow-box" hx-swap="outerHTML">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input type="hidden" name="follow" value="{{if .On}}0{{else}}1{{end}}">
+    <button class="btn ghost" type="submit" aria-pressed="{{if .On}}true{{else}}false{{end}}">{{if .On}}following{{else}}follow{{end}}</button>
+  </form>{{end}}
+</div>{{end}}
+
+{{/* recentstrip is the home page's "recently saved by people" block. */}}
+{{define "recentstrip"}}<section class="recent-saves" aria-label="Recently saved by people">
+  <h2 class="small muted">recently saved</h2>
+  <ul>{{range .}}<li><a class="who" href="/u/{{.Username}}">@{{.Username}}</a> saved <a href="/i/{{.ItemID}}">{{.Title}}</a></li>{{end}}</ul>
+</section>{{end}}

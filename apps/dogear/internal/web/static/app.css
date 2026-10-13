@@ -1108,3 +1108,42 @@ ul.tree a {
     display: none;
   }
 }
+
+/* follows: profile follow button, /following, and the home strip */
+.follow-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s3);
+  margin: 0 0 var(--s4);
+}
+.follow-by {
+  list-style: none;
+  padding-top: var(--s3);
+}
+.follow-people {
+  padding-left: 0;
+  list-style: none;
+}
+.recent-saves {
+  margin: 0 0 var(--s4);
+  padding-bottom: var(--s2);
+  border-bottom: 1px solid var(--rule);
+}
+.recent-saves h2 {
+  margin: 0 0 var(--s1);
+  font-weight: normal;
+}
+.recent-saves ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.recent-saves li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recent-saves .who {
+  color: var(--muted);
+}
