@@ -90,3 +90,13 @@ WHERE s.user_id = $1 AND i.status IN ('live','personal') AND i.link_status <> 'd
   AND NOT EXISTS (
        SELECT 1 FROM list_items li JOIN lists l ON l.id = li.list_id
        WHERE l.user_id = s.user_id AND li.item_id = s.item_id AND l.visibility <> 'public');
+
+-- name: UntaggedSaves :many
+-- The user's saves in none of their tags, newest first, for grouping an
+-- archive saved before auto-tagging.
+SELECT s.item_id FROM saves s
+WHERE s.user_id = @user_id AND NOT EXISTS (
+  SELECT 1 FROM list_items li JOIN lists l ON l.id = li.list_id
+  WHERE l.user_id = s.user_id AND li.item_id = s.item_id)
+ORDER BY s.saved_at DESC
+LIMIT @lim;

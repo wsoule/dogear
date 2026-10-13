@@ -273,3 +273,88 @@ func (s *Service) TagGroups(ctx context.Context, viewer *Actor, username string,
 	}
 	return out
 }
+
+// CheckGrouper asks jev one small question at startup and logs whether it
+// answered, so a bad key or a changed API shows up in the logs right after
+// a deploy instead of as silently untagged saves.
+func (s *Service) CheckGrouper(ctx context.Context) {
+	if s.Grouper == nil {
+		s.Log.Info("auto tag: jev off (no JEV_API_KEY); grouping by topic keywords")
+		return
+	}
+	var st autoTagState
+	st.Item.Title, st.Item.Reason, st.Item.URL, st.Item.Kind = "Attention Is All You Need",
+		"The paper that introduced the transformer.", "https://arxiv.org/abs/1706.03762", "article"
+	st.Tags = []string{"AI", "Cooking"}
+	choice, prob, err := s.Grouper.Choose(ctx, st, "Which of the saver's `tags` should `item` be filed under?",
+		map[string]string{"tag:ai": "The saver's tag \"AI\"", "tag:cooking": "The saver's tag \"Cooking\"", autoTagNone: "None of these fits."})
+	if err != nil {
+		s.Log.Error("auto tag: jev check failed", "err", err)
+		return
+	}
+	s.Log.Info("auto tag: jev ok", "choice", choice, "prob", prob)
+}
+
+// GroupResult is what GroupUntagged did.
+type GroupResult struct {
+	Looked, Tagged int
+}
+
+// maxGroupBatch caps one "group my untagged saves" run.
+const maxGroupBatch = 500
+
+// GroupUntagged runs AutoTag over the actor's saves that have no tag yet,
+// newest first, for archives saved before auto-tagging existed. Each save
+// is filed independently; one failure doesn't stop the rest.
+func (s *Service) GroupUntagged(ctx context.Context, a *Actor) (GroupResult, error) {
+	var res GroupResult
+	if err := require(a, "post"); err != nil {
+		return res, err
+	}
+	ids, err := s.Q.UntaggedSaves(ctx, db.UntaggedSavesParams{UserID: a.ID(), Lim: maxGroupBatch})
+	if err != nil {
+		return res, fmt.Errorf("untagged saves: %w", err)
+	}
+	for _, id := range ids {
+		if ctx.Err() != nil {
+			break
+		}
+		res.Looked++
+		slug, err := s.AutoTag(ctx, a, id)
+		if err != nil {
+			s.Log.Warn("group untagged", "item", id, "err", err)
+			continue
+		}
+		if slug != "" {
+			res.Tagged++
+		}
+	}
+	return res, nil
+}
+
+// GroupUntaggedLater starts GroupUntagged in the background (it can take a
+// few minutes with jev), at most a few times an hour per user.
+func (s *Service) GroupUntaggedLater(a *Actor) error {
+	if err := require(a, "post"); err != nil {
+		return err
+	}
+	if err := s.limit(fmt.Sprintf("group:%d", a.ID()), groupRules...); err != nil {
+		return err
+	}
+	run := func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		defer cancel()
+		res, err := s.GroupUntagged(ctx, a)
+		if err != nil {
+			s.Log.Warn("group untagged", "user", a.ID(), "err", err)
+			return
+		}
+		s.Log.Info("grouped untagged saves", "user", a.ID(), "looked", res.Looked, "tagged", res.Tagged)
+	}
+	if s.AutoTagSync {
+		run()
+		return nil
+	}
+	go run()
+	return nil
+}

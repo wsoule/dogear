@@ -21,6 +21,7 @@
 
 {{if .P.Lists}}<nav class="tagbar" aria-label="Tags">{{range .P.Lists}}{{if or $.Data.P.IsOwner .Count}}<a href="/u/{{$.Data.P.User.Username}}/{{.Slug}}" title="{{.Title}}{{if .Description}} — {{.Description}}{{end}}">{{.Slug}}<span class="count">{{.Count}}{{if ne .Visibility "public"}} · {{.Visibility}}{{end}}</span></a>{{end}}{{end}}</nav>{{end}}
 {{if .P.IsOwner}}{{template "quicksave" $.CSRF}}{{end}}
+{{if .Grouping}}<p class="flash">Grouping your untagged saves under tags. Refresh in a minute or two to see them.</p>{{end}}
 {{if .P.IsOwner}}
 <p class="share"><span>your archive:</span> <code id="share-archive">{{$.BaseURL}}/u/{{.P.User.Username}}</code> <button class="link" type="button" data-copy="#share-archive">copy</button></p>
 <details class="newlist"><summary>new tag</summary>
@@ -41,6 +42,7 @@
 </section>{{end}}
 
 <h2>{{if .Groups}}everything, newest first{{else}}archive{{end}}</h2>
+{{if and .P.IsOwner .P.Archive.Entries (not .Grouping)}}<form class="group-untagged" method="post" action="/me/group">{{template "csrf" $.CSRF}}<button class="btn ghost" type="submit">group my untagged saves</button> <span class="small muted">files everything without a tag under the right one</span></form>{{end}}
 {{if .P.Archive.Entries}}<ol class="feed" id="archive">{{template "archiverows" (archivePage .P.User.Username .P.Archive .NextArchive $.CSRF $.Viewer)}}</ol>
 {{else if .P.IsOwner}}<p class="muted">Nothing saved yet. Tap <strong>dogear</strong> on anything worth keeping — videos, articles, tools, books — and tag it so you can share a topic.</p>
 <p class="muted">Coming from Pocket, Raindrop, or your browser's bookmarks? <a href="/settings/import">Import your saves</a>.</p>

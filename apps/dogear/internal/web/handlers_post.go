@@ -142,6 +142,8 @@ type profilePage struct {
 	// is how many tags this viewer can see.
 	Groups   []service.TagGroup
 	TagCount int
+	// Grouping is set right after the owner asks to group untagged saves.
+	Grouping bool
 	Feed     feedData
 	// NextArchive is the htmx URL for the next page of archive rows.
 	NextArchive string
@@ -209,7 +211,7 @@ func (s *Server) profile(w http.ResponseWriter, r *http.Request) {
 	// Profiles are never indexed: they would otherwise be the main target of SEO spam.
 	s.render(w, r, http.StatusOK, "profile", &Page{Title: "@" + p.User.Username, Description: desc, Nav: nav, NoIndex: true, Share: share,
 		Data: profilePage{P: p, NextArchive: archiveNext(p.User.Username, p.Archive),
-			Groups: groups, TagCount: tagCount,
+			Groups: groups, TagCount: tagCount, Grouping: p.IsOwner && r.URL.Query().Has("grouping"),
 			Feed: feedData{Items: p.Posts, CSRF: reqCtx(r).csrf, Viewer: viewer(r), Compact: compactView(r)}}})
 }
 

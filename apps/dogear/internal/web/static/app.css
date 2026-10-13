@@ -1565,6 +1565,13 @@ ul.tree a {
   padding-top: var(--s2);
   padding-bottom: var(--s2);
 }
+.group-untagged {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  margin: 0 0 var(--s4);
+}
 .group-more {
   margin: var(--s2) 0 0;
   font: 700 var(--t0) / 1.6 var(--font-mono);

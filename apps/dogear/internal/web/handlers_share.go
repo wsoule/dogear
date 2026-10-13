@@ -369,3 +369,18 @@ func (s *Server) saveLink(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Redirect(w, r, dest, http.StatusSeeOther)
 }
+
+// groupSaves starts filing the owner's untagged saves under tags in the
+// background and returns to their profile, which says it's under way.
+func (s *Server) groupSaves(w http.ResponseWriter, r *http.Request) {
+	v := viewer(r)
+	if v == nil {
+		http.Redirect(w, r, "/signin", http.StatusSeeOther)
+		return
+	}
+	if err := s.svc.GroupUntaggedLater(v); err != nil {
+		s.serviceError(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/u/"+url.PathEscape(v.User.Username)+"?grouping=1", http.StatusSeeOther)
+}

@@ -181,3 +181,30 @@ func TestQuickSave(t *testing.T) {
 		t.Fatal("quick save of a non-link succeeded")
 	}
 }
+
+// GroupUntagged files saves made before auto-tagging and leaves tagged and
+// unmatched ones alone.
+func TestGroupUntagged(t *testing.T) {
+	s := newTestService(t)
+	ctx := context.Background()
+	me := newUser(t, s, 1)
+	poster := newUser(t, s, 1)
+	rust := liveItemTitled(t, s, poster, "Rust programming tips")
+	plain := liveItemTitled(t, s, poster, "A quiet thing")
+	for _, id := range []int64{rust, plain} {
+		if err := s.SaveItem(ctx, me, id, nil); err != nil { // no auto-tag on SaveItem
+			t.Fatal(err)
+		}
+	}
+	res, err := s.GroupUntagged(ctx, me)
+	if err != nil || res.Looked != 2 || res.Tagged != 1 {
+		t.Fatalf("group = %+v, %v", res, err)
+	}
+	if got := tagsOf(t, s, me, rust); len(got) != 1 || got[0] != "programming" {
+		t.Fatalf("tags = %v, want [programming]", got)
+	}
+	// A second run only looks at what's still untagged.
+	if res, _ := s.GroupUntagged(ctx, me); res.Looked != 1 || res.Tagged != 0 {
+		t.Fatalf("second run = %+v", res)
+	}
+}

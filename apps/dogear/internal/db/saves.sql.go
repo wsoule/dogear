@@ -324,6 +324,42 @@ func (q *Queries) UntagEverywhere(ctx context.Context, arg UntagEverywhereParams
 	return items, nil
 }
 
+const untaggedSaves = `-- name: UntaggedSaves :many
+SELECT s.item_id FROM saves s
+WHERE s.user_id = $1 AND NOT EXISTS (
+  SELECT 1 FROM list_items li JOIN lists l ON l.id = li.list_id
+  WHERE l.user_id = s.user_id AND li.item_id = s.item_id)
+ORDER BY s.saved_at DESC
+LIMIT $2
+`
+
+type UntaggedSavesParams struct {
+	UserID int64
+	Lim    int32
+}
+
+// The user's saves in none of their tags, newest first, for grouping an
+// archive saved before auto-tagging.
+func (q *Queries) UntaggedSaves(ctx context.Context, arg UntaggedSavesParams) ([]int64, error) {
+	rows, err := q.db.Query(ctx, untaggedSaves, arg.UserID, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var item_id int64
+		if err := rows.Scan(&item_id); err != nil {
+			return nil, err
+		}
+		items = append(items, item_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertSave = `-- name: UpsertSave :one
 INSERT INTO saves (user_id, item_id, note)
 VALUES ($1, $2, COALESCE($3::text, ''))
