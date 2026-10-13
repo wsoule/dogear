@@ -96,14 +96,20 @@
 </form>
 </div>{{end}}
 
-{{define "row"}}<li class="row{{if .Item.Image}} has-thumb{{end}}">
+{{/* A feed row reads top to bottom: title and domain, the poster's reason,
+the archive owner's note and tags, then one meta line. In the rows layout
+every row has the same image column: the thumbnail, or a tile naming the
+kind, so the text column never changes width. */}}
+{{define "row"}}<li class="row">
 {{template "like" (voteState .Item $.CSRF)}}
-<div>
-  <a class="title" href="/i/{{.Item.ID}}">{{.Item.Title}}</a>
-  <span class="domain small">{{.Item.Domain}}</span>
+<div class="body">
+  <p class="head"><a class="title" href="/i/{{.Item.ID}}">{{.Item.Title}}</a> <span class="domain">{{.Item.Domain}}</span></p>
+  {{if .Item.Blurb}}<p class="blurb">{{.Item.Blurb}}</p>{{end}}
+  {{if .Note}}<p class="note">{{.Note}}</p>{{end}}
+  {{if .Tags}}<p class="mytags">{{range .Tags}}<a href="/u/{{$.TagsOf}}/{{.Slug}}">{{.Slug}}</a>{{if ne .Visibility "public"}}<span class="muted"> ({{.Visibility}})</span>{{end}} {{end}}</p>{{end}}
   <div class="meta">
     <span>{{.Item.Kind}}{{with .Item.Length}} · {{.}}{{end}}{{if .Item.Creator}} · {{if .Item.CreatorID}}<a class="creator" href="/i/{{.Item.CreatorID}}">{{.Item.Creator}}</a>{{else}}{{.Item.Creator}}{{end}}{{else if and .Item.SiteName (ne .Item.SiteName .Item.Domain)}} · {{.Item.SiteName}}{{end}}</span>
-    {{with .Item.Category}}<a href="/c/{{.Slug}}"><span class="sr-only">category </span>#{{.Slug}}</a>{{end}}
+    {{range .Item.Topics}}<a class="topic" href="/t/{{.Slug}}"><span class="sr-only">topic </span>{{lower .Name}}</a>{{end}}
     <a class="out" href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank">link ↗</a>
     {{if $.Viewer}}{{template "dogearinline" (dogearData .Item $.CSRF)}}{{end}}
     {{if .Item.Agent}}<span class="label" title="posted by an agent">agent</span>{{end}}
@@ -111,9 +117,6 @@
     {{if eq .Item.LinkStatus "dead"}}<span class="label warn">dead link</span>{{end}}
     {{if .Badge}}<span class="label">{{.Badge}}</span>{{end}}
   </div>
-  {{if .Item.Blurb}}<p class="blurb">{{.Item.Blurb}}</p>{{end}}
-  {{if .Note}}<p class="note">{{.Note}}</p>{{end}}
-  {{if .Tags}}<p class="mytags small">{{range .Tags}}<a href="/u/{{$.TagsOf}}/{{.Slug}}">{{.Slug}}</a>{{if ne .Visibility "public"}}<span class="muted"> ({{.Visibility}})</span>{{end}} {{end}}</p>{{end}}
   {{with .Owner}}<div class="entry-tools small">
     <form class="inline" method="post" action="/lists/{{.Slug}}/entries/{{$.Item.ID}}">
       <input type="hidden" name="csrf" value="{{$.CSRF}}">
@@ -130,7 +133,7 @@
     </details>
   </div>{{end}}
 </div>
-{{if .Item.Image}}<a class="thumb" href="/i/{{.Item.ID}}" tabindex="-1" aria-hidden="true"><img src="{{.Item.Image}}" alt="" loading="lazy" decoding="async" width="120" height="68"></a>{{end}}
+<a class="thumb" href="/i/{{.Item.ID}}" tabindex="-1" aria-hidden="true">{{if .Item.Image}}<img src="{{.Item.Image}}" alt="" loading="lazy" decoding="async" width="120" height="68">{{else}}<span class="ph">{{.Item.Kind}}</span>{{end}}</a>
 </li>{{end}}
 
 {{define "rows"}}{{range $i, $it := .Items}}{{if and $.Next (eq $i $.PrefetchAt)}}<li class="sentinel" aria-hidden="true" hx-get="{{$.Next}}" hx-trigger="revealed once" hx-target="closest ol" hx-swap="beforeend" hx-indicator="next .loading"></li>{{end}}{{template "row" (rowData $it "" $.CSRF $.Viewer)}}{{end}}{{if .Next}}<li class="more"><a href="{{.NextPage}}">next page of items</a><span class="loading htmx-indicator"> loading…</span></li>{{end}}{{end}}

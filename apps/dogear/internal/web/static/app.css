@@ -1,4 +1,13 @@
-/* dogear — one hand-written stylesheet. Monospace, one accent, light and dark. */
+/* dogear — one hand-written stylesheet. Monospace, one accent, light and dark.
+
+   Order: tokens, base, page layout, the corner mark, shared text and
+   controls, feed rows, feed toolbar, item page, archive and tags, forms,
+   dialogs and menus, tables, utilities, then one phone block. Each selector
+   is defined once; the phone block only changes what differs on small
+   screens. Spacing uses --s1..--s6 (4 8 12 16 24 32) and type uses
+   --t1..--t4 (12 14 16 20). */
+
+/* ---------- tokens ---------- */
 :root {
   --paper: #fbfaf7;
   --ink: #1b1b1a;
@@ -7,9 +16,29 @@
   --accent: #c2410c;
   --desk: #efece5;
   --fold: #1b1b1a;
-  --focus: #c2410c;
+
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+
+  --t1: 12px;
+  --t2: 14px;
+  --t3: 16px;
+  --t4: 20px;
+
+  --radius: 2px;
+  --mark: 48px; /* the corner dog-ear */
+  --vote-w: 44px; /* like column on rows */
+  --thumb-w: 120px; /* image column on rows */
+  --thumb-h: 68px;
+  --tap: 44px; /* minimum height of form controls */
+
   color-scheme: light dark;
 }
+
 @media (prefers-color-scheme: dark) {
   :root {
     --paper: #121211;
@@ -19,9 +48,10 @@
     --accent: #fb923c;
     --desk: #1c1c1a;
     --fold: #e7e5df;
-    --focus: #fb923c;
   }
 }
+
+/* ---------- base ---------- */
 *,
 *::before,
 *::after {
@@ -35,7 +65,7 @@ body {
   background: var(--paper);
   color: var(--ink);
   font:
-    14px/1.6 ui-monospace,
+    var(--t2) / 1.6 ui-monospace,
     'SF Mono',
     SFMono-Regular,
     Menlo,
@@ -52,35 +82,125 @@ a:hover {
   text-underline-offset: 3px;
 }
 :focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+h1 {
+  font-size: var(--t3);
+  font-weight: 700;
+  margin: 0 0 var(--s1);
+}
+h2 {
+  font-size: var(--t2);
+  font-weight: 700;
+  margin: var(--s6) 0 var(--s2);
+}
+p {
+  margin: 0 0 var(--s3);
+}
+hr {
+  border: 0;
+  border-top: 1px solid var(--rule);
+  margin: var(--s5) 0;
+}
+code,
+pre,
+kbd {
+  font: inherit;
+}
+pre {
+  background: var(--desk);
+  padding: var(--s3);
+  overflow-x: auto;
+  border-radius: var(--radius);
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: var(--t1);
+}
+kbd {
+  font-size: var(--t1);
+  line-height: 1.2;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 0 var(--s1);
+  color: var(--muted);
+}
+
+/* ---------- page layout ---------- */
 .wrap {
   max-width: 680px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 var(--s5);
+}
+/* the header stays reachable on long feeds; its right padding leaves room
+   for the corner mark */
+header.top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s1) var(--s5);
+  padding: var(--s4) calc(var(--mark) + var(--s2)) var(--s3) 0;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+}
+.wordmark {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+nav.main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1) var(--s4);
+  margin-left: auto;
+  color: var(--muted);
+}
+nav.main a[aria-current='page'] {
+  color: var(--ink);
+}
+nav.main .post {
+  color: var(--accent);
+}
+main {
+  min-height: 60vh;
+  padding: var(--s5) 0 var(--s6);
+}
+footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s4);
+  padding: var(--s5) 0 var(--s6);
+  border-top: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: var(--t1);
 }
 
-/* brand mark: a single-line dog-ear pinned to the page's top right */
+/* ---------- the corner mark ----------
+   A single-line dog-ear pinned to the page's top right. The cut-away corner
+   shows the desk behind the page; the flap is one stroke. On item pages it
+   is a button that dogears the item (.on when saved). */
 .dogear {
   position: absolute;
   top: 0;
   right: 0;
-  width: 48px;
-  height: 48px;
+  z-index: 30;
   display: block;
+  width: var(--mark);
+  height: var(--mark);
   color: var(--fold);
   transition:
     width 150ms ease,
     height 150ms ease;
-  z-index: 30;
 }
 .dogear svg {
+  display: block;
   width: 100%;
   height: 100%;
-  display: block;
 }
-/* the cut-away corner shows the desk behind the page; the flap is one stroke */
 .dogear .cut {
   fill: var(--desk);
 }
@@ -90,8 +210,8 @@ a:hover {
 }
 .dogear:hover,
 .dogear:focus-visible {
-  width: 60px;
-  height: 60px;
+  width: calc(var(--mark) + var(--s3));
+  height: calc(var(--mark) + var(--s3));
   text-decoration: none;
 }
 .dogear:hover .flap,
@@ -101,6 +221,26 @@ a:hover {
 .dogear:focus-visible {
   outline-offset: -4px;
 }
+.dogear-form {
+  margin: 0;
+}
+button.dogear {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+.dogear.on {
+  color: var(--accent);
+}
+.dogear.on .flap,
+.dogear.on:hover .flap,
+.dogear.on:focus-visible .flap {
+  fill: var(--accent);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .dogear,
   .dogear .flap {
@@ -108,97 +248,88 @@ a:hover {
   }
 }
 
-header.top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 20px;
-  padding: 28px 56px 28px 0;
-  border-bottom: 1px solid var(--rule);
-}
-.wordmark {
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-nav.main {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-  color: var(--muted);
-}
-nav.main a[aria-current='page'] {
-  color: var(--ink);
-}
-nav.main .me {
-  margin-left: auto;
-}
-
-main {
-  padding: 20px 0 48px;
-  min-height: 60vh;
-}
-footer {
-  border-top: 1px solid var(--rule);
-  padding: 20px 0 40px;
-  color: var(--muted);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-  font-size: 12px;
-}
-
-h1 {
-  font-size: 16px;
-  margin: 0 0 4px;
-  font-weight: 700;
-}
-h2 {
-  font-size: 14px;
-  margin: 32px 0 8px;
-  font-weight: 700;
-}
-p {
-  margin: 0 0 12px;
-}
+/* ---------- shared text ---------- */
 .muted,
-.domain,
-.meta {
+.domain {
   color: var(--muted);
 }
 .small {
-  font-size: 12px;
+  font-size: var(--t1);
 }
 .lede {
   color: var(--muted);
-  margin-bottom: 20px;
+  margin-bottom: var(--s5);
 }
-hr {
-  border: 0;
-  border-top: 1px solid var(--rule);
-  margin: 24px 0;
-}
-
-/* chips and tabs */
-.chips,
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  margin: 0 0 16px;
+.intro {
+  margin: 0 0 var(--s3);
   color: var(--muted);
 }
-.chips a::before {
-  content: '#';
-  opacity: 0.6;
-}
-.tabs a[aria-current='page'],
-.chips a[aria-current='page'] {
+.intro em {
+  font-style: normal;
   color: var(--ink);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+}
+.crumbs {
+  margin: 0 0 var(--s2);
+  font-size: var(--t1);
+  color: var(--muted);
+}
+.flash {
+  margin: 0 0 var(--s4);
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--accent);
+}
+.error,
+.saved {
+  color: var(--accent);
+}
+.label {
+  padding: 0 var(--s1);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  font-size: var(--t1);
+  line-height: 1.6;
+  color: var(--muted);
+}
+.label.warn {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+p.quote {
+  padding-left: var(--s2);
+  border-left: 2px solid var(--rule);
 }
 
-/* feed */
+/* ---------- shared controls: link rows ----------
+   Chips (topics, sub-lists), tabs and segments (sort, layout, settings) and
+   menu summaries all look alike: muted text links, the current one in ink
+   and underlined. */
+.chips,
+.tabs,
+.seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s4);
+  color: var(--muted);
+}
+.chips,
+.tabs {
+  margin: 0 0 var(--s4);
+}
+.chips a[aria-current='page'],
+.tabs a[aria-current='page'],
+.seg a[aria-current='page'] {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.chips .more-link {
+  font-size: var(--t1);
+}
+
+/* ---------- feed rows ----------
+   Rows layout: like column | text | image column. Every row has the image
+   column (a thumbnail, or a tile naming the kind) so the text lines up. */
 .feed {
   list-style: none;
   margin: 0;
@@ -206,71 +337,106 @@ hr {
 }
 .row {
   display: grid;
-  grid-template-columns: 44px 1fr;
-  gap: 12px;
-  padding: 14px 0;
+  grid-template-columns: var(--vote-w) minmax(0, 1fr) var(--thumb-w);
+  gap: var(--s3);
+  padding: var(--s3) 0;
   border-bottom: 1px solid var(--rule);
 }
 .row:last-child {
   border-bottom: 0;
 }
+.row .head {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .title {
   font-weight: 600;
-  overflow-wrap: anywhere;
+}
+.row .domain {
+  font-size: var(--t1);
 }
 .blurb {
-  margin: 2px 0 0;
+  margin: var(--s1) 0 0;
   overflow-wrap: anywhere;
 }
-.meta {
-  font-size: 12px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 10px;
-  margin-top: 2px;
-}
-.label {
-  font-size: 11px;
-  border: 1px solid var(--rule);
-  padding: 0 5px;
-  border-radius: 2px;
-  color: var(--muted);
-}
-.label.warn {
-  color: var(--accent);
-  border-color: var(--accent);
-}
 .note {
-  margin: 6px 0 0;
-  padding-left: 10px;
+  margin: var(--s2) 0 0;
+  padding-left: var(--s2);
   border-left: 2px solid var(--accent);
 }
-.more {
-  padding: 16px 0;
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--s3);
+  margin-top: var(--s1);
+  font-size: var(--t1);
+  color: var(--muted);
+}
+/* row links are tall enough to tap */
+.meta a,
+.meta .label {
+  display: inline-block;
+  min-height: 24px;
+  line-height: 24px;
+}
+.meta .label {
+  line-height: 22px;
+}
+.meta a.out {
+  color: var(--accent);
+}
+.thumb {
+  display: block;
+  align-self: start;
+  width: var(--thumb-w);
+  height: var(--thumb-h);
+}
+.thumb:hover {
+  text-decoration: none;
+}
+.thumb img,
+.thumb .ph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--desk);
+}
+.thumb img {
+  object-fit: cover;
+}
+/* placeholder tile: the kind word on the desk color */
+.thumb .ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--t1);
+  letter-spacing: 0.08em;
   color: var(--muted);
 }
 
-/* vote column */
+/* like column: one like button (dislike lives on the item page) */
 .vote {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0;
 }
 .vote form {
   display: contents;
 }
 .vote button {
   appearance: none;
-  background: none;
-  border: 0;
-  color: var(--muted);
-  font: inherit;
-  width: 44px;
+  width: var(--vote-w);
   height: 24px;
-  cursor: pointer;
   padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
   line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
 }
 .vote button:hover {
   color: var(--ink);
@@ -279,37 +445,384 @@ hr {
   color: var(--accent);
 }
 .vote .count {
-  font-size: 12px;
   min-height: 18px;
+  font-size: var(--t1);
+}
+.vote.like button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  height: auto;
+  min-height: 36px;
+}
+.vote.like .count {
+  min-height: 0;
 }
 
-/* forms */
+/* one-tap dogear on rows and the item page, matching the corner mark */
+.dogear-inline {
+  display: inline;
+}
+.dogear-inline button.dg {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  min-height: 24px;
+  color: var(--muted);
+}
+.dogear-inline button.dg.on {
+  color: var(--accent);
+}
+.dg-icon {
+  width: 11px;
+  height: 11px;
+}
+
+/* compact layout: one dense line per item, no reasons or images */
+.feed.compact .row {
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--s2);
+  padding: var(--s1) 0;
+}
+.feed.compact .thumb,
+.feed.compact .blurb,
+.feed.compact .note,
+.feed.compact .mytags,
+.feed.compact .entry-tools {
+  display: none;
+}
+.feed.compact .body {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  min-width: 0;
+}
+.feed.compact .head,
+.feed.compact .meta {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.feed.compact .head {
+  min-width: 30%;
+}
+.feed.compact .meta {
+  flex-wrap: nowrap;
+  margin: 0;
+}
+.feed.compact .vote.like button {
+  flex-direction: row;
+  gap: var(--s1);
+  width: auto;
+  min-height: 24px;
+  font-size: var(--t1);
+}
+
+/* infinite scroll: an invisible trigger a dozen rows before the end, and a
+   no-JS "more" link that only shows on the last page loaded */
+.feed .sentinel {
+  height: 1px;
+}
+.feed .more {
+  padding: var(--s4) 0;
+  color: var(--muted);
+}
+.feed .more:not(:last-child) {
+  display: none;
+}
+/* channels and people above search results */
+.creators {
+  margin: 0 0 var(--s5);
+  padding-bottom: var(--s2);
+  border-bottom: 1px solid var(--rule);
+}
+.creators h2 {
+  margin: 0 0 var(--s1);
+  font-weight: 400;
+}
+
+/* ---------- feed toolbar ----------
+   Topic chips on one scrolling line, then sort, kind, and layout. */
+.toolbar {
+  display: grid;
+  gap: var(--s2);
+  margin: var(--s2) 0 var(--s1);
+  padding-bottom: var(--s2);
+  border-bottom: 1px solid var(--rule);
+}
+.toolbar .chips {
+  flex-wrap: nowrap;
+  margin: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+  mask-image: linear-gradient(to right, #000 90%, transparent);
+}
+.toolbar .chips::-webkit-scrollbar {
+  display: none;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s2) var(--s5);
+}
+.seg.view {
+  margin-left: auto;
+  font-size: var(--t1);
+}
+
+/* ---------- item page ---------- */
+.item-title {
+  margin: var(--s1) 0 var(--s2);
+  font-size: var(--t4);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s4);
+  margin: 0 0 var(--s3);
+  font-size: var(--t1);
+  color: var(--muted);
+}
+.item-blurb {
+  margin: 0 0 var(--s4);
+  font-size: var(--t3);
+}
+.item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s4);
+  margin: 0 0 var(--s5);
+}
+.item-actions .vote form {
+  display: flex;
+  align-items: center;
+}
+.item-actions .vote button {
+  width: 32px;
+  height: 32px;
+}
+.item-actions .dogear-inline button.dg {
+  font-size: var(--t2);
+  color: var(--ink);
+}
+.item-actions .dogear-inline button.dg.on {
+  color: var(--accent);
+}
+.item-actions details.save[open] {
+  flex-basis: 100%;
+}
+/* a fixed 2:1 box (GitHub cards are 2:1) so the image can't shift layout */
+a.hero {
+  display: block;
+  max-width: 480px;
+}
+.hero img {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  height: auto;
+  aspect-ratio: 2 / 1;
+  margin: 0 0 var(--s4);
+  object-fit: cover;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--desk);
+}
+details.transcript {
+  margin: var(--s3) 0;
+}
+details.transcript summary,
+details.more > summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+details.transcript p {
+  max-height: 360px;
+  overflow-y: auto;
+  padding-left: var(--s2);
+  border-left: 2px solid var(--rule);
+  font-size: var(--t1);
+}
+details.more {
+  margin: var(--s5) 0 0;
+}
+details.more > summary {
+  font-size: var(--t1);
+}
+details.more[open] > summary {
+  margin-bottom: var(--s3);
+}
+
+/* "tag & note" opens in place under the item's buttons, as a checklist */
+.save-menu {
+  display: grid;
+  gap: var(--s3);
+  max-width: 420px;
+  margin: var(--s2) 0 0;
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+.save-menu .actions .saved {
+  color: var(--muted);
+}
+.list-choices {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.list-choices legend {
+  padding: 0;
+  margin-bottom: var(--s1);
+}
+.choice {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: 36px;
+  cursor: pointer;
+}
+.choice input[type='checkbox'] {
+  width: var(--t3);
+  height: var(--t3);
+  margin: 0;
+  accent-color: var(--ink);
+}
+.choice.new {
+  margin-top: var(--s1);
+}
+
+/* ---------- archive and tags ---------- */
+/* the archive owner's tags on a row, and the profile tag bar */
+.mytags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--s2);
+  margin: var(--s1) 0 0;
+  font-size: var(--t1);
+}
+.tagbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s4);
+  margin: 0 0 var(--s4);
+}
+.mytags a,
+.tagbar a {
+  color: var(--accent);
+}
+.mytags a::before,
+.tagbar a::before {
+  content: '#';
+  opacity: 0.6;
+}
+.tagbar .count {
+  margin-left: var(--s1);
+  font-size: var(--t1);
+  color: var(--muted);
+}
+.share {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1) var(--s2);
+  margin: 0 0 var(--s4);
+  font-size: var(--t1);
+  color: var(--muted);
+}
+.share code {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+details.newlist > summary {
+  margin: var(--s2) 0;
+  list-style: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+details.newlist > summary::before {
+  content: '+ ';
+}
+/* a tag owner's controls under each entry: note editor, reorder, untag */
+.entry-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1) var(--s4);
+  margin-top: var(--s2);
+  color: var(--muted);
+}
+.entry-tools button.link {
+  color: var(--muted);
+}
+.entry-tools button.link:hover,
+details.note-edit[open] > summary {
+  color: var(--ink);
+}
+.entry-tools form.inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s4);
+}
+details.note-edit > summary {
+  list-style: none;
+  cursor: pointer;
+}
+details.note-edit[open] {
+  flex-basis: 100%;
+}
+.note-form {
+  display: grid;
+  gap: var(--s2);
+  max-width: 480px;
+  margin-top: var(--s2);
+}
+.note-form textarea {
+  min-height: 60px;
+}
+.note-form button {
+  justify-self: start;
+}
+
+/* ---------- forms and buttons ---------- */
 form.stack {
   display: grid;
-  gap: 14px;
+  gap: var(--s3);
   max-width: 520px;
 }
 label {
   display: grid;
-  gap: 4px;
+  gap: var(--s1);
 }
 label > span {
+  font-size: var(--t1);
   color: var(--muted);
-  font-size: 12px;
 }
 input[type='text'],
 input[type='url'],
 input[type='search'],
 select,
 textarea {
-  font: inherit;
-  color: var(--ink);
-  background: transparent;
-  border: 1px solid var(--rule);
-  border-radius: 2px;
-  padding: 8px 10px;
   width: 100%;
-  min-height: 44px;
+  min-height: var(--tap);
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
 }
 textarea {
   min-height: 76px;
@@ -321,22 +834,24 @@ textarea:focus {
   border-color: var(--ink);
   outline: none;
 }
-.btn,
-button.btn {
+.btn {
   appearance: none;
-  font: inherit;
-  cursor: pointer;
   display: inline-block;
+  min-height: var(--tap);
+  padding: var(--s2) var(--s4);
   border: 1px solid var(--ink);
+  border-radius: var(--radius);
   background: var(--ink);
   color: var(--paper);
-  padding: 8px 14px;
-  border-radius: 2px;
-  min-height: 44px;
+  font: inherit;
   line-height: 26px;
+  cursor: pointer;
 }
-.btn.ghost,
-button.ghost {
+.btn:hover {
+  text-decoration: none;
+  opacity: 0.9;
+}
+.btn.ghost {
   background: transparent;
   color: var(--ink);
 }
@@ -345,15 +860,11 @@ button.ghost {
   background: transparent;
   color: var(--accent);
 }
-.btn:hover {
-  text-decoration: none;
-  opacity: 0.9;
-}
 button.link {
   appearance: none;
-  background: none;
-  border: 0;
   padding: 0;
+  border: 0;
+  background: none;
   font: inherit;
   color: inherit;
   cursor: pointer;
@@ -362,71 +873,113 @@ button.link:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.inline {
-  display: inline;
-}
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 12px;
   align-items: center;
-}
-.flash {
-  border: 1px solid var(--rule);
-  border-left: 2px solid var(--accent);
-  padding: 10px 12px;
-  margin: 0 0 16px;
-}
-.error {
-  color: var(--accent);
-}
-.saved {
-  color: var(--accent);
-}
-.save-menu {
-  margin: 8px 0 0;
-  padding: 12px;
-  border: 1px solid var(--rule);
-  display: grid;
-  gap: 10px;
-  max-width: 480px;
+  gap: var(--s2) var(--s3);
 }
 
-/* code & tables */
-code,
-pre {
-  font: inherit;
+/* ---------- menus and dialogs ---------- */
+/* small disclosure menus (kind filter, tag & note) that work without JS */
+details.menu {
+  position: relative;
 }
-pre {
-  background: var(--desk);
-  padding: 12px;
-  overflow-x: auto;
-  border-radius: 2px;
-  white-space: pre-wrap;
-  word-break: break-all;
-  font-size: 12px;
+details.menu > summary {
+  list-style: none;
+  color: var(--muted);
+  cursor: pointer;
 }
+details.menu > summary::after {
+  content: ' ▾';
+  font-size: var(--t1);
+}
+details.menu[open] > summary,
+details.menu.set > summary {
+  color: var(--ink);
+}
+details.menu.set > summary {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+details.menu > nav {
+  position: absolute;
+  top: calc(100% + var(--s2));
+  left: 0;
+  z-index: 15;
+  display: grid;
+  gap: var(--s1);
+  min-width: 160px;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+details.menu > nav a[aria-current='page'] {
+  color: var(--accent);
+}
+details.menu > summary::-webkit-details-marker,
+details.newlist > summary::-webkit-details-marker,
+details.note-edit > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* ⌘K search dialog */
+dialog.cmdk {
+  width: min(640px, calc(100vw - var(--s6)));
+  max-height: 80vh;
+  margin: 12vh auto auto;
+  padding: var(--s4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+}
+dialog.cmdk::backdrop {
+  background: rgb(0 0 0 / 35%);
+}
+dialog.cmdk input[type='search'] {
+  font-size: var(--t3);
+}
+dialog.cmdk #cmdk-results {
+  max-height: 55vh;
+  margin-top: var(--s2);
+  overflow-y: auto;
+}
+dialog.cmdk .small {
+  margin: var(--s2) 0 0;
+}
+
+/* ---------- tables and lists ---------- */
 table {
-  border-collapse: collapse;
   width: 100%;
-  font-size: 12px;
+  border-collapse: collapse;
+  font-size: var(--t1);
 }
 th,
 td {
-  text-align: left;
-  padding: 6px 8px 6px 0;
+  padding: var(--s1) var(--s2) var(--s1) 0;
   border-bottom: 1px solid var(--rule);
+  text-align: left;
   vertical-align: top;
 }
 th {
-  color: var(--muted);
   font-weight: 400;
+  color: var(--muted);
+}
+table.index td.num {
+  width: 4em;
+  text-align: right;
+  color: var(--muted);
+}
+h2.group {
+  margin-top: var(--s5);
 }
 dl.kv {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: 4px 16px;
-  margin: 8px 0 12px;
+  gap: var(--s1) var(--s4);
+  margin: var(--s2) 0 var(--s3);
 }
 dl.kv dt {
   color: var(--muted);
@@ -435,22 +988,30 @@ dl.kv dd {
   margin: 0;
 }
 ul.plain {
-  list-style: none;
-  padding: 0;
   margin: 0;
+  padding: 0;
+  list-style: none;
 }
 ul.plain li {
-  padding: 4px 0;
+  padding: var(--s1) 0;
+}
+ul.index li {
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--rule);
 }
 ul.tree {
-  padding-left: 18px;
-  margin: 4px 0 12px;
+  margin: var(--s1) 0 var(--s3);
+  padding-left: var(--s4);
   color: var(--muted);
 }
 ul.tree a {
   color: var(--ink);
 }
 
+/* ---------- utilities ---------- */
+.inline {
+  display: inline;
+}
 /* htmx indicator styles (includeIndicatorStyles is off for the CSP) */
 .htmx-indicator {
   opacity: 0;
@@ -460,695 +1021,90 @@ ul.tree a {
 .htmx-request.htmx-indicator {
   opacity: 1;
 }
-
 .sr-only {
   position: absolute;
   width: 1px;
   height: 1px;
-  padding: 0;
   margin: -1px;
+  padding: 0;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
 }
-@media (max-width: 520px) {
+
+/* ---------- phones ---------- */
+@media (width <= 520px) {
+  :root {
+    --mark: 40px;
+    --vote-w: 36px;
+    --thumb-w: 72px;
+    --thumb-h: 48px;
+  }
   .wrap {
-    padding: 0 16px;
+    padding: 0 var(--s4);
   }
+  /* the header stays on one line beside a smaller corner mark */
   header.top {
-    padding-top: 20px;
-    padding-bottom: 20px;
-  }
-  nav.main .me {
-    margin-left: 0;
-  }
-}
-
-/* compact layout: one dense line per item, no blurbs */
-.feed.compact .row {
-  grid-template-columns: 64px 1fr;
-  gap: 8px;
-  padding: 5px 0;
-  align-items: baseline;
-}
-.feed.compact .vote {
-  flex-direction: row;
-  gap: 2px;
-}
-.feed.compact .vote button {
-  width: 18px;
-  height: 22px;
-  font-size: 11px;
-}
-.feed.compact .vote .count {
-  min-width: 18px;
-  text-align: center;
-}
-.feed.compact .row > div:last-child {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 10px;
-  min-width: 0;
-}
-.feed.compact .meta {
-  margin: 0;
-}
-.feed.compact .blurb,
-.feed.compact .note {
-  display: none;
-}
-.feed.compact .title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-/* lists index */
-h2.group {
-  margin-top: 28px;
-}
-table.index td.num {
-  text-align: right;
-  color: var(--muted);
-  width: 4em;
-}
-table.index td:nth-child(2) {
-  font-size: 11px;
-}
-ul.index li {
-  padding: 6px 0;
-  border-bottom: 1px solid var(--rule);
-}
-@media (max-width: 520px) {
-  table.index td:nth-child(2) {
-    display: none;
-  }
-}
-
-/* infinite scroll: an invisible trigger a dozen rows before the end, and
-   a no-JS "more" link that only shows on the last page loaded */
-.feed .sentinel {
-  height: 1px;
-  list-style: none;
-}
-.feed .more:not(:last-child) {
-  display: none;
-}
-
-.meta a.out {
-  color: var(--accent);
-}
-
-/* ⌘K search dialog */
-kbd {
-  font: inherit;
-  font-size: 10px;
-  border: 1px solid var(--rule);
-  border-radius: 2px;
-  padding: 0 3px;
-  color: var(--muted);
-}
-dialog.cmdk {
-  width: min(640px, calc(100vw - 32px));
-  max-height: 80vh;
-  margin: 12vh auto auto;
-  padding: 16px;
-  border: 1px solid var(--rule);
-  border-radius: 2px;
-  background: var(--paper);
-  color: var(--ink);
-}
-dialog.cmdk::backdrop {
-  background: rgb(0 0 0 / 35%);
-}
-dialog.cmdk input[type='search'] {
-  font-size: 16px;
-}
-dialog.cmdk #cmdk-results {
-  max-height: 55vh;
-  overflow-y: auto;
-  margin-top: 8px;
-}
-dialog.cmdk .small {
-  margin: 8px 0 0;
-}
-
-/* thumbnails: served from /img/{id}, never third-party */
-.row.has-thumb {
-  grid-template-columns: 44px 1fr 120px;
-}
-.thumb img {
-  display: block;
-  width: 120px;
-  height: 68px;
-  object-fit: cover;
-  background: var(--desk);
-  border: 1px solid var(--rule);
-  border-radius: 2px;
-}
-.hero img {
-  /* a fixed 2:1 box (GitHub cards are 2:1) so the image can't shift layout */
-  display: block;
-  width: 100%;
-  max-width: 480px;
-  height: auto;
-  aspect-ratio: 2 / 1;
-  object-fit: cover;
-  background: var(--desk);
-  border: 1px solid var(--rule);
-  border-radius: 2px;
-  margin: 0 0 16px;
-}
-.feed.single .thumb,
-.feed.compact .thumb {
-  display: none;
-}
-.feed.single .row.has-thumb,
-.feed.compact .row.has-thumb {
-  grid-template-columns: 44px 1fr;
-}
-.feed.compact .row.has-thumb {
-  grid-template-columns: 64px 1fr;
-}
-@media (max-width: 520px) {
-  .row.has-thumb {
-    grid-template-columns: 44px 1fr 72px;
-  }
-  .thumb img {
-    width: 72px;
-    height: 48px;
-  }
-}
-
-details.transcript {
-  margin: 12px 0;
-}
-details.transcript summary {
-  cursor: pointer;
-  color: var(--muted);
-}
-details.transcript p {
-  max-height: 360px;
-  overflow-y: auto;
-  font-size: 12px;
-  border-left: 2px solid var(--rule);
-  padding-left: 10px;
-}
-
-/* header stays reachable on long feeds */
-header.top {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: var(--paper);
-  padding-top: 18px;
-  padding-bottom: 14px;
-  justify-content: space-between;
-}
-nav.main {
-  margin-left: auto;
-  align-items: baseline;
-}
-nav.main .post {
-  color: var(--accent);
-}
-
-/* breadcrumbs */
-.crumbs {
-  font-size: 12px;
-  color: var(--muted);
-  margin: 0 0 6px;
-}
-.crumbs a {
-  color: var(--muted);
-}
-
-/* one-row, horizontally scrolling chips */
-.chips.scroll {
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
-  white-space: nowrap;
-  padding-bottom: 2px;
-  mask-image: linear-gradient(to right, #000 90%, transparent);
-}
-.chips.scroll::-webkit-scrollbar {
-  display: none;
-}
-.chips .all::before {
-  content: none;
-}
-
-/* feed toolbar: sort on the left, kind and layout on the right */
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px 16px;
-  margin: 8px 0 4px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--rule);
-}
-.toolbar-end {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-}
-.seg {
-  display: flex;
-  gap: 14px;
-  color: var(--muted);
-}
-.seg a[aria-current='page'] {
-  color: var(--ink);
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-.seg.view {
-  font-size: 12px;
-  gap: 10px;
-}
-
-/* small disclosure menus (kind filter, save) that work without JS */
-details.menu {
-  position: relative;
-}
-details.menu > summary {
-  list-style: none;
-  cursor: pointer;
-  color: var(--muted);
-}
-details.menu > summary::-webkit-details-marker {
-  display: none;
-}
-details.menu > summary::after {
-  content: ' ▾';
-  font-size: 10px;
-}
-details.menu[open] > summary {
-  color: var(--ink);
-}
-details.menu > nav,
-details.menu > form {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 15;
-  background: var(--paper);
-  border: 1px solid var(--rule);
-  border-radius: 2px;
-  padding: 8px 12px;
-  min-width: 160px;
-}
-details.menu > nav {
-  display: grid;
-  gap: 4px;
-}
-details.menu > nav a[aria-current='page'] {
-  color: var(--accent);
-}
-
-/* item page */
-.item-title {
-  font-size: 20px;
-  line-height: 1.3;
-  margin: 4px 0 6px;
-  overflow-wrap: anywhere;
-}
-.item-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  color: var(--muted);
-  font-size: 12px;
-  margin: 0 0 12px;
-}
-.item-blurb {
-  font-size: 15px;
-  margin: 0 0 16px;
-}
-.item-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 18px;
-  margin: 0 0 20px;
-}
-.item-actions .vote form {
-  display: flex;
-  align-items: center;
-}
-.item-actions .vote button {
-  width: 32px;
-  height: 32px;
-}
-p.quote {
-  border-left: 2px solid var(--rule);
-  padding-left: 10px;
-}
-details.more {
-  margin: 24px 0 0;
-}
-details.more > summary {
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 12px;
-}
-details.more[open] > summary {
-  margin-bottom: 12px;
-}
-@media (max-width: 520px) {
-  header.top {
-    padding-right: 52px;
     flex-wrap: nowrap;
-    gap: 12px;
+    gap: var(--s3);
+    padding-right: calc(var(--mark) + var(--s1));
   }
   nav.main {
-    gap: 4px 12px;
     flex-wrap: nowrap;
+    gap: var(--s1) var(--s3);
   }
   nav.main kbd {
     display: none;
   }
-  .toolbar-end {
-    gap: 12px;
-  }
-}
-
-/* phones: a slightly smaller mark that always sits above the sticky header */
-@media (max-width: 520px) {
-  .dogear {
-    width: 40px;
-    height: 40px;
-  }
   .dogear:hover,
   .dogear:focus-visible {
-    width: 48px;
-    height: 48px;
+    width: calc(var(--mark) + var(--s2));
+    height: calc(var(--mark) + var(--s2));
   }
-  header.top {
-    padding-right: 44px;
+  /* comfortable tap targets for nav, tabs, chips, menus, and footer links */
+  nav.main a,
+  .chips a,
+  .tabs a,
+  .seg a,
+  footer a,
+  footer button.link,
+  details.menu > summary {
+    display: inline-block;
+    padding: var(--s2) 0;
   }
-}
-
-/* on item pages the corner mark is a button that dogears the item */
-.dogear-form {
-  margin: 0;
-}
-button.dogear {
-  appearance: none;
-  border: 0;
-  padding: 0;
-  background: none;
-  cursor: pointer;
-  font: inherit;
-}
-.dogear.on {
-  color: var(--accent);
-}
-.dogear.on .flap {
-  fill: var(--accent);
-}
-.dogear.on:hover .flap,
-.dogear.on:focus-visible .flap {
-  fill: var(--accent);
-}
-
-/* row links are spaced and tall enough to tap */
-.meta {
-  gap: 2px 12px;
-}
-.meta a,
-.meta .label {
-  display: inline-block;
-  min-height: 24px;
-  line-height: 24px;
-}
-
-/* mobile pass */
-@media (max-width: 520px) {
+  details.menu > nav {
+    max-width: calc(100vw - var(--s6));
+  }
+  details.menu > nav a {
+    padding: var(--s2) 0;
+  }
+  .controls {
+    gap: var(--s1) var(--s4);
+  }
+  .row {
+    gap: var(--s2);
+  }
+  .vote button {
+    height: 30px;
+  }
   /* iOS zooms into inputs under 16px */
   input[type='text'],
   input[type='url'],
   input[type='search'],
   select,
   textarea {
-    font-size: 16px;
-  }
-  /* comfortable tap targets for nav, tabs, chips, and footer links */
-  nav.main a,
-  .seg a,
-  .chips a,
-  footer a,
-  footer button.link,
-  details.menu > summary {
-    display: inline-block;
-    padding: 6px 0;
-  }
-  .toolbar {
-    gap: 4px 12px;
-  }
-  /* the kind menu opens from the left edge so it stays on screen */
-  details.menu > nav,
-  details.menu > form {
-    left: 0;
-    right: auto;
-    max-width: calc(100vw - 32px);
-  }
-  details.menu > nav a {
-    padding: 8px 0;
+    font-size: var(--t3);
   }
   dialog.cmdk {
-    margin-top: 8px;
-    max-height: calc(100dvh - 16px);
+    margin-top: var(--s2);
+    max-height: calc(100dvh - var(--s4));
   }
   .item-actions .btn {
     flex: 1 1 100%;
     text-align: center;
   }
-  .row {
-    grid-template-columns: 36px 1fr;
-    gap: 10px;
+  table.index td:nth-child(2) {
+    display: none;
   }
-  .vote button {
-    width: 36px;
-    height: 30px;
-  }
-}
-
-a.hero {
-  display: block;
-  max-width: 480px;
-}
-
-/* one-line explanation for first-time visitors */
-.intro {
-  margin: 0 0 14px;
-  color: var(--muted);
-}
-.intro em {
-  font-style: normal;
-  color: var(--ink);
-}
-
-/* rows: a single like button (dislike lives on the item page) */
-.vote.like button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  height: auto;
-  min-height: 36px;
-  gap: 2px;
-}
-.vote.like .count {
-  font-size: 11px;
-  min-height: 0;
-}
-
-/* dogear: the one-tap save, matching the corner mark */
-.dogear-inline {
-  display: inline;
-}
-.dogear-inline button.dg {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 24px;
-  color: var(--muted);
-}
-.dogear-inline button.dg.on {
-  color: var(--accent);
-}
-.dg-icon {
-  width: 11px;
-  height: 11px;
-}
-.item-actions .dogear-inline button.dg {
-  font-size: 14px;
-  color: var(--ink);
-}
-.item-actions .dogear-inline button.dg.on {
-  color: var(--accent);
-}
-.lists .dogeared-list a {
-  color: var(--accent);
-}
-details.newlist > summary {
-  cursor: pointer;
-  color: var(--muted);
-  margin: 8px 0;
-}
-details.newlist > summary::before {
-  content: '+ ';
-}
-details.newlist > summary {
-  list-style: none;
-}
-details.newlist > summary::-webkit-details-marker {
-  display: none;
-}
-
-/* "add to a list" opens in place under the item's buttons, as a checklist */
-.item-actions details.save[open] {
-  flex-basis: 100%;
-}
-details.menu.save > form {
-  position: static;
-  margin: 10px 0 0;
-  padding: 12px 14px;
-  display: grid;
-  gap: 12px;
-  max-width: 420px;
-}
-.list-choices {
-  border: 0;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 2px;
-}
-.list-choices legend {
-  padding: 0;
-  margin-bottom: 4px;
-}
-.choice {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 36px;
-  cursor: pointer;
-}
-.choice input[type='checkbox'] {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: var(--ink);
-}
-.choice.new {
-  margin-top: 4px;
-}
-.save-menu .actions .saved {
-  color: var(--muted);
-}
-
-/* list owner's controls under each entry: note editor, reorder, remove */
-.entry-tools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 14px;
-  margin-top: 6px;
-  color: var(--muted);
-}
-.entry-tools button.link {
-  color: var(--muted);
-}
-.entry-tools button.link:hover {
-  color: var(--ink);
-}
-details.note-edit > summary {
-  list-style: none;
-  cursor: pointer;
-}
-details.note-edit > summary::-webkit-details-marker {
-  display: none;
-}
-details.note-edit[open] {
-  flex-basis: 100%;
-}
-.entry-tools form.inline {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-}
-details.note-edit[open] > summary {
-  color: var(--ink);
-}
-.note-form {
-  display: grid;
-  gap: 8px;
-  margin-top: 8px;
-  max-width: 480px;
-}
-.note-form textarea {
-  min-height: 60px;
-}
-.note-form button {
-  justify-self: start;
-}
-
-/* the archive owner's own tags on a row, and the profile tag bar */
-.mytags {
-  margin: 4px 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 10px;
-}
-.mytags a,
-.tagbar a {
-  color: var(--accent);
-}
-.mytags a::before,
-.tagbar a::before {
-  content: '#';
-  opacity: 0.6;
-}
-.tagbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  margin: 0 0 16px;
-}
-.tagbar .count {
-  color: var(--muted);
-  font-size: 12px;
-  margin-left: 3px;
-}
-.share {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 10px;
-  margin: 0 0 16px;
-  color: var(--muted);
-  font-size: 12px;
-}
-.share code {
-  color: var(--ink);
-  overflow-wrap: anywhere;
-}
-
-/* channels and people above search results */
-.creators {
-  margin: 0 0 20px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--rule);
-}
-.creators h2 {
-  margin: 0 0 4px;
-  font-weight: normal;
 }

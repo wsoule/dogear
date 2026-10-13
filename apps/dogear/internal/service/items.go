@@ -31,6 +31,12 @@ type CategoryRef struct {
 	Parent string `json:"parent,omitempty"`
 }
 
+// TopicRef names one topic an item is filed under.
+type TopicRef struct {
+	Slug string
+	Name string
+}
+
 type Source struct {
 	Repo        string `json:"repo"`
 	Title       string `json:"title"`
@@ -55,6 +61,7 @@ type Item struct {
 	SiteName        string       `json:"site_name,omitempty"`
 	PublishedAt     *time.Time   `json:"published_at,omitempty"`
 	Category        *CategoryRef `json:"category,omitempty"`
+	Topics          []TopicRef   `json:"-"` // broad topics, shown on rows
 	Likes           int          `json:"likes"`
 	Score           float64      `json:"score"`
 	Via             string       `json:"via"`
@@ -134,7 +141,8 @@ func toItem(r db.Item) Item {
 	return it
 }
 
-// decorate attaches categories and the viewer's own votes to a page of items.
+// decorate attaches categories, topics, and the viewer's own votes and saves
+// to a page of items, with one query per kind of detail.
 func (s *Service) decorate(ctx context.Context, viewer *Actor, rows []db.Item) ([]Item, error) {
 	items := make([]Item, len(rows))
 	ids := make([]int64, len(rows))
@@ -175,8 +183,19 @@ func (s *Service) decorate(ctx context.Context, viewer *Actor, rows []db.Item) (
 			votes[v.ItemID] = int(v.Value)
 		}
 	}
+	// Rows show an item's broad topics (any medium) rather than the
+	// awesome-list category, so the whole page's topics come in one query.
+	tops, err := s.Q.TopicsForItems(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("item topics: %w", err)
+	}
+	topicsByID := make(map[int64][]TopicRef, len(tops))
+	for _, t := range tops {
+		topicsByID[t.ItemID] = append(topicsByID[t.ItemID], TopicRef{Slug: t.Slug, Name: t.Name})
+	}
 	for i := range items {
 		items[i].Category = byID[items[i].ID]
+		items[i].Topics = topicsByID[items[i].ID]
 		if viewer != nil {
 			v := votes[items[i].ID]
 			items[i].MyVote = &v
@@ -256,6 +275,68 @@ type FeedQuery struct {
 	Cursor      string
 	Limit       int
 	IncludeDead bool
+	// MixKinds asks the unfiltered top feed (the web home page) to give
+	// videos, articles, and channels a fair share; see mixPicks.
+	MixKinds bool
+}
+
+// mixKinds are the formats the home page promotes, since the score-ordered
+// top feed is otherwise almost all GitHub repos from the seed import.
+var mixKinds = []string{"video", "article", "channel"}
+
+// mixPicks returns the top three items of each of mixKinds that the viewer
+// may see. The home "top" feed shows them on its first page, mixed into the
+// score-ordered rows, and every page of that feed excludes them, so keyset
+// pagination over the remaining rows stays correct: page one holds the picks
+// plus every other row above the cursor, later pages hold the rest, and no
+// item appears twice. The picks are recomputed per request; they only drift
+// as scores change, like any feed.
+func (s *Service) mixPicks(ctx context.Context, base db.FeedParams) ([]db.Item, error) {
+	var byKind [][]db.Item
+	for _, k := range mixKinds {
+		rows, err := s.Q.Feed(ctx, db.FeedParams{Kind: k, Sort: "top", Limit: 3, ViewerID: base.ViewerID, IncludeDead: base.IncludeDead})
+		if err != nil {
+			return nil, fmt.Errorf("mix picks: %w", err)
+		}
+		byKind = append(byKind, rows)
+	}
+	// Round-robin across kinds so leftover picks don't bunch up by kind.
+	var out []db.Item
+	for i := range 3 {
+		for _, rows := range byKind {
+			if i < len(rows) {
+				out = append(out, rows[i])
+			}
+		}
+	}
+	return out, nil
+}
+
+// interleaveKinds returns rows in their order with picks mixed in: whenever
+// the next row would make a run of more than maxRun rows of one kind, the
+// next pick of another kind goes first. Picks left over go at the end.
+func interleaveKinds(rows, picks []db.Item, maxRun int) []db.Item {
+	if len(picks) == 0 {
+		return rows
+	}
+	out := make([]db.Item, 0, len(rows)+len(picks))
+	run := 0
+	for _, r := range rows {
+		if n := len(out); n > 0 && out[n-1].Kind == r.Kind && run >= maxRun {
+			if i := slices.IndexFunc(picks, func(p db.Item) bool { return p.Kind != r.Kind }); i >= 0 {
+				out = append(out, picks[i])
+				picks = slices.Delete(slices.Clone(picks), i, i+1)
+				run = 0
+			}
+		}
+		if n := len(out); n > 0 && out[n-1].Kind == r.Kind {
+			run++
+		} else {
+			run = 1
+		}
+		out = append(out, r)
+	}
+	return append(out, picks...)
 }
 
 type FeedPage struct {
@@ -326,6 +407,9 @@ func (s *Service) Feed(ctx context.Context, viewer *Actor, fq FeedQuery) (FeedPa
 		if e, ok := AsError(err); ok {
 			return page, e
 		}
+		if ctx.Err() != nil {
+			return page, err // the client went away; nothing to fall back for
+		}
 		s.Log.Warn("semantic search failed; using keywords", "err", err)
 		if strings.HasPrefix(fq.Cursor, "aHw") { // "h|" cursors can't continue a keyword search
 			fq.Cursor = ""
@@ -336,14 +420,30 @@ func (s *Service) Feed(ctx context.Context, viewer *Actor, fq FeedQuery) (FeedPa
 			return page, errf("invalid", "bad cursor")
 		}
 	}
+	mix := fq.MixKinds && p.Sort == "top" && p.Kind == "" && fq.Category == "" && fq.Topic == "" && strings.TrimSpace(fq.Q) == ""
 	// Anonymous first pages are the bulk of traffic and identical for every
 	// visitor, so they are cached for a minute.
 	cacheKey := ""
 	if viewer == nil && fq.Cursor == "" && fq.Q == "" {
-		cacheKey = fmt.Sprintf("%s|%s|%s|%s|%d|%t", fq.Category, fq.Topic, p.Kind, p.Sort, p.Limit, p.IncludeDead)
+		cacheKey = fmt.Sprintf("%s|%s|%s|%s|%d|%t|%t", fq.Category, fq.Topic, p.Kind, p.Sort, p.Limit, p.IncludeDead, mix)
 		if cached, ok := s.feedCache.Get(cacheKey); ok {
 			cached.Category, cached.Parent = page.Category, page.Parent
 			return cached, nil
+		}
+	}
+	var picks []db.Item
+	if mix {
+		var err error
+		if picks, err = s.mixPicks(ctx, p); err != nil {
+			return page, err
+		}
+		for _, it := range picks {
+			p.ExcludeIDs = append(p.ExcludeIDs, it.ID)
+		}
+		if fq.Cursor != "" {
+			picks = nil // shown on the first page only
+		} else {
+			p.Limit = max(1, p.Limit-len(picks))
 		}
 	}
 	// Fetch one extra row to learn whether another page exists.
@@ -356,12 +456,13 @@ func (s *Service) Feed(ctx context.Context, viewer *Actor, fq FeedQuery) (FeedPa
 	if more {
 		rows = rows[:len(rows)-1]
 	}
-	page.Items, err = s.decorate(ctx, viewer, rows)
-	if err != nil {
-		return page, err
-	}
+	// The cursor is the last row in score order, before picks are mixed in.
 	if more && len(rows) > 0 {
 		page.NextCursor = encodeCursor(p.Sort, rows[len(rows)-1])
+	}
+	page.Items, err = s.decorate(ctx, viewer, interleaveKinds(rows, picks, 3))
+	if err != nil {
+		return page, err
 	}
 	if cacheKey != "" {
 		s.feedCache.Set(cacheKey, page)

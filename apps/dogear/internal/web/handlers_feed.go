@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -110,7 +111,6 @@ type feedPage struct {
 	// Topics are the any-medium topic chips; TopicHere marks the current one.
 	Topics     []service.Topic
 	TopicHere  string
-	Chips      []*service.CategoryNode
 	Children   []*service.CategoryNode
 	Tabs       bool
 	Base       string // URL of this feed without sort/kind/cursor
@@ -201,6 +201,7 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fq := feedQuery(r)
+	fq.MixKinds = true // the unfiltered top feed mixes in videos, articles, channels
 	nav := "top"
 	if fq.Sort == "new" {
 		nav = "new"
@@ -667,7 +668,20 @@ func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
 	s.errorPage(w, r, http.StatusNotFound, "Nothing here. It may have been removed, or it's private.")
 }
 
+// statusClientClosed is nginx's "client closed request" code. Nobody reads
+// the response; it only keeps request logs from counting these as 500s.
+const statusClientClosed = 499
+
+// serverError logs an unexpected handler error and shows the 500 page. When
+// the client already went away (an htmx live search replacing its previous
+// request, a closed tab), the query fails with context.Canceled. That is not
+// a server fault, so it logs at info and answers 499 with no body.
 func (s *Server) serverError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, context.Canceled) || errors.Is(r.Context().Err(), context.Canceled) {
+		s.log.Info("client went away", "path", r.URL.Path, "err", err)
+		w.WriteHeader(statusClientClosed)
+		return
+	}
 	s.log.Error("handler", "path", r.URL.Path, "err", err)
 	s.errorPage(w, r, http.StatusInternalServerError, "Something broke on our side. Try again in a moment.")
 }

@@ -19,7 +19,8 @@ type FeedParams struct {
 	Sort        string // "top", "new", "stars", or "az"
 	Query       string // trigram search over title, blurb, and domain
 	IncludeDead bool
-	CreatedBy   *int64 // a single user's posts (profile page)
+	CreatedBy   *int64  // a single user's posts (profile page)
+	ExcludeIDs  []int64 // items shown elsewhere on the page (the home feed's mixed-in picks)
 
 	// Keyset cursor: the last row of the previous page.
 	AfterScore   *float64
@@ -65,6 +66,9 @@ func (q *Queries) Feed(ctx context.Context, p FeedParams) ([]Item, error) {
 	}
 	if p.CreatedBy != nil {
 		where = append(where, "i.created_by = "+arg(*p.CreatedBy))
+	}
+	if len(p.ExcludeIDs) > 0 {
+		where = append(where, "NOT (i.id = ANY("+arg(p.ExcludeIDs)+"::bigint[]))")
 	}
 	if q := strings.TrimSpace(p.Query); q != "" {
 		pat := arg("%" + escapeLike(q) + "%")
