@@ -135,6 +135,7 @@ Reading needs no account. Writing (posting, voting, saving to lists) needs a per
 
 - [About](%[1]s/about): what Dogear is and how it fetches pages.
 - [Privacy](%[1]s/privacy): what is stored and which third parties are involved.
+- [Save from your phone](%[1]s/save): adding Dogear to the iPhone (Shortcut) or Android share menu.
 - [Terms](%[1]s/terms): posting rules.
 - [Source code](https://github.com/wsoule/dogear): the Go app, browser extension, and Claude Desktop bundle.
 `, s.cfg.BaseURL)

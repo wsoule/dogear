@@ -62,6 +62,25 @@
 <p><a href="/">← home</a></p>
 {{end}}
 
+{{if eq .Page "save"}}
+<h1>save from your phone</h1>
+<p class="lede">Put Dogear in your phone's share menu, so any page in Safari, YouTube, or a newsletter app is one tap from your archive.</p>
+<h2>iPhone and iPad</h2>
+<p>iOS doesn't let web apps join the share menu, but a Shortcut can. It takes about a minute:</p>
+<ol>
+<li>Open the <strong>Shortcuts</strong> app, tap <strong>+</strong>, and name the shortcut <strong>Save to Dogear</strong>.</li>
+<li>Tap the <strong>ⓘ</strong> (details) button, turn on <strong>Show in Share Sheet</strong>, and set it to accept <strong>URLs</strong> and <strong>Safari web pages</strong>.</li>
+<li>Add the action <strong>URL Encode</strong> and give it the <strong>Shortcut Input</strong>.</li>
+<li>Add the action <strong>Open URLs</strong> and type <code>{{.BaseURL}}/share?url=</code>, then insert the <strong>URL Encoded Text</strong> right after it.</li>
+</ol>
+<p>Now tap <strong>Share</strong> on any page and pick <strong>Save to Dogear</strong>. It opens Dogear in Safari: if the link is already here you can dogear and tag it, otherwise you can post it with a one-line reason.</p>
+<p class="muted small">Sign in to Dogear in Safari itself. An app added to your home screen keeps its own separate sign-in.</p>
+<h2>Android</h2>
+<p>In Chrome, open Dogear, then menu ⋮ → <strong>Install app</strong>. Dogear then shows up in the share menu of every app. (Plain “Add to home screen” from other browsers doesn't add it.)</p>
+<h2>on a computer</h2>
+<p>Paste any link into <a href="/submit">post</a>, or bring a whole Pocket, Raindrop, bookmarks, or YouTube export in <a href="/settings/import">settings → import</a>.</p>
+{{end}}
+
 {{if eq .Page "offline"}}
 <h1>offline</h1>
 <p class="muted">You're offline. Dogear needs a connection to load feeds.</p>
