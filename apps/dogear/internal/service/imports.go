@@ -237,35 +237,50 @@ func (s *Service) ImportSaves(ctx context.Context, a *Actor, file importfile.Res
 	if file.Truncated {
 		res.Notes = append(res.Notes, fmt.Sprintf("Only the first %d links in the file were read.", importfile.MaxEntries))
 	}
-	links, tagTitles, err := s.prepareImport(ctx, file.Entries, &res)
+	out, _, err := s.importEntries(ctx, a, file.Entries, opts)
+	out.Format, out.Links, out.Notes = res.Format, res.Links, append(res.Notes, out.Notes...)
 	if err != nil {
-		return res, err
+		return ImportResult{Format: res.Format, Links: res.Links}, err
+	}
+	return out, nil
+}
+
+// importEntries saves entries to the actor's archive in one transaction:
+// ImportSaves for a whole file, QuickSave for a single link. It returns the
+// result and the links that went in the archive, each with its itemID.
+func (s *Service) importEntries(ctx context.Context, a *Actor, entries []importfile.Entry, opts ImportOptions) (ImportResult, []*importLink, error) {
+	var res ImportResult
+	links, tagTitles, err := s.prepareImport(ctx, entries, &res)
+	if err != nil {
+		return res, nil, err
 	}
 	if len(links) == 0 {
-		return res, nil
+		return res, nil, nil
 	}
 	via := a.Via
 	if via == "" {
 		via = "web"
 	}
 	now := time.Now()
+	var kept []*importLink
 	err = s.inTxQ(ctx, func(q *db.Queries) error {
 		if err := q.LockUserForImport(ctx, a.ID()); err != nil {
 			return fmt.Errorf("lock user: %w", err)
 		}
-		kept, created, err := importItems(ctx, q, a, via, links, &res)
+		k, created, err := importItems(ctx, q, a, via, links, &res)
 		if err != nil {
 			return err
 		}
+		kept = k
 		if err := importSavesOf(ctx, q, a, kept, created, now, &res); err != nil {
 			return err
 		}
 		return s.importTags(ctx, q, a, kept, tagTitles, opts, now, &res)
 	})
 	if err != nil {
-		return ImportResult{Format: res.Format, Links: res.Links}, err
+		return ImportResult{}, nil, err
 	}
-	return res, nil
+	return res, kept, nil
 }
 
 // importItems finds each link's item, trims the list to what the archive

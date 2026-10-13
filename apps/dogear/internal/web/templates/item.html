@@ -2,6 +2,7 @@
 {{with .Data}}
 {{with .Item.Category}}{{if ne .Slug "unsorted"}}<nav class="crumbs" aria-label="Breadcrumb"><a href="/categories">categories</a> / {{if .Parent}}<a href="/c/{{.Parent}}">{{$.Data.ParentName}}</a> / {{end}}<a href="/c/{{.Slug}}"><span class="sr-only">list </span>{{.Name}}</a></nav>{{end}}{{end}}
 {{if .Topics}}<nav class="crumbs" aria-label="Topics">{{range $i, $t := .Topics}}{{if $i}} · {{end}}<a href="/t/{{$t.Slug}}"><span class="sr-only">topic </span>{{lower $t.Name}}</a>{{end}}</nav>{{end}}
+{{if .SavedTo}}<p class="flash">Saved to your dogear{{if ne .SavedTo "1"}}, under <a href="/u/{{$.Viewer.User.Username}}/{{.SavedTo}}">#{{.SavedTo}}</a>{{end}}.{{if .Item.Personal}} Want everyone to find it? <a href="/submit?url={{.Item.URL}}">Post it with a reason</a>.{{end}}</p>{{end}}
 <h1 class="item-title">{{.Item.Title}}</h1>
 <p class="item-meta">
   <span>{{.Item.Domain}}</span><span>{{.Item.Kind}}</span>{{with .Item.Length}}<span>{{.}}</span>{{end}}{{if .Item.Creator}}<span>{{if .Item.CreatorID}}by <a href="/i/{{.Item.CreatorID}}">{{.Item.Creator}}</a>{{else}}{{.Item.Creator}}{{end}}</span>{{end}}

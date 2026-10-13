@@ -137,8 +137,12 @@ func (s *Server) preview(w http.ResponseWriter, r *http.Request) {
 
 // profilePage is /u/{user}: the archive with its tag bar, then posts.
 type profilePage struct {
-	P    service.Profile
-	Feed feedData
+	P service.Profile
+	// Groups are the profile's tags with their first few entries; TagCount
+	// is how many tags this viewer can see.
+	Groups   []service.TagGroup
+	TagCount int
+	Feed     feedData
 	// NextArchive is the htmx URL for the next page of archive rows.
 	NextArchive string
 }
@@ -189,6 +193,11 @@ func (s *Server) profile(w http.ResponseWriter, r *http.Request) {
 	if p.IsOwner {
 		nav = "me"
 	}
+	groups := s.svc.TagGroups(r.Context(), viewer(r), p.User.Username, p.Lists)
+	tagCount := len(groups)
+	if p.IsOwner {
+		tagCount = len(p.Lists)
+	}
 	name := ownerName(p.User) + "'s dogear"
 	desc := "Things @" + p.User.Username + " thinks are worth your time, each with a note, on Dogear."
 	if p.User.Bio != "" {
@@ -200,6 +209,7 @@ func (s *Server) profile(w http.ResponseWriter, r *http.Request) {
 	// Profiles are never indexed: they would otherwise be the main target of SEO spam.
 	s.render(w, r, http.StatusOK, "profile", &Page{Title: "@" + p.User.Username, Description: desc, Nav: nav, NoIndex: true, Share: share,
 		Data: profilePage{P: p, NextArchive: archiveNext(p.User.Username, p.Archive),
+			Groups: groups, TagCount: tagCount,
 			Feed: feedData{Items: p.Posts, CSRF: reqCtx(r).csrf, Viewer: viewer(r), Compact: compactView(r)}}})
 }
 

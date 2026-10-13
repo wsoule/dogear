@@ -42,6 +42,7 @@ func newTestAPI(t *testing.T) (*API, *service.Service) {
 	t.Cleanup(pool.Close)
 	cfg := &config.Config{Env: "development", BaseURL: "http://test", Signups: "open", IPHashSalt: "x"}
 	svc := service.New(pool, cfg, classify.Noop{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	svc.AutoTagSync = true
 	noSession := func(*http.Request) (*service.Actor, string) { return nil, "" }
 	return New(svc, noSession, auth.Signer{Secret: []byte("test-secret-test-secret-test-sec")}, cfg.BaseURL, safety.ProxyTrust{}), svc
 }

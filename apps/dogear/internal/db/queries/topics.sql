@@ -44,3 +44,10 @@ ON CONFLICT DO NOTHING;
 -- name: TopicsForItems :many
 SELECT it.item_id, t.slug, t.name FROM item_topics it JOIN topics t ON t.id = it.topic_id
 WHERE it.item_id = ANY(@ids::bigint[]) ORDER BY t.sort_order;
+
+-- name: TopicsMatching :many
+-- The topics whose keyword pattern matches some text, in display order.
+SELECT slug, name, description FROM topics WHERE @text::text ~* pattern ORDER BY sort_order;
+
+-- name: AllTopics :many
+SELECT slug, name, description FROM topics ORDER BY sort_order;

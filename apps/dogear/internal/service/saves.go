@@ -137,7 +137,11 @@ func (s *Service) ToggleDogear(ctx context.Context, a *Actor, itemID int64) (boo
 	} else if !notFound(err) {
 		return false, fmt.Errorf("dogeared tag: %w", err)
 	}
-	return true, s.SaveItem(ctx, a, itemID, nil)
+	if err := s.SaveItem(ctx, a, itemID, nil); err != nil {
+		return false, err
+	}
+	s.autoTagLater(a, itemID)
+	return true, nil
 }
 
 // legacyDogearSlug is the old one-tap list, kept by migration 00013 only

@@ -87,6 +87,7 @@ func newShareFixture(t *testing.T) shareFixture {
 		SessionSecret: bytes.Repeat([]byte("k"), 32)}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := service.New(pool, cfg, classify.Noop{}, log)
+	svc.AutoTagSync = true
 	site, err := New(Options{Service: svc, Config: cfg, Log: log})
 	if err != nil {
 		t.Fatal(err)
@@ -135,7 +136,17 @@ func newShareFixture(t *testing.T) shareFixture {
 
 func (f shareFixture) get(t *testing.T, path string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
+	return f.getFrom(t, path, "", cookies...)
+}
+
+// getFrom is get with a Sec-Fetch-Site header ("" sends none), which /share
+// uses to tell a user's own share from a link on another site.
+func (f shareFixture) getFrom(t *testing.T, path, site string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+	t.Helper()
 	req := httptest.NewRequest("GET", path, nil)
+	if site != "" {
+		req.Header.Set("Sec-Fetch-Site", site)
+	}
 	for _, c := range cookies {
 		req.AddCookie(c)
 	}
@@ -332,17 +343,33 @@ func TestShareTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	sid := &http.Cookie{Name: sessionCookie, Value: raw}
-	rec = f.get(t, "/share?text=see+https://new.example/x+now&title=New", sid)
-	if loc := rec.Header().Get("Location"); loc != "/submit?title=New&url=https%3A%2F%2Fnew.example%2Fx" {
-		t.Errorf("new link -> %q", loc)
+	// From another site, nothing is saved without a tap: a confirm page.
+	rec = f.getFrom(t, "/share?url=https://cross.example/x", "cross-site", sid)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `action="/save-link"`) {
+		t.Errorf("cross-site share = %d, want the confirm page", rec.Code)
+	}
+	if _, err := f.svc.Q.GetItemByNorm(context.Background(), "https://cross.example/x"); err == nil {
+		t.Error("cross-site share saved a link")
+	}
+
+	// From the share sheet or Shortcut, a link is saved in one step: a new
+	// one as a personal item.
+	rec = f.getFrom(t, "/share?text=see+https://new.example/x+now&title=New", "none", sid)
+	loc := rec.Header().Get("Location")
+	created, err := f.svc.Q.GetItemByNorm(context.Background(), "https://new.example/x")
+	if err != nil || created.Status != "personal" || loc != fmt.Sprintf("/i/%d?saved=1", created.ID) {
+		t.Errorf("new link -> %q (item %+v, %v)", loc, created, err)
 	}
 	it, err := f.svc.Q.GetItem(context.Background(), f.public)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rec = f.get(t, "/share?url="+it.Url, sid)
-	if loc := rec.Header().Get("Location"); loc != fmt.Sprintf("/i/%d", f.public) {
+	rec = f.getFrom(t, "/share?url="+it.Url, "none", sid)
+	if loc := rec.Header().Get("Location"); !strings.HasPrefix(loc, fmt.Sprintf("/i/%d?saved=", f.public)) {
 		t.Errorf("existing link -> %q", loc)
+	}
+	if _, saved := f.svc.SavedNote(context.Background(), f.owner, f.public); !saved {
+		t.Error("shared existing link was not saved")
 	}
 	rec = f.get(t, "/share?text=nothing", sid)
 	if loc := rec.Header().Get("Location"); loc != "/submit" {

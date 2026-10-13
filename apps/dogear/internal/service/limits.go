@@ -34,6 +34,7 @@ var (
 	entryTokenRules = []safety.Rule{{Limit: 60, Per: time.Hour}}
 	classifyRules   = []safety.Rule{{Limit: 30, Per: time.Hour}}
 	previewRules    = []safety.Rule{{Limit: 30, Per: time.Minute}}
+	quickSaveRules  = []safety.Rule{{Limit: 120, Per: time.Hour}}
 	// OAuthCallbackRules applies per client IP to every OAuth callback.
 	OAuthCallbackRules = []safety.Rule{{Limit: 10, Per: time.Minute}}
 )

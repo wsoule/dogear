@@ -36,7 +36,9 @@ func newTestService(t *testing.T) *Service {
 	}
 	t.Cleanup(pool.Close)
 	cfg := &config.Config{Env: "development", BaseURL: "http://test", Signups: "open", IPHashSalt: "x"}
-	return New(pool, cfg, classify.Noop{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	s := New(pool, cfg, classify.Noop{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	s.AutoTagSync = true // no goroutine outliving the test
+	return s
 }
 
 var seq = time.Now().UnixNano() % 1_000_000

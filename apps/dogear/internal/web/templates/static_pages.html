@@ -85,6 +85,16 @@
 <p>Paste any link into <a href="/submit">post</a>, or bring a whole Pocket, Raindrop, bookmarks, or YouTube export in <a href="/settings/import">settings → import</a>.</p>
 {{end}}
 
+{{if eq .Page "sharesave"}}
+<h1>save this?</h1>
+<p class="lede">{{.Data.URL}}</p>
+<form method="post" action="/save-link">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <input type="hidden" name="url" value="{{.Data.URL}}">
+  <button class="btn" type="submit">save to your dogear</button>
+</form>
+{{end}}
+
 {{if eq .Page "offline"}}
 <h1>offline</h1>
 <p class="muted">You're offline. Dogear needs a connection to load feeds.</p>

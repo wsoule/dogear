@@ -299,9 +299,11 @@ func shareURL(rawURL, text, title string) string {
 	return ""
 }
 
-// share is the PWA share target: a signed-in user lands on the item page
-// when the link is already on Dogear (to dogear or tag it), or on the post
-// form prefilled with it. Signed-out users sign in first and come back.
+// share is the PWA share target and what the iPhone Shortcut opens: the
+// shared link is saved to the signed-in user's archive and filed under a
+// tag in one step (QuickSave), landing on its item page. If it can't be
+// saved, the post form opens prefilled instead. Signed-out users sign in
+// first and come back.
 func (s *Server) share(w http.ResponseWriter, r *http.Request) {
 	if viewer(r) == nil {
 		http.Redirect(w, r, "/signin?next="+url.QueryEscape(r.URL.RequestURI()), http.StatusSeeOther)
@@ -313,8 +315,17 @@ func (s *Server) share(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/submit", http.StatusSeeOther)
 		return
 	}
-	if id, ok := s.svc.ItemForURL(r.Context(), viewer(r), link); ok {
-		http.Redirect(w, r, "/i/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+	// Saving on a GET is only safe when the user started it: the share
+	// sheet, the Shortcut, or a typed address (Sec-Fetch-Site: none), or a
+	// page on Dogear. A link from another site gets a one-button confirm,
+	// so no site can drop links into someone's dogear.
+	if site := r.Header.Get("Sec-Fetch-Site"); site != "none" && site != "same-origin" {
+		s.render(w, r, http.StatusOK, "static_pages", &Page{Title: "save to your dogear", Page: "sharesave", NoIndex: true,
+			Data: map[string]string{"URL": link}})
+		return
+	}
+	if id, tag, err := s.svc.QuickSave(r.Context(), viewer(r), link); err == nil {
+		http.Redirect(w, r, savedPath(id, tag), http.StatusSeeOther)
 		return
 	}
 	v := url.Values{"url": {link}}
@@ -322,4 +333,39 @@ func (s *Server) share(w http.ResponseWriter, r *http.Request) {
 		v.Set("title", t)
 	}
 	http.Redirect(w, r, "/submit?"+v.Encode(), http.StatusSeeOther)
+}
+
+// savedPath is the item page shown after a quick save, with the tag the
+// save went in so the page can say so.
+func savedPath(id int64, tag string) string {
+	if tag == "" {
+		tag = "1"
+	}
+	return "/i/" + strconv.FormatInt(id, 10) + "?saved=" + url.QueryEscape(tag)
+}
+
+// saveLink is the paste-a-link box on the home page and your profile: it
+// saves the link in one step (QuickSave) and opens its item page.
+func (s *Server) saveLink(w http.ResponseWriter, r *http.Request) {
+	if viewer(r) == nil {
+		http.Redirect(w, r, "/signin", http.StatusSeeOther)
+		return
+	}
+	link := shareURL(r.FormValue("url"), "", "")
+	if link == "" {
+		s.errorPage(w, r, http.StatusBadRequest, "Paste a link that starts with http:// or https://.")
+		return
+	}
+	id, tag, err := s.svc.QuickSave(r.Context(), viewer(r), link)
+	if err != nil {
+		s.serviceError(w, r, err)
+		return
+	}
+	dest := savedPath(id, tag)
+	if r.Header.Get("HX-Request") != "" {
+		w.Header().Set("HX-Redirect", dest)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	http.Redirect(w, r, dest, http.StatusSeeOther)
 }

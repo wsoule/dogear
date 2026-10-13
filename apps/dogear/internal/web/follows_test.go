@@ -43,6 +43,7 @@ func newTestServer(t *testing.T) (*Server, *service.Service) {
 		SessionSecret: []byte("test-secret-test-secret-test-sec")}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := service.New(pool, cfg, classify.Noop{}, log)
+	svc.AutoTagSync = true
 	srv, err := New(Options{Service: svc, Config: cfg, Log: log})
 	if err != nil {
 		t.Fatal(err)

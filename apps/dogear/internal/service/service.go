@@ -43,6 +43,12 @@ type Service struct {
 	// Embed and Vectors power semantic search (nil-safe when not configured).
 	Embed   *embed.Client
 	Vectors *embed.Index
+	// Grouper files saves under tags (AutoTag); jev when JEV_API_KEY is set,
+	// nil otherwise (topic keywords decide instead).
+	Grouper classify.Chooser
+	// AutoTagSync runs a dogear's auto-tagging in line instead of after the
+	// response, for tests.
+	AutoTagSync bool
 
 	classifyCache *ttlCache[classify.Result]
 	catCache      *ttlCache[[]*CategoryNode]
@@ -55,7 +61,12 @@ type Service struct {
 
 func New(pool *pgxpool.Pool, cfg *config.Config, cl classify.Classifier, log *slog.Logger) *Service {
 	ua := "DogearBot/1.0 (+" + cfg.BaseURL + "/about)"
+	var grouper classify.Chooser
+	if cfg.JevAPIKey != "" {
+		grouper = &classify.Jev{APIKey: cfg.JevAPIKey, BaseURL: cfg.JevBaseURL}
+	}
 	return &Service{
+		Grouper:    grouper,
 		Pool:       pool,
 		Q:          db.New(pool),
 		Cfg:        cfg,

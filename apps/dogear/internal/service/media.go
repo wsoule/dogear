@@ -33,7 +33,7 @@ type mediaDetails struct {
 	CreatorName    string // display name even when no creator page is known
 	Duration       int    // seconds, videos only
 	Published      *time.Time
-	ReadingMinutes int // articles only
+	ReadingMinutes int  // articles only
 	IsArticle      bool // the page declares itself an article (og:type)
 	SiteName       string
 }

@@ -94,6 +94,7 @@ func (s *Server) routes(api, mcp http.Handler) {
 	m.HandleFunc("GET /privacy", s.staticPage("privacy", "privacy"))
 	m.HandleFunc("GET /save", s.staticPage("save from your phone", "save"))
 	m.HandleFunc("GET /save/shortcut", s.saveShortcut)
+	m.HandleFunc("POST /save-link", s.csrf(s.saveLink))
 
 	m.HandleFunc("PUT /items/{id}/vote", s.csrf(s.vote))
 	m.HandleFunc("POST /items/{id}/vote", s.csrf(s.vote))

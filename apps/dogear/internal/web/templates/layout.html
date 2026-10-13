@@ -101,6 +101,15 @@
 
 {{define "unsaveconfirm"}}{{if and .On .Tags}} hx-confirm="Un-dogear this? It also comes off your {{.Tags}} tag{{if gt .Tags 1}}s{{end}}, and your note goes with it."{{end}}{{end}}
 
+{{/* quicksave is the paste-a-link box: one field, one button, and the link
+is saved and filed under a tag (POST /save-link). Takes the CSRF token. */}}
+{{define "quicksave"}}<form class="quicksave" method="post" action="/save-link">
+<input type="hidden" name="csrf" value="{{.}}">
+<label class="sr-only" for="qs-url">Link to save</label>
+<input id="qs-url" type="url" name="url" required placeholder="paste a link to dogear it" inputmode="url" autocomplete="off">
+<button class="btn" type="submit">dogear it</button>
+</form>{{end}}
+
 {{define "csrf"}}<input type="hidden" name="csrf" value="{{.}}">{{end}}
 
 {{define "vote"}}<div class="vote" id="vote-{{.ItemID}}">

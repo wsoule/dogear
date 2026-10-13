@@ -369,6 +369,8 @@ type itemPage struct {
 	Topics     []service.Topic
 	Save       saveMenuData
 	Reasons    []string
+	// SavedTo is set right after a quick save: "1", or the tag it went in.
+	SavedTo string
 }
 
 func (s *Server) item(w http.ResponseWriter, r *http.Request) {
@@ -383,6 +385,9 @@ func (s *Server) item(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ip := itemPage{Item: it, Reasons: []string{"spam", "dead", "offensive", "duplicate", "other"}}
+	if v := r.URL.Query().Get("saved"); v != "" && viewer(r) != nil {
+		ip.SavedTo = v
+	}
 	if sim, err := s.svc.Similar(r.Context(), viewer(r), it.ID, 6); err == nil && len(sim) > 0 {
 		ip.Similar = feedData{Items: sim, CSRF: reqCtx(r).csrf, Viewer: viewer(r), Compact: true}
 	}

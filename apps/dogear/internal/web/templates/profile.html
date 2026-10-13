@@ -7,7 +7,7 @@
 <p><button class="btn ghost share-btn" type="button" data-share="{{$.BaseURL}}/u/{{.P.User.Username}}" data-share-title="{{if .P.User.DisplayName}}{{deref .P.User.DisplayName}}{{else}}@{{.P.User.Username}}{{end}}'s dogear" hidden>share {{if .P.IsOwner}}your{{else}}this{{end}} dogear</button></p>
 <div class="stats">
   <p class="stat lead"><b>{{.P.SaveCount}}</b> <span>save{{if ne .P.SaveCount 1}}s{{end}}</span></p>
-  <p class="stat"><b>{{len .P.Lists}}</b> <span>tag{{if ne (len .P.Lists) 1}}s{{end}}</span></p>
+  <p class="stat"><b>{{.TagCount}}</b> <span>tag{{if ne .TagCount 1}}s{{end}}</span></p>
   {{template "followbox" (followBox .P $.Viewer $.CSRF)}}
 </div>
 {{if not $.Viewer}}<p class="cta small">Keep an archive of cool stuff you can share like this one. <a href="/signin">Make your own dogear →</a></p>{{end}}
@@ -20,6 +20,7 @@
 {{end}}
 
 {{if .P.Lists}}<nav class="tagbar" aria-label="Tags">{{range .P.Lists}}{{if or $.Data.P.IsOwner .Count}}<a href="/u/{{$.Data.P.User.Username}}/{{.Slug}}" title="{{.Title}}{{if .Description}} — {{.Description}}{{end}}">{{.Slug}}<span class="count">{{.Count}}{{if ne .Visibility "public"}} · {{.Visibility}}{{end}}</span></a>{{end}}{{end}}</nav>{{end}}
+{{if .P.IsOwner}}{{template "quicksave" $.CSRF}}{{end}}
 {{if .P.IsOwner}}
 <p class="share"><span>your archive:</span> <code id="share-archive">{{$.BaseURL}}/u/{{.P.User.Username}}</code> <button class="link" type="button" data-copy="#share-archive">copy</button></p>
 <details class="newlist"><summary>new tag</summary>
@@ -33,13 +34,19 @@
 </details>
 {{end}}
 
-<h2>archive</h2>
+{{range .Groups}}<section class="group" aria-labelledby="g-{{.Slug}}">
+<h2 id="g-{{.Slug}}"><a href="/u/{{$.Data.P.User.Username}}/{{.Slug}}">{{.Title}}</a> <span class="n">{{.Count}}</span>{{if ne .Visibility "public"}} <span class="n">· {{.Visibility}}</span>{{end}}</h2>
+<ol class="feed compact">{{range .Entries}}{{template "row" (archiveRow . $.Data.P.User.Username $.CSRF $.Viewer)}}{{end}}</ol>
+<p class="group-more"><a href="/u/{{$.Data.P.User.Username}}/{{.Slug}}">{{if .More}}all {{.Count}} in {{.Title}}{{else}}open {{.Title}}{{end}} →</a></p>
+</section>{{end}}
+
+<h2>{{if .Groups}}everything, newest first{{else}}archive{{end}}</h2>
 {{if .P.Archive.Entries}}<ol class="feed" id="archive">{{template "archiverows" (archivePage .P.User.Username .P.Archive .NextArchive $.CSRF $.Viewer)}}</ol>
 {{else if .P.IsOwner}}<p class="muted">Nothing saved yet. Tap <strong>dogear</strong> on anything worth keeping — videos, articles, tools, books — and tag it so you can share a topic.</p>
 <p class="muted">Coming from Pocket, Raindrop, or your browser's bookmarks? <a href="/settings/import">Import your saves</a>.</p>
 {{else}}<p class="muted">Nothing here yet.</p>{{end}}
 
-{{if .Feed.Items}}<h2>posted</h2>{{template "feed" .Feed}}{{else if .P.IsOwner}}<p class="small muted">Found something that isn't on Dogear yet? <a href="/submit">Post it</a>.</p>{{end}}
+{{if .P.IsOwner}}<p class="small muted">Want something on the public feed too? <a href="/submit">Post it with a reason</a>.</p>{{end}}
 {{end}}
 {{end}}
 

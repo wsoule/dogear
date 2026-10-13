@@ -666,31 +666,41 @@ p.quote {
   min-height: 0;
 }
 
-/* one-tap dogear on rows and the item page, matching the corner mark */
+/* one-tap dogear on rows and the item page, matching the corner mark: a
+   bordered tap target that fills purple once the thing is dogeared */
 .dogear-inline {
   display: inline;
 }
 .dogear-inline button.dg {
   display: inline-flex;
   align-items: center;
-  gap: var(--s1);
-  min-height: 24px;
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  color: var(--muted);
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 var(--s3);
+  border: 1px solid var(--ink);
+  font: 700 var(--t0) / 1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
 }
 .dogear-inline button.dg:hover {
-  color: var(--ink);
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
   text-decoration: none;
 }
 .dogear-inline button.dg.on {
-  font-weight: 700;
-  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
 }
 .dg-icon {
-  width: 11px;
-  height: 11px;
+  width: 13px;
+  height: 13px;
 }
 
 /* compact layout: one dense line per item, no reasons or images */
@@ -847,14 +857,17 @@ p.quote {
   width: 32px;
   height: 32px;
 }
+/* on the item page the dogear button is a full slab beside "visit" */
 .item-actions .dogear-inline button.dg {
-  font: 700 var(--t1) / 1 var(--font-mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink);
+  min-height: var(--tap);
+  padding: 0 var(--s4);
+  border-width: 2px;
+  font-size: var(--t1);
+  letter-spacing: 0.1em;
 }
-.item-actions .dogear-inline button.dg.on {
-  color: var(--accent);
+.item-actions .dg-icon {
+  width: 16px;
+  height: 16px;
 }
 .item-actions details.save[open] {
   flex-basis: 100%;
@@ -1515,6 +1528,49 @@ ul.tree a {
   table.index td:nth-child(2) {
     display: none;
   }
+}
+
+/* the paste-a-link box: one field and one button, saved and filed in one
+   step */
+.quicksave {
+  display: flex;
+  gap: 0;
+  margin: 0 0 var(--s5);
+}
+.quicksave input[type='url'] {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-right: 0;
+}
+.quicksave .btn {
+  flex: 0 0 auto;
+  border-width: 1px;
+}
+
+/* profile tag groups: each tag is a ruled section of one-line rows */
+.group h2 {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+}
+.group h2 a:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+.group h2 .n {
+  font-weight: 400;
+  color: var(--grey-2);
+}
+.group .feed.compact .row {
+  padding-top: var(--s2);
+  padding-bottom: var(--s2);
+}
+.group-more {
+  margin: var(--s2) 0 0;
+  font: 700 var(--t0) / 1.6 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
 
 /* follows: /following and the home strip (the follow box is in the stats) */

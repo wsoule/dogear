@@ -9,6 +9,36 @@ import (
 	"context"
 )
 
+const allTopics = `-- name: AllTopics :many
+SELECT slug, name, description FROM topics ORDER BY sort_order
+`
+
+type AllTopicsRow struct {
+	Slug        string
+	Name        string
+	Description string
+}
+
+func (q *Queries) AllTopics(ctx context.Context) ([]AllTopicsRow, error) {
+	rows, err := q.db.Query(ctx, allTopics)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AllTopicsRow
+	for rows.Next() {
+		var i AllTopicsRow
+		if err := rows.Scan(&i.Slug, &i.Name, &i.Description); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const fileItemTopicsByKeyword = `-- name: FileItemTopicsByKeyword :exec
 INSERT INTO item_topics (item_id, topic_id, source)
 SELECT i.id, t.id, 'keyword'
@@ -187,6 +217,37 @@ func (q *Queries) TopicsForItems(ctx context.Context, ids []int64) ([]TopicsForI
 	for rows.Next() {
 		var i TopicsForItemsRow
 		if err := rows.Scan(&i.ItemID, &i.Slug, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const topicsMatching = `-- name: TopicsMatching :many
+SELECT slug, name, description FROM topics WHERE $1::text ~* pattern ORDER BY sort_order
+`
+
+type TopicsMatchingRow struct {
+	Slug        string
+	Name        string
+	Description string
+}
+
+// The topics whose keyword pattern matches some text, in display order.
+func (q *Queries) TopicsMatching(ctx context.Context, text string) ([]TopicsMatchingRow, error) {
+	rows, err := q.db.Query(ctx, topicsMatching, text)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TopicsMatchingRow
+	for rows.Next() {
+		var i TopicsMatchingRow
+		if err := rows.Scan(&i.Slug, &i.Name, &i.Description); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
