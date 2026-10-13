@@ -202,9 +202,11 @@ type ItemsByNormsRow struct {
 }
 
 // The items behind an import's links, with whether the importer may save
-// each one: the same rule as visibleTo (their own item, or a live or
-// personal one whose poster is not banned, shadow-banned, or blocked by
-// them), so an import cannot reach posts a normal save could not.
+// each one: their own item, or a live or personal one whose poster is not
+// banned, shadow-banned, or blocked by them, so an import cannot reach posts
+// a normal save could not. Someone else's personal item is savable even when
+// its importer keeps it private: the importer already has the link, and the
+// media backfill replaces its title with the page's own.
 func (q *Queries) ItemsByNorms(ctx context.Context, arg ItemsByNormsParams) ([]ItemsByNormsRow, error) {
 	rows, err := q.db.Query(ctx, itemsByNorms, arg.UserID, arg.Norms)
 	if err != nil {
@@ -248,6 +250,32 @@ UPDATE list_links SET dirty_at = COALESCE(dirty_at, now()) WHERE list_id = ANY($
 func (q *Queries) MarkListLinksDirty(ctx context.Context, ids []int64) error {
 	_, err := q.db.Exec(ctx, markListLinksDirty, ids)
 	return err
+}
+
+const personalItemShared = `-- name: PersonalItemShared :one
+SELECT (EXISTS (SELECT 1 FROM saves vs WHERE vs.item_id = i.id AND vs.user_id = $1::bigint)
+  OR EXISTS (
+       SELECT 1 FROM saves ps JOIN users su ON su.id = ps.user_id
+       WHERE ps.item_id = i.id AND su.shadow_banned_at IS NULL AND su.banned_at IS NULL
+         AND NOT EXISTS (SELECT 1 FROM list_items li JOIN lists l ON l.id = li.list_id
+                         WHERE l.user_id = ps.user_id AND li.item_id = ps.item_id AND l.visibility <> 'public')))::bool AS shared
+FROM items i WHERE i.id = $2
+`
+
+type PersonalItemSharedParams struct {
+	ViewerID int64
+	ID       int64
+}
+
+// Whether others may see a personal (imported, unreviewed) item: the
+// viewer saved it too, or someone not banned or shadow-banned saves it with
+// only public tags. Otherwise an item imported under a private tag would be
+// readable by anyone who guesses its id.
+func (q *Queries) PersonalItemShared(ctx context.Context, arg PersonalItemSharedParams) (bool, error) {
+	row := q.db.QueryRow(ctx, personalItemShared, arg.ViewerID, arg.ID)
+	var shared bool
+	err := row.Scan(&shared)
+	return shared, err
 }
 
 const promotePersonalCreator = `-- name: PromotePersonalCreator :exec

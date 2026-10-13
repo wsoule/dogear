@@ -1165,7 +1165,7 @@ FROM items i
 WHERE i.status IN ('live','personal') AND i.via <> 'auto'
   AND (i.media_checked_at IS NULL OR (NOT i.media_ok AND i.media_checked_at < now() - interval '7 days'))
   AND (i.kind IN ('video','article') OR i.domain LIKE '%.substack.com' OR i.domain = 'medium.com'
-       OR 'untitled' = ANY(i.flags))
+       OR i.status = 'personal')
 ORDER BY (i.media_checked_at IS NULL) DESC, (i.status = 'live') DESC, (i.via IN ('web','api','mcp')) DESC, i.score DESC
 LIMIT $1
 `
@@ -1177,8 +1177,8 @@ type ItemsNeedingMediaRow struct {
 	Trusted bool
 }
 
-// Videos, articles, and newsletter posts not yet looked at, plus imported
-// links still titled from their address; live items first, then people's
+// Videos, articles, and newsletter posts not yet looked at, plus every
+// personal (imported) item, whose title should come from the page itself; live items first, then people's
 // own posts, then by rank. trusted is true for imports and for live posts
 // by trusted, unflagged users: only their works may add new creator pages.
 // Personal items (unreviewed imports) are never trusted. A missing poster
@@ -1604,7 +1604,7 @@ func (q *Queries) SetItemCounts(ctx context.Context, arg SetItemCountsParams) er
 
 const setItemDetails = `-- name: SetItemDetails :exec
 UPDATE items SET
-  title = CASE WHEN 'untitled' = ANY(flags) AND $1::text <> '' THEN $1::text ELSE title END,
+  title = CASE WHEN ('untitled' = ANY(flags) OR status = 'personal') AND $1::text <> '' THEN $1::text ELSE title END,
   flags = CASE WHEN 'untitled' = ANY(flags) AND $1::text <> '' THEN array_remove(flags, 'untitled') ELSE flags END,
   creator_id = COALESCE($2::bigint, creator_id),
   creator = CASE WHEN creator = '' THEN $3::text ELSE creator END,
@@ -1631,8 +1631,9 @@ type SetItemDetailsParams struct {
 
 // Records what the media lookup found. The creator name fills in only when
 // the poster left it blank; media_checked_at is set even when nothing was
-// found so the backfill moves on. A title made up from the address
-// (flag 'untitled', from an import) is replaced by the one found.
+// found so the backfill moves on. A personal item's title came from one
+// importer's file, so the page's own title replaces it, as it does a title
+// made up from the address (flag 'untitled').
 func (q *Queries) SetItemDetails(ctx context.Context, arg SetItemDetailsParams) error {
 	_, err := q.db.Exec(ctx, setItemDetails,
 		arg.Title,

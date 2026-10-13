@@ -283,38 +283,41 @@ func TestUntitledImportsGetBackfilled(t *testing.T) {
 	untitled, _ := s.Q.GetItemByNorm(ctx, "https://"+d+"/page")
 	named, _ := s.Q.GetItemByNorm(ctx, "https://"+d+"/named")
 
-	// The backfill picks up the untitled import, never as trusted, so it
-	// cannot add creator pages.
+	// The backfill picks up every import (titles from a file are one
+	// person's), never as trusted, so it cannot add creator pages.
 	rows, err := s.Q.ItemsNeedingMedia(ctx, 100000)
 	if err != nil {
 		t.Fatal(err)
 	}
-	found := false
+	found := 0
 	for _, r := range rows {
-		if r.ID == untitled.ID {
-			found = true
+		if r.ID == untitled.ID || r.ID == named.ID {
+			found++
 			if r.Trusted {
 				t.Fatal("personal item backfilled as trusted")
 			}
 		}
-		if r.ID == named.ID {
-			t.Fatal("titled site import should not need a media lookup")
-		}
 	}
-	if !found {
-		t.Fatal("untitled import missing from media backfill")
+	if found != 2 {
+		t.Fatalf("imports in media backfill = %d, want 2", found)
 	}
 
-	// A found title replaces only an address title.
-	for _, id := range []int64{untitled.ID, named.ID} {
+	// A found title replaces a personal item's title, never a live one's,
+	// which was reviewed as posted.
+	live, err := s.Q.GetItem(ctx, liveItem(t, s, newUser(t, s, 1)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []int64{untitled.ID, named.ID, live.ID} {
 		if err := s.Q.SetItemDetails(ctx, db.SetItemDetailsParams{ID: id, Title: lookupTitle("The Real Title"), Ok: true}); err != nil {
 			t.Fatal(err)
 		}
 	}
 	untitled, _ = s.Q.GetItem(ctx, untitled.ID)
 	named, _ = s.Q.GetItem(ctx, named.ID)
-	if untitled.Title != "The Real Title" || len(untitled.Flags) != 0 || named.Title != "Named" {
-		t.Fatalf("after backfill: %q %v, %q", untitled.Title, untitled.Flags, named.Title)
+	after, _ := s.Q.GetItem(ctx, live.ID)
+	if untitled.Title != "The Real Title" || len(untitled.Flags) != 0 || named.Title != "The Real Title" || after.Title != live.Title {
+		t.Fatalf("after backfill: %q %v, %q, live %q", untitled.Title, untitled.Flags, named.Title, after.Title)
 	}
 }
 
@@ -365,5 +368,33 @@ func TestImportSkipsHiddenItems(t *testing.T) {
 		if _, err := s.Q.GetSave(ctx, db.GetSaveParams{UserID: me.ID(), ItemID: id}); err == nil {
 			t.Fatalf("hidden item %d was saved", id)
 		}
+	}
+}
+
+// A personal item's page is visible to others only once someone shares it
+// publicly, so items imported under a private tag can't be read by id.
+func TestPersonalItemNeedsPublicSave(t *testing.T) {
+	s := newTestService(t)
+	ctx := context.Background()
+	me, stranger := newUser(t, s, 0), newUser(t, s, 0)
+	d := importDomain()
+	runImport(t, s, me, ImportOptions{}, importfile.Entry{URL: "https://" + d + "/secret", Title: "Secret", Tags: []string{"Private stuff"}})
+	it, err := s.Q.GetItemByNorm(ctx, "https://"+d+"/secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.GetItem(ctx, stranger, it.ID); err != ErrNotFound {
+		t.Fatalf("privately imported item visible to a stranger: err = %v", err)
+	}
+	if _, err := s.GetItem(ctx, nil, it.ID); err != ErrNotFound {
+		t.Fatalf("privately imported item visible signed out: err = %v", err)
+	}
+	if _, err := s.GetItem(ctx, me, it.ID); err != nil {
+		t.Fatalf("importer can't see own item: %v", err)
+	}
+	// Someone else importing it untagged shares it publicly.
+	runImport(t, s, newUser(t, s, 0), ImportOptions{}, importfile.Entry{URL: "https://" + d + "/secret"})
+	if _, err := s.GetItem(ctx, stranger, it.ID); err != nil {
+		t.Fatalf("publicly saved item hidden: %v", err)
 	}
 }

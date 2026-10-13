@@ -555,6 +555,19 @@ func (s *Service) visibleTo(ctx context.Context, viewer *Actor, r db.Item) (bool
 	if !shareable(r.Status) {
 		return false, nil
 	}
+	if r.Status == "personal" {
+		var vid int64
+		if viewer != nil {
+			vid = viewer.ID()
+		}
+		shared, err := s.Q.PersonalItemShared(ctx, db.PersonalItemSharedParams{ViewerID: vid, ID: r.ID})
+		if err != nil {
+			return false, fmt.Errorf("personal item shared: %w", err)
+		}
+		if !shared {
+			return false, nil
+		}
+	}
 	if r.CreatedBy == nil {
 		return true, nil
 	}

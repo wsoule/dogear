@@ -10,9 +10,11 @@ WHERE EXISTS (SELECT 1 FROM blocked_domains b WHERE d = b.domain OR d LIKE '%.' 
 
 -- name: ItemsByNorms :many
 -- The items behind an import's links, with whether the importer may save
--- each one: the same rule as visibleTo (their own item, or a live or
--- personal one whose poster is not banned, shadow-banned, or blocked by
--- them), so an import cannot reach posts a normal save could not.
+-- each one: their own item, or a live or personal one whose poster is not
+-- banned, shadow-banned, or blocked by them, so an import cannot reach posts
+-- a normal save could not. Someone else's personal item is savable even when
+-- its importer keeps it private: the importer already has the link, and the
+-- media backfill replaces its title with the page's own.
 SELECT i.id, i.url_norm, i.status,
   (i.created_by = @user_id::bigint OR (i.status IN ('live','personal') AND (i.created_by IS NULL OR EXISTS (
      SELECT 1 FROM users u WHERE u.id = i.created_by AND u.shadow_banned_at IS NULL AND u.banned_at IS NULL
@@ -83,3 +85,16 @@ WHERE id = @id AND status = 'personal';
 -- has saved go with them.
 DELETE FROM items i WHERE i.created_by = $1 AND i.status = 'personal'
   AND NOT EXISTS (SELECT 1 FROM saves s WHERE s.item_id = i.id AND s.user_id <> $1);
+
+-- name: PersonalItemShared :one
+-- Whether others may see a personal (imported, unreviewed) item: the
+-- viewer saved it too, or someone not banned or shadow-banned saves it with
+-- only public tags. Otherwise an item imported under a private tag would be
+-- readable by anyone who guesses its id.
+SELECT (EXISTS (SELECT 1 FROM saves vs WHERE vs.item_id = i.id AND vs.user_id = @viewer_id::bigint)
+  OR EXISTS (
+       SELECT 1 FROM saves ps JOIN users su ON su.id = ps.user_id
+       WHERE ps.item_id = i.id AND su.shadow_banned_at IS NULL AND su.banned_at IS NULL
+         AND NOT EXISTS (SELECT 1 FROM list_items li JOIN lists l ON l.id = li.list_id
+                         WHERE l.user_id = ps.user_id AND li.item_id = ps.item_id AND l.visibility <> 'public')))::bool AS shared
+FROM items i WHERE i.id = @id;
