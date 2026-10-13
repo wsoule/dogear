@@ -31,9 +31,10 @@ SELECT
 -- One page of saves by the people a user follows, newest first,
 -- keyset-paginated on (saved_at, user_id, item_id). It applies the public
 -- archive rule: the saver is not banned or shadow-banned, the item is live
--- with a working link, and none of the saver's tags on it is non-public.
--- Blocks in either direction hide the saver. The caller still checks the
--- item's poster with visibleTo, as Archive does.
+-- or personal (an import, shown on archives too) with a working link, and
+-- none of the saver's tags on it is non-public. Blocks in either direction
+-- hide the saver. The caller still checks the item's poster with
+-- visibleTo, as Archive does.
 SELECT s.user_id, u.username, s.note, s.saved_at, sqlc.embed(i)
 FROM follows f
 JOIN saves s ON s.user_id = f.followee_id
@@ -41,7 +42,7 @@ JOIN users u ON u.id = s.user_id
 JOIN items i ON i.id = s.item_id
 WHERE f.follower_id = @viewer_id
   AND u.banned_at IS NULL AND u.shadow_banned_at IS NULL
-  AND i.status = 'live' AND i.link_status <> 'dead'
+  AND i.status IN ('live','personal') AND i.link_status <> 'dead'
   AND NOT EXISTS (SELECT 1 FROM user_blocks b
        WHERE (b.blocker_id = @viewer_id AND b.blocked_id = s.user_id)
           OR (b.blocker_id = s.user_id AND b.blocked_id = @viewer_id))
@@ -58,6 +59,7 @@ LIMIT @lim;
 -- public archive rule as FollowingSavesPage, plus: only trusted savers
 -- (trust level 1+) to keep new-account spam off the home page, and the
 -- item's poster must not be banned or shadow-banned (what visibleTo checks).
+-- Personal items (unreviewed imports) stay off this discovery surface.
 -- A signed-in viewer (viewer_id > 0) does not see their own saves or anyone
 -- they have blocked, as saver or poster. The caller keeps one save per user
 -- and per item.

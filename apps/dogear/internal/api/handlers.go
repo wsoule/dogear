@@ -1,10 +1,12 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"dogear/internal/importfile"
 	"dogear/internal/service"
 )
 
@@ -455,4 +457,32 @@ func (a *API) gptSpec(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
 	w.Header().Set("Cache-Control", "public, max-age=300")
 	_, _ = w.Write([]byte(strings.ReplaceAll(gptYAML, "https://dogear.fyi", a.baseURL)))
+}
+
+// importSaves runs a multipart-uploaded export (field "file") through the
+// same import as Settings → import; public_tags=1 makes new tags public.
+func (a *API) importSaves(w http.ResponseWriter, r *http.Request, act *service.Actor) {
+	r.Body = http.MaxBytesReader(w, r.Body, importfile.MaxBytes+1<<20)
+	f, hdr, err := r.FormFile("file")
+	if err != nil {
+		var tooBig *http.MaxBytesError
+		if errors.As(err, &tooBig) {
+			writeErr(w, service.ErrImportTooLarge)
+			return
+		}
+		writeErr(w, &service.Error{Code: "invalid", Message: "send the export as multipart form field \"file\""})
+		return
+	}
+	defer f.Close()
+	parsed, err := service.ParseImportFile(hdr.Filename, f)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	res, err := a.svc.ImportSaves(r.Context(), act, parsed, service.ImportOptions{PublicTags: r.FormValue("public_tags") == "1"})
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
 }

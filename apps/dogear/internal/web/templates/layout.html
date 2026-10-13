@@ -102,7 +102,7 @@ the archive owner's note and tags, then one meta line. In the rows layout
 every row has the same image column: the thumbnail, or a tile naming the
 kind, so the text column never changes width. */}}
 {{define "row"}}<li class="row">
-{{template "like" (voteState .Item $.CSRF)}}
+{{if .Item.Personal}}<div class="vote like" aria-hidden="true"></div>{{else}}{{template "like" (voteState .Item $.CSRF)}}{{end}}
 <div class="body">
   <p class="head"><a class="title" href="/i/{{.Item.ID}}">{{.Item.Title}}</a> <span class="domain">{{.Item.Domain}}</span></p>
   {{if .Item.Blurb}}<p class="blurb">{{.Item.Blurb}}</p>{{end}}
@@ -114,7 +114,7 @@ kind, so the text column never changes width. */}}
     <a class="out" href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank">link ↗</a>
     {{if $.Viewer}}{{template "dogearinline" (dogearData .Item $.CSRF)}}{{end}}
     {{if .Item.Agent}}<span class="label" title="posted by an agent">agent</span>{{end}}
-    {{if ne .Item.Status "live"}}<span class="label warn">{{.Item.Status}}</span>{{end}}
+    {{if and (ne .Item.Status "live") (not .Item.Personal)}}<span class="label warn">{{.Item.Status}}</span>{{end}}
     {{if eq .Item.LinkStatus "dead"}}<span class="label warn">dead link</span>{{end}}
     {{if .Badge}}<span class="label">{{.Badge}}</span>{{end}}
   </div>

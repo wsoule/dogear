@@ -57,8 +57,9 @@ SELECT EXISTS (SELECT 1 FROM blocked_domains WHERE domain = $1 OR $1 LIKE '%.' |
 INSERT INTO blocked_domains (domain, reason) VALUES ($1, $2) ON CONFLICT (domain) DO UPDATE SET reason = EXCLUDED.reason;
 
 -- name: UserDomainPosts :one
+-- Posts only: links the user imported (personal items) do not count.
 SELECT count(*) FROM items
-WHERE created_by = $1 AND domain = $2 AND created_at > now() - interval '7 days';
+WHERE created_by = $1 AND domain = $2 AND created_at > now() - interval '7 days' AND status <> 'personal';
 
 -- name: GetVote :one
 SELECT * FROM votes WHERE user_id = $1 AND item_id = $2;
@@ -98,14 +99,18 @@ UPDATE votes SET counted = $2 WHERE user_id = $1;
 DELETE FROM votes WHERE user_id = $1;
 
 -- name: ItemsByUser :many
-SELECT * FROM items WHERE created_by = $1 AND status <> 'removed'
+-- What the user posted; their imports (personal items) are in their
+-- archive, not here.
+SELECT * FROM items WHERE created_by = $1 AND status NOT IN ('removed','personal')
 ORDER BY created_at DESC, id DESC LIMIT $2;
 
 -- name: AllItemsByUser :many
 SELECT * FROM items WHERE created_by = $1 ORDER BY created_at DESC;
 
 -- name: RemoveUserItems :exec
-UPDATE items SET status = 'removed', removed_at = now(), updated_at = now() WHERE created_by = $1;
+-- Removes what a user posted. Their imports that other people saved are
+-- not posts and stay in those archives.
+UPDATE items SET status = 'removed', removed_at = now(), updated_at = now() WHERE created_by = $1 AND status <> 'personal';
 
 -- name: UserVotesExport :many
 SELECT v.item_id, v.value, v.counted, v.via, v.created_at, i.url, i.title
@@ -237,8 +242,11 @@ SELECT * FROM items WHERE id = ANY(@ids::bigint[]);
 -- name: SetItemDetails :exec
 -- Records what the media lookup found. The creator name fills in only when
 -- the poster left it blank; media_checked_at is set even when nothing was
--- found so the backfill moves on.
+-- found so the backfill moves on. A title made up from the address
+-- (flag 'untitled', from an import) is replaced by the one found.
 UPDATE items SET
+  title = CASE WHEN 'untitled' = ANY(flags) AND @title::text <> '' THEN @title::text ELSE title END,
+  flags = CASE WHEN 'untitled' = ANY(flags) AND @title::text <> '' THEN array_remove(flags, 'untitled') ELSE flags END,
   creator_id = COALESCE(sqlc.narg(creator_id)::bigint, creator_id),
   creator = CASE WHEN creator = '' THEN @creator::text ELSE creator END,
   duration_seconds = COALESCE(sqlc.narg(duration_seconds)::int, duration_seconds),
@@ -250,19 +258,21 @@ UPDATE items SET
 WHERE id = @id;
 
 -- name: ItemsNeedingMedia :many
--- Videos, articles, and newsletter posts not yet looked at; people's own
--- posts first, then by rank. trusted is true for imports and for posts by
--- trusted, unflagged users: only their works may add new creator pages. A
--- missing poster alone is not trust: created_by also goes NULL when an
--- account is deleted.
+-- Videos, articles, and newsletter posts not yet looked at, plus imported
+-- links still titled from their address; live items first, then people's
+-- own posts, then by rank. trusted is true for imports and for live posts
+-- by trusted, unflagged users: only their works may add new creator pages.
+-- Personal items (unreviewed imports) are never trusted. A missing poster
+-- alone is not trust: created_by also goes NULL when an account is deleted.
 SELECT i.id, i.url_norm, i.kind,
-  (i.via = 'import' OR EXISTS (SELECT 1 FROM users u WHERE u.id = i.created_by
-     AND u.trust_level >= 1 AND u.shadow_banned_at IS NULL AND u.banned_at IS NULL))::bool AS trusted
+  (i.status = 'live' AND (i.via = 'import' OR EXISTS (SELECT 1 FROM users u WHERE u.id = i.created_by
+     AND u.trust_level >= 1 AND u.shadow_banned_at IS NULL AND u.banned_at IS NULL)))::bool AS trusted
 FROM items i
-WHERE i.status = 'live' AND i.via <> 'auto'
+WHERE i.status IN ('live','personal') AND i.via <> 'auto'
   AND (i.media_checked_at IS NULL OR (NOT i.media_ok AND i.media_checked_at < now() - interval '7 days'))
-  AND (i.kind IN ('video','article') OR i.domain LIKE '%.substack.com' OR i.domain = 'medium.com')
-ORDER BY (i.media_checked_at IS NULL) DESC, (i.via IN ('web','api','mcp')) DESC, i.score DESC
+  AND (i.kind IN ('video','article') OR i.domain LIKE '%.substack.com' OR i.domain = 'medium.com'
+       OR 'untitled' = ANY(i.flags))
+ORDER BY (i.media_checked_at IS NULL) DESC, (i.status = 'live') DESC, (i.via IN ('web','api','mcp')) DESC, i.score DESC
 LIMIT $1;
 
 -- name: CreatorWorks :many

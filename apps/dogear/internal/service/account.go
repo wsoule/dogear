@@ -35,6 +35,10 @@ func (s *Service) DeleteAccount(ctx context.Context, a *Actor, confirm string, d
 		if row, err := q.SyncRow(ctx, a.ID()); err == nil {
 			sync = &row
 		}
+		// Imports nobody else saved would be left unattributed and unused.
+		if err := q.DeleteUnsharedPersonalItems(ctx, ptr(a.ID())); err != nil {
+			return fmt.Errorf("delete imports: %w", err)
+		}
 		if deletePosts {
 			if err := q.RemoveUserItems(ctx, ptr(a.ID())); err != nil {
 				return fmt.Errorf("remove posts: %w", err)

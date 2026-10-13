@@ -128,6 +128,7 @@ func (s *Server) routes(api, mcp http.Handler) {
 	m.HandleFunc("POST /settings/profile", s.csrf(s.saveProfile))
 	m.HandleFunc("POST /settings/tokens", s.csrf(s.createToken))
 	m.HandleFunc("POST /settings/tokens/{id}/revoke", s.csrf(s.revokeToken))
+	m.HandleFunc("POST /settings/import", s.limitImportBody(s.csrf(s.importSaves)))
 	m.HandleFunc("POST /settings/connections/{provider}/unlink", s.csrf(s.unlink))
 	m.HandleFunc("POST /settings/connections/repo", s.csrf(s.repoSettings))
 	m.HandleFunc("POST /settings/invites", s.csrf(s.createInvite))

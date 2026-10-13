@@ -28,6 +28,7 @@ type creatorRef struct {
 
 // mediaDetails is what a lookup learns about a link beyond its title.
 type mediaDetails struct {
+	Title          string // the video's or page's own title, for imports still titled by address
 	Creator        *creatorRef
 	CreatorName    string // display name even when no creator page is known
 	Duration       int    // seconds, videos only
@@ -86,10 +87,12 @@ func (s *Service) lookupMedia(ctx context.Context, norm, kind string) (mediaDeta
 	var d mediaDetails
 	if id, ok := safety.YouTubeID(norm); ok {
 		var o struct {
+			Title      string `json:"title"`
 			AuthorName string `json:"author_name"`
 			AuthorURL  string `json:"author_url"`
 		}
 		err := s.getJSON(ctx, "https://www.youtube.com/oembed?format=json&url="+url.QueryEscape(norm), &o)
+		d.Title = o.Title
 		if err == nil && o.AuthorName != "" {
 			d.CreatorName = o.AuthorName
 			if cn, err := safety.NormalizeURL(o.AuthorURL); err == nil && safety.IsYouTubeChannel(cn) {
@@ -105,6 +108,7 @@ func (s *Service) lookupMedia(ctx context.Context, norm, kind string) (mediaDeta
 	if err != nil {
 		return d, err
 	}
+	d.Title = firstNonEmpty(page.OGTitle, page.Title)
 	d.SiteName = truncateRunes(safety.SanitizeText(page.SiteName), 80)
 	d.CreatorName = page.Author
 	d.Published = parsePublished(page.Published)
@@ -184,7 +188,17 @@ func (s *Service) ensureCreator(ctx context.Context, ref creatorRef, create bool
 		return 0, err
 	}
 	if it, err := s.Q.GetItemByNorm(ctx, norm); err == nil {
-		// A pending or removed page is not linked: the link would 404.
+		// Someone imported the creator's page: a trusted work may make it
+		// the creator page, as it could have added a new one.
+		if it.Status == "personal" && create {
+			name := creatorName(ref.Name, norm)
+			if err := s.Q.PromotePersonalCreator(ctx, db.PromotePersonalCreatorParams{ID: it.ID, Kind: ref.Kind, Title: name}); err != nil {
+				return 0, fmt.Errorf("promote creator: %w", err)
+			}
+			return it.ID, nil
+		}
+		// A pending, removed, or personal page is not linked: the link
+		// would 404 or point at an unreviewed page.
 		if it.Status != "live" {
 			return 0, errNoNewCreator
 		}
@@ -198,12 +212,8 @@ func (s *Service) ensureCreator(ctx context.Context, ref creatorRef, create bool
 	if blocked, err := s.Q.DomainBlocked(ctx, safety.Domain(norm)); err != nil || blocked {
 		return 0, errNoNewCreator
 	}
-	name := truncateRunes(safety.SanitizeText(ref.Name), 120)
-	if name == "" || safety.HasMarkupOrURL(name) || safety.LooksLikeInjection(name) {
-		// Fall back to the address, which the work's own review covered.
-		name = strings.TrimPrefix(norm, "https://")
-	}
-	it, err := s.Q.InsertItem(ctx, db.InsertItemParams{Url: norm, UrlNorm: norm, Domain: safety.Domain(norm), Title: truncateRunes(name, 120),
+	name := creatorName(ref.Name, norm)
+	it, err := s.Q.InsertItem(ctx, db.InsertItemParams{Url: norm, UrlNorm: norm, Domain: safety.Domain(norm), Title: name,
 		Via: "auto", Status: "live", Kind: ref.Kind, Flags: []string{}})
 	if isUniqueViolation(err) {
 		existing, err := s.Q.GetItemByNorm(ctx, norm)
@@ -215,6 +225,17 @@ func (s *Service) ensureCreator(ctx context.Context, ref creatorRef, create bool
 		return 0, fmt.Errorf("add creator: %w", err)
 	}
 	return it.ID, nil
+}
+
+// creatorName is a creator page's title: the name the lookup found, checked
+// like a post's title, or else the address, which the work's own review
+// covered.
+func creatorName(raw, norm string) string {
+	name := truncateRunes(safety.SanitizeText(raw), 120)
+	if name == "" || safety.HasMarkupOrURL(name) || safety.LooksLikeInjection(name) {
+		name = strings.TrimPrefix(norm, "https://")
+	}
+	return truncateRunes(name, 120)
 }
 
 // refreshMedia looks up one item's media details and stores them, linking
@@ -230,7 +251,7 @@ func (s *Service) refreshMedia(ctx context.Context, id int64, norm, kind string,
 		d.CreatorName = d.Creator.Name
 	}
 	p := db.SetItemDetailsParams{ID: id, Creator: truncateRunes(safety.SanitizeText(d.CreatorName), 120),
-		SiteName: d.SiteName, PublishedAt: d.Published, Ok: lookupErr == nil}
+		SiteName: d.SiteName, PublishedAt: d.Published, Ok: lookupErr == nil, Title: lookupTitle(d.Title)}
 	if d.Duration > 0 {
 		p.DurationSeconds = ptr(int32(d.Duration))
 	}
@@ -248,6 +269,17 @@ func (s *Service) refreshMedia(ctx context.Context, id int64, norm, kind string,
 		return fmt.Errorf("set details: %w", err)
 	}
 	return lookupErr
+}
+
+// lookupTitle cleans a title found by a media lookup for an imported item
+// whose title was made from its address. Anything that would not pass as a
+// posted title gives "", which keeps the address title.
+func lookupTitle(raw string) string {
+	t := truncateRunes(safety.SanitizeText(raw), 120)
+	if t == "" || safety.HasMarkupOrURL(t) || safety.LooksLikeInjection(t) {
+		return ""
+	}
+	return t
 }
 
 // BackfillMedia fills media details for up to n items that have never been

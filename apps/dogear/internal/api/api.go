@@ -66,6 +66,7 @@ func New(svc *service.Service, session SessionFunc, signer auth.Signer, baseURL 
 	a.handle("GET /me/export", a.auth("read", a.export))
 	a.handle("GET /me/following/saves", a.auth("read", a.followingSaves))
 	a.handle("GET /me/lists", a.auth("read", a.myLists))
+	a.handle("POST /me/import", a.auth("post", a.importSaves))
 	a.handle("POST /me/lists", a.auth("post", a.createList))
 	a.handle("PATCH /me/lists/{slug}", a.auth("post", a.patchList))
 	a.handle("DELETE /me/lists/{slug}", a.auth("post", a.deleteList))

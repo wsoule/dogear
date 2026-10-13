@@ -30,6 +30,7 @@
 <h2>archive</h2>
 {{if .P.Archive.Entries}}<ol class="feed" id="archive">{{template "archiverows" (archivePage .P.User.Username .P.Archive .NextArchive $.CSRF $.Viewer)}}</ol>
 {{else if .P.IsOwner}}<p class="muted">Nothing saved yet. Tap <strong>dogear</strong> on anything worth keeping — videos, articles, tools, books — and tag it so you can share a topic.</p>
+<p class="muted">Coming from Pocket, Raindrop, or your browser's bookmarks? <a href="/settings/import">Import your saves</a>.</p>
 {{else}}<p class="muted">Nothing here yet.</p>{{end}}
 
 {{if .Feed.Items}}<h2>posted</h2>{{template "feed" .Feed}}{{else if .P.IsOwner}}<p class="small muted">Found something that isn't on Dogear yet? <a href="/submit">Post it</a>.</p>{{end}}

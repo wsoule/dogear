@@ -359,7 +359,8 @@ func (s *Service) SavedIn(ctx context.Context, a *Actor, itemID int64) ([]string
 
 // GetList returns one list as seen by viewer. Private lists are not found for
 // everyone but the owner; pending, removed, and dead items stay in the owner's
-// view with a status label and are hidden from everyone else.
+// view with a status label and are hidden from everyone else. Personal
+// (imported) items show to everyone, like live ones.
 func (s *Service) GetList(ctx context.Context, viewer *Actor, username, slug string) (ListView, error) {
 	u, err := s.Q.GetUserByUsername(ctx, username)
 	if notFound(err) || (err == nil && u.BannedAt != nil) {
@@ -389,7 +390,7 @@ func (s *Service) GetList(ctx context.Context, viewer *Actor, username, slug str
 	for _, r := range rows {
 		it := r.Item
 		if !owner {
-			if it.Status != "live" || it.LinkStatus == "dead" {
+			if !shareable(it.Status) || it.LinkStatus == "dead" {
 				continue
 			}
 			if ok, err := s.visibleTo(ctx, viewer, it); err != nil || !ok {

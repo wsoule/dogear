@@ -939,7 +939,7 @@ func (q *Queries) ItemsByIDs(ctx context.Context, ids []int64) ([]Item, error) {
 }
 
 const itemsByUser = `-- name: ItemsByUser :many
-SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at, media_ok, topics_filed_at FROM items WHERE created_by = $1 AND status <> 'removed'
+SELECT id, url, url_norm, domain, title, blurb, created_by, created_via_token, via, status, link_status, link_fail_count, link_checked_at, github_stars, list_count, prior_score, like_count, dislike_count, score, created_at, updated_at, kind, creator, flags, removed_at, image_url, image_state, image_checked_at, embedding, embedded_hash, creator_id, duration_seconds, published_at, reading_minutes, site_name, media_checked_at, media_ok, topics_filed_at FROM items WHERE created_by = $1 AND status NOT IN ('removed','personal')
 ORDER BY created_at DESC, id DESC LIMIT $2
 `
 
@@ -948,6 +948,8 @@ type ItemsByUserParams struct {
 	Limit     int32
 }
 
+// What the user posted; their imports (personal items) are in their
+// archive, not here.
 func (q *Queries) ItemsByUser(ctx context.Context, arg ItemsByUserParams) ([]Item, error) {
 	rows, err := q.db.Query(ctx, itemsByUser, arg.CreatedBy, arg.Limit)
 	if err != nil {
@@ -1157,13 +1159,14 @@ func (q *Queries) ItemsNeedingImage(ctx context.Context, limit int32) ([]ItemsNe
 
 const itemsNeedingMedia = `-- name: ItemsNeedingMedia :many
 SELECT i.id, i.url_norm, i.kind,
-  (i.via = 'import' OR EXISTS (SELECT 1 FROM users u WHERE u.id = i.created_by
-     AND u.trust_level >= 1 AND u.shadow_banned_at IS NULL AND u.banned_at IS NULL))::bool AS trusted
+  (i.status = 'live' AND (i.via = 'import' OR EXISTS (SELECT 1 FROM users u WHERE u.id = i.created_by
+     AND u.trust_level >= 1 AND u.shadow_banned_at IS NULL AND u.banned_at IS NULL)))::bool AS trusted
 FROM items i
-WHERE i.status = 'live' AND i.via <> 'auto'
+WHERE i.status IN ('live','personal') AND i.via <> 'auto'
   AND (i.media_checked_at IS NULL OR (NOT i.media_ok AND i.media_checked_at < now() - interval '7 days'))
-  AND (i.kind IN ('video','article') OR i.domain LIKE '%.substack.com' OR i.domain = 'medium.com')
-ORDER BY (i.media_checked_at IS NULL) DESC, (i.via IN ('web','api','mcp')) DESC, i.score DESC
+  AND (i.kind IN ('video','article') OR i.domain LIKE '%.substack.com' OR i.domain = 'medium.com'
+       OR 'untitled' = ANY(i.flags))
+ORDER BY (i.media_checked_at IS NULL) DESC, (i.status = 'live') DESC, (i.via IN ('web','api','mcp')) DESC, i.score DESC
 LIMIT $1
 `
 
@@ -1174,11 +1177,12 @@ type ItemsNeedingMediaRow struct {
 	Trusted bool
 }
 
-// Videos, articles, and newsletter posts not yet looked at; people's own
-// posts first, then by rank. trusted is true for imports and for posts by
-// trusted, unflagged users: only their works may add new creator pages. A
-// missing poster alone is not trust: created_by also goes NULL when an
-// account is deleted.
+// Videos, articles, and newsletter posts not yet looked at, plus imported
+// links still titled from their address; live items first, then people's
+// own posts, then by rank. trusted is true for imports and for live posts
+// by trusted, unflagged users: only their works may add new creator pages.
+// Personal items (unreviewed imports) are never trusted. A missing poster
+// alone is not trust: created_by also goes NULL when an account is deleted.
 func (q *Queries) ItemsNeedingMedia(ctx context.Context, limit int32) ([]ItemsNeedingMediaRow, error) {
 	rows, err := q.db.Query(ctx, itemsNeedingMedia, limit)
 	if err != nil {
@@ -1481,9 +1485,11 @@ func (q *Queries) RecountItem(ctx context.Context, itemID int64) (RecountItemRow
 }
 
 const removeUserItems = `-- name: RemoveUserItems :exec
-UPDATE items SET status = 'removed', removed_at = now(), updated_at = now() WHERE created_by = $1
+UPDATE items SET status = 'removed', removed_at = now(), updated_at = now() WHERE created_by = $1 AND status <> 'personal'
 `
 
+// Removes what a user posted. Their imports that other people saved are
+// not posts and stay in those archives.
 func (q *Queries) RemoveUserItems(ctx context.Context, createdBy *int64) error {
 	_, err := q.db.Exec(ctx, removeUserItems, createdBy)
 	return err
@@ -1598,18 +1604,21 @@ func (q *Queries) SetItemCounts(ctx context.Context, arg SetItemCountsParams) er
 
 const setItemDetails = `-- name: SetItemDetails :exec
 UPDATE items SET
-  creator_id = COALESCE($1::bigint, creator_id),
-  creator = CASE WHEN creator = '' THEN $2::text ELSE creator END,
-  duration_seconds = COALESCE($3::int, duration_seconds),
-  published_at = COALESCE($4::timestamptz, published_at),
-  reading_minutes = COALESCE($5::smallint, reading_minutes),
-  site_name = CASE WHEN $6::text <> '' THEN $6::text ELSE site_name END,
+  title = CASE WHEN 'untitled' = ANY(flags) AND $1::text <> '' THEN $1::text ELSE title END,
+  flags = CASE WHEN 'untitled' = ANY(flags) AND $1::text <> '' THEN array_remove(flags, 'untitled') ELSE flags END,
+  creator_id = COALESCE($2::bigint, creator_id),
+  creator = CASE WHEN creator = '' THEN $3::text ELSE creator END,
+  duration_seconds = COALESCE($4::int, duration_seconds),
+  published_at = COALESCE($5::timestamptz, published_at),
+  reading_minutes = COALESCE($6::smallint, reading_minutes),
+  site_name = CASE WHEN $7::text <> '' THEN $7::text ELSE site_name END,
   media_checked_at = now(),
-  media_ok = $7::bool
-WHERE id = $8
+  media_ok = $8::bool
+WHERE id = $9
 `
 
 type SetItemDetailsParams struct {
+	Title           string
 	CreatorID       *int64
 	Creator         string
 	DurationSeconds *int32
@@ -1622,9 +1631,11 @@ type SetItemDetailsParams struct {
 
 // Records what the media lookup found. The creator name fills in only when
 // the poster left it blank; media_checked_at is set even when nothing was
-// found so the backfill moves on.
+// found so the backfill moves on. A title made up from the address
+// (flag 'untitled', from an import) is replaced by the one found.
 func (q *Queries) SetItemDetails(ctx context.Context, arg SetItemDetailsParams) error {
 	_, err := q.db.Exec(ctx, setItemDetails,
+		arg.Title,
 		arg.CreatorID,
 		arg.Creator,
 		arg.DurationSeconds,
@@ -1837,7 +1848,7 @@ func (q *Queries) UpsertVote(ctx context.Context, arg UpsertVoteParams) error {
 
 const userDomainPosts = `-- name: UserDomainPosts :one
 SELECT count(*) FROM items
-WHERE created_by = $1 AND domain = $2 AND created_at > now() - interval '7 days'
+WHERE created_by = $1 AND domain = $2 AND created_at > now() - interval '7 days' AND status <> 'personal'
 `
 
 type UserDomainPostsParams struct {
@@ -1845,6 +1856,7 @@ type UserDomainPostsParams struct {
 	Domain    string
 }
 
+// Posts only: links the user imported (personal items) do not count.
 func (q *Queries) UserDomainPosts(ctx context.Context, arg UserDomainPostsParams) (int64, error) {
 	row := q.db.QueryRow(ctx, userDomainPosts, arg.CreatedBy, arg.Domain)
 	var count int64

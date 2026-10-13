@@ -66,7 +66,7 @@ JOIN users u ON u.id = s.user_id
 JOIN items i ON i.id = s.item_id
 WHERE f.follower_id = $1
   AND u.banned_at IS NULL AND u.shadow_banned_at IS NULL
-  AND i.status = 'live' AND i.link_status <> 'dead'
+  AND i.status IN ('live','personal') AND i.link_status <> 'dead'
   AND NOT EXISTS (SELECT 1 FROM user_blocks b
        WHERE (b.blocker_id = $1 AND b.blocked_id = s.user_id)
           OR (b.blocker_id = s.user_id AND b.blocked_id = $1))
@@ -98,9 +98,10 @@ type FollowingSavesPageRow struct {
 // One page of saves by the people a user follows, newest first,
 // keyset-paginated on (saved_at, user_id, item_id). It applies the public
 // archive rule: the saver is not banned or shadow-banned, the item is live
-// with a working link, and none of the saver's tags on it is non-public.
-// Blocks in either direction hide the saver. The caller still checks the
-// item's poster with visibleTo, as Archive does.
+// or personal (an import, shown on archives too) with a working link, and
+// none of the saver's tags on it is non-public. Blocks in either direction
+// hide the saver. The caller still checks the item's poster with
+// visibleTo, as Archive does.
 func (q *Queries) FollowingSavesPage(ctx context.Context, arg FollowingSavesPageParams) ([]FollowingSavesPageRow, error) {
 	rows, err := q.db.Query(ctx, followingSavesPage,
 		arg.ViewerID,
@@ -222,6 +223,7 @@ type RecentPublicSavesRow struct {
 // public archive rule as FollowingSavesPage, plus: only trusted savers
 // (trust level 1+) to keep new-account spam off the home page, and the
 // item's poster must not be banned or shadow-banned (what visibleTo checks).
+// Personal items (unreviewed imports) stay off this discovery surface.
 // A signed-in viewer (viewer_id > 0) does not see their own saves or anyone
 // they have blocked, as saver or poster. The caller keeps one save per user
 // and per item.

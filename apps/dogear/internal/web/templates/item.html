@@ -5,15 +5,16 @@
 <p class="item-meta">
   <span>{{.Item.Domain}}</span><span>{{.Item.Kind}}</span>{{with .Item.Length}}<span>{{.}}</span>{{end}}{{if .Item.Creator}}<span>{{if .Item.CreatorID}}by <a href="/i/{{.Item.CreatorID}}">{{.Item.Creator}}</a>{{else}}{{.Item.Creator}}{{end}}</span>{{end}}
   {{if .Item.Agent}}<span class="label" title="posted by an agent">agent</span>{{end}}
-  {{if ne .Item.Status "live"}}<span class="label warn">{{.Item.Status}}</span>{{end}}
+  {{if and (ne .Item.Status "live") (not .Item.Personal)}}<span class="label warn">{{.Item.Status}}</span>{{end}}
   {{if eq .Item.LinkStatus "dead"}}<span class="label warn">dead link</span>{{end}}
 </p>
 {{if .Item.Blurb}}<p class="item-blurb">{{.Item.Blurb}}</p>{{end}}
+{{if .Item.Personal}}<p class="small muted personal-note">From someone's imported saves; not on the public feed.{{if $.Viewer}} Think it's worth it? <a href="/submit?url={{.Item.URL}}">Post it</a> with a reason so everyone can find it.{{end}}</p>{{end}}
 
 <div class="item-actions">
   <a class="btn" href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank">visit {{.Item.Domain}} ↗</a>
   {{if $.Viewer}}{{template "dogearinline" (dogearData .Item $.CSRF)}}{{end}}
-  {{template "vote" (voteState .Item $.CSRF)}}
+  {{if not .Item.Personal}}{{template "vote" (voteState .Item $.CSRF)}}{{end}}
   {{if $.Viewer}}
   <details class="menu save" id="save">
     {{template "savesummary" .Save}}
@@ -30,7 +31,7 @@
   {{if .Item.Poster}}<dt>posted by</dt><dd><a href="/u/{{.Item.Poster}}">@{{.Item.Poster}}</a></dd>{{else if eq .Item.Via "import"}}<dt>from</dt><dd>{{range $i, $s := .Item.Sources}}{{if $i}}, {{end}}<a href="https://github.com/{{$s.Repo}}" rel="nofollow noopener">{{$s.Title}}</a>{{end}}</dd>{{end}}
   {{with .Item.PublishedAt}}<dt>published</dt><dd>{{date (derefTime .)}}</dd>{{end}}
   <dt>added</dt><dd>{{date .Item.CreatedAt}}</dd>
-  <dt>likes</dt><dd>{{.Item.Likes}}</dd>
+  {{if not .Item.Personal}}<dt>likes</dt><dd>{{.Item.Likes}}</dd>{{end}}
 </dl>
 {{if .Works.Items}}<h2>{{if eq .Item.Kind "channel"}}from this channel{{else}}their work{{end}} on dogear</h2>{{template "feed" .Works}}{{end}}
 {{if .Similar.Items}}<h2>similar</h2>{{template "feed" .Similar}}{{end}}

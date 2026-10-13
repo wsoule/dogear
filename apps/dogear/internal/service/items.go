@@ -103,6 +103,14 @@ func (it Item) Length() string {
 	return ""
 }
 
+// Personal reports whether the item is an unreviewed import: shown in
+// archives and on its own page, but never in feeds, and not votable.
+func (it Item) Personal() bool { return it.Status == "personal" }
+
+// shareable reports whether items with this status may appear on other
+// people's archives and tags: live posts and personal (imported) items.
+func shareable(status string) bool { return status == "live" || status == "personal" }
+
 // IsCreator reports whether the item is a channel or person page.
 func (it Item) IsCreator() bool { return it.Kind == "channel" || it.Kind == "person" }
 
@@ -536,15 +544,15 @@ func decodeCursor(c string, p *db.FeedParams) error {
 	return nil
 }
 
-// visibleTo reports whether a viewer may see an item: live items are public
-// unless the poster is shadow-banned or blocked; pending and removed items are
-// visible only to their poster and mods.
+// visibleTo reports whether a viewer may see an item: live and personal
+// (imported) items are public unless the poster is shadow-banned or blocked;
+// pending and removed items are visible only to their poster and mods.
 func (s *Service) visibleTo(ctx context.Context, viewer *Actor, r db.Item) (bool, error) {
 	own := viewer != nil && r.CreatedBy != nil && *r.CreatedBy == viewer.ID()
 	if own || viewer.IsMod() {
 		return true, nil
 	}
-	if r.Status != "live" {
+	if !shareable(r.Status) {
 		return false, nil
 	}
 	if r.CreatedBy == nil {
@@ -596,7 +604,8 @@ func (s *Service) GetItem(ctx context.Context, viewer *Actor, id int64) (Item, e
 	for _, src := range srcs {
 		it.Sources = append(it.Sources, Source{Repo: src.Repo, Title: src.Title, HeadingPath: src.HeadingPath, Description: src.OriginalDescription})
 	}
-	if r.CreatedBy != nil {
+	// Whoever first imported a personal item did not post it.
+	if r.CreatedBy != nil && r.Status != "personal" {
 		if u, err := s.Q.GetUser(ctx, *r.CreatedBy); err == nil {
 			it.Poster = u.Username
 		}

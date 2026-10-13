@@ -97,7 +97,7 @@ func (s *Service) Thumb(ctx context.Context, itemID int64, clientKey string) (st
 	if err != nil {
 		return "", nil, ErrNoImage
 	}
-	if ok, err := s.visibleTo(ctx, nil, it); err != nil || !ok || it.Status != "live" {
+	if ok, err := s.visibleTo(ctx, nil, it); err != nil || !ok || !shareable(it.Status) {
 		return "", nil, ErrNoImage
 	}
 	if t, err := s.Q.GetThumb(ctx, itemID); err == nil {
