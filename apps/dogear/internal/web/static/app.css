@@ -1164,3 +1164,20 @@ ul.tree a {
 .cta a {
   color: var(--accent);
 }
+
+/* imports: the settings import tab and personal (imported) item pages */
+.import-result p,
+.import-result details {
+  margin: 0 0 var(--s2);
+}
+dl.import-help {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+dl.import-help dt {
+  margin-top: var(--s2);
+  color: var(--ink);
+}
+.personal-note {
+  margin: var(--s2) 0;
+}

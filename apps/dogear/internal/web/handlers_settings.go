@@ -2,12 +2,14 @@ package web
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
 
 	"dogear/internal/db"
 	"dogear/internal/ghsync"
+	"dogear/internal/importfile"
 	"dogear/internal/service"
 )
 
@@ -32,12 +34,16 @@ type settingsPage struct {
 	InviteLimit   int
 	LoggitEnabled bool
 	Loggit        *db.LoggitAccount
+	// Import is the summary shown after an import runs.
+	Import *service.ImportResult
+	// ImportMB is the upload size limit in megabytes.
+	ImportMB int
 }
 
 func (s *Server) settingsData(r *http.Request, tab string) (settingsPage, error) {
 	v := viewer(r)
 	ctx := r.Context()
-	sp := settingsPage{Tab: tab, AppConfigured: s.app != nil, InviteLimit: 3}
+	sp := settingsPage{Tab: tab, AppConfigured: s.app != nil, InviteLimit: 3, ImportMB: importfile.MaxBytes >> 20}
 	var err error
 	switch tab {
 	case "tokens":
@@ -77,7 +83,7 @@ func (s *Server) settings(w http.ResponseWriter, r *http.Request) {
 	}
 	tab := r.PathValue("tab")
 	switch tab {
-	case "profile", "tokens", "connections", "invites", "account":
+	case "profile", "tokens", "import", "connections", "invites", "account":
 	default:
 		s.notFound(w, r)
 		return
@@ -131,6 +137,57 @@ func (s *Server) createToken(w http.ResponseWriter, r *http.Request) {
 	}
 	sp.NewToken = raw
 	w.Header().Set("Cache-Control", "no-store")
+	s.render(w, r, http.StatusOK, "settings", &Page{Title: "settings", Nav: "me", NoIndex: true, Data: sp})
+}
+
+// maxImportBody is the largest import upload accepted: the file limit plus
+// room for the multipart framing and the other form fields.
+const maxImportBody = importfile.MaxBytes + 1<<20
+
+// limitImportBody caps the upload before anything reads it (the CSRF check
+// parses the form), and answers a declared oversize upload with a clear
+// message instead of an expired-form error.
+func (s *Server) limitImportBody(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if viewer(r) != nil && r.ContentLength > maxImportBody {
+			s.settingsError(w, r, "import", service.ErrImportTooLarge)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, maxImportBody)
+		h(w, r)
+	}
+}
+
+// importSaves runs an uploaded export through the import and shows what it
+// did on the import tab.
+func (s *Server) importSaves(w http.ResponseWriter, r *http.Request) {
+	f, hdr, err := r.FormFile("file")
+	if err != nil {
+		var tooBig *http.MaxBytesError
+		if errors.As(err, &tooBig) {
+			s.settingsError(w, r, "import", service.ErrImportTooLarge)
+			return
+		}
+		s.settingsError(w, r, "import", &service.Error{Code: "invalid", Message: "Choose an export file to upload."})
+		return
+	}
+	defer f.Close()
+	parsed, err := service.ParseImportFile(hdr.Filename, f)
+	if err != nil {
+		s.settingsError(w, r, "import", err)
+		return
+	}
+	res, err := s.svc.ImportSaves(r.Context(), viewer(r), parsed, service.ImportOptions{PublicTags: r.FormValue("public_tags") == "1"})
+	if err != nil {
+		s.settingsError(w, r, "import", err)
+		return
+	}
+	sp, err := s.settingsData(r, "import")
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	sp.Import = &res
 	s.render(w, r, http.StatusOK, "settings", &Page{Title: "settings", Nav: "me", NoIndex: true, Data: sp})
 }
 

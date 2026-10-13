@@ -13,7 +13,8 @@ import (
 )
 
 // TestMigrationsRoundTrip applies every migration to an empty database,
-// rolls back to version 12 (before saves, creators, and topics), and
+// rolls back to version 12 (before saves, creators, topics, and personal
+// items), and
 // applies them again, so each down migration really undoes its up.
 func TestMigrationsRoundTrip(t *testing.T) {
 	ctx := context.Background()

@@ -52,43 +52,50 @@ func CleanText(field, s string, minLen, maxLen int) (string, error) {
 }
 
 // checkURL normalizes a submitted URL and applies the URL rules: scheme,
-// length, credentials, shorteners, blocked domains, and duplicates.
-func (s *Service) checkURL(ctx context.Context, raw string) (norm, domain string, err error) {
+// length, credentials, shorteners, blocked domains, and duplicates. A link
+// that is on Dogear only as someone's import (a personal item) is not a
+// duplicate: personalID is that item's id, for CreateItem to promote.
+func (s *Service) checkURL(ctx context.Context, raw string) (norm, domain string, personalID int64, err error) {
 	raw = strings.TrimSpace(raw)
 	if len(raw) > 2048 {
-		return "", "", errf("invalid", "url must be at most 2048 characters")
+		return "", "", 0, errf("invalid", "url must be at most 2048 characters")
 	}
 	norm, err = safety.NormalizeURL(raw)
 	if err != nil {
-		return "", "", errf("invalid", "url must be a public http or https link")
+		return "", "", 0, errf("invalid", "url must be a public http or https link")
 	}
 	domain = safety.Domain(norm)
 	if safety.IsShortener(domain) {
-		return "", "", errf("invalid", "link shorteners are not accepted; use the full URL")
+		return "", "", 0, errf("invalid", "link shorteners are not accepted; use the full URL")
 	}
 	blocked, err := s.Q.DomainBlocked(ctx, domain)
 	if err != nil {
-		return "", "", fmt.Errorf("domain blocked: %w", err)
+		return "", "", 0, fmt.Errorf("domain blocked: %w", err)
 	}
 	if blocked {
-		return "", "", errf("invalid", "links to %s are not accepted", domain)
+		return "", "", 0, errf("invalid", "links to %s are not accepted", domain)
 	}
 	existing, err := s.Q.GetItemByNorm(ctx, norm)
 	if err == nil {
-		return "", "", &Error{Code: "duplicate", Message: "this link is already on Dogear", ItemID: existing.ID}
+		if existing.Status == "personal" {
+			return norm, domain, existing.ID, nil
+		}
+		return "", "", 0, &Error{Code: "duplicate", Message: "this link is already on Dogear", ItemID: existing.ID}
 	} else if !notFound(err) {
-		return "", "", fmt.Errorf("dup check: %w", err)
+		return "", "", 0, fmt.Errorf("dup check: %w", err)
 	}
-	return norm, domain, nil
+	return norm, domain, 0, nil
 }
 
 // CreateItem posts a new item. It returns the created item; Status tells the
-// caller whether it is live or pending review.
+// caller whether it is live or pending review. Posting a link that exists
+// only as someone's import runs every check as usual and then turns that
+// personal item into the post in place, so saves of it keep working.
 func (s *Service) CreateItem(ctx context.Context, a *Actor, in NewItem) (Item, error) {
 	if err := require(a, "post"); err != nil {
 		return Item{}, err
 	}
-	norm, domain, err := s.checkURL(ctx, in.URL)
+	norm, domain, personalID, err := s.checkURL(ctx, in.URL)
 	if err != nil {
 		return Item{}, err
 	}
@@ -208,11 +215,28 @@ func (s *Service) CreateItem(ctx context.Context, a *Actor, in NewItem) (Item, e
 	}
 	var created db.Item
 	err = s.inTx(ctx, func(q *db.Queries, _ pgx.Tx) error {
-		created, err = q.InsertItem(ctx, db.InsertItemParams{
-			Url: norm, UrlNorm: norm, Domain: domain, Title: title, Blurb: blurb,
-			CreatedBy: ptr(a.ID()), CreatedViaToken: a.TokenID, Via: via, Status: status,
-			Kind: kind, Creator: truncateRunes(creator, 120), Flags: nonNil(flags),
-		})
+		if personalID != 0 {
+			created, err = q.PromotePersonalItem(ctx, db.PromotePersonalItemParams{
+				ID: personalID, Url: norm, Title: title, Blurb: blurb,
+				CreatedBy: ptr(a.ID()), CreatedViaToken: a.TokenID, Via: via, Status: status,
+				Kind: kind, Creator: truncateRunes(creator, 120), Flags: nonNil(flags),
+			})
+			if notFound(err) {
+				// Someone else posted it first.
+				return &Error{Code: "duplicate", Message: "this link is already on Dogear", ItemID: personalID}
+			} else if err != nil {
+				return fmt.Errorf("promote item: %w", err)
+			}
+			if err := q.ClearItemCategories(ctx, created.ID); err != nil {
+				return fmt.Errorf("item category: %w", err)
+			}
+		} else {
+			created, err = q.InsertItem(ctx, db.InsertItemParams{
+				Url: norm, UrlNorm: norm, Domain: domain, Title: title, Blurb: blurb,
+				CreatedBy: ptr(a.ID()), CreatedViaToken: a.TokenID, Via: via, Status: status,
+				Kind: kind, Creator: truncateRunes(creator, 120), Flags: nonNil(flags),
+			})
+		}
 		if err != nil {
 			if isUniqueViolation(err) {
 				return &Error{Code: "duplicate", Message: "this link is already on Dogear"}
@@ -420,7 +444,7 @@ func (s *Service) Preview(ctx context.Context, a *Actor, raw string) (Enrichment
 	if err := s.limit(fmt.Sprintf("preview:%d", a.ID()), previewRules...); err != nil {
 		return Enrichment{}, err
 	}
-	norm, _, err := s.checkURL(ctx, raw)
+	norm, _, _, err := s.checkURL(ctx, raw)
 	if err != nil {
 		return Enrichment{}, err
 	}

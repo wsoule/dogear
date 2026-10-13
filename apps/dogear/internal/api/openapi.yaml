@@ -47,7 +47,7 @@ components:
         likes: { type: integer }
         score: { type: number }
         via: { type: string, enum: [import, web, api, mcp] }
-        status: { type: string, enum: [live, pending, removed] }
+        status: { type: string, enum: [live, pending, removed, personal], description: "personal: imported by someone, not reviewed; shown in archives, never in feeds or search." }
         created_at: { type: string, format: date-time }
         my_vote: { type: integer, enum: [-1, 0, 1] }
         sources:
@@ -273,6 +273,45 @@ paths:
       security: [{ bearer: [] }]
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Ok" } } } }
+  /me/import:
+    post:
+      operationId: importSaves
+      summary: Import saves from a Pocket or Raindrop CSV, a bookmarks HTML file, a YouTube Takeout playlist CSV, or a zip of them.
+      description: >-
+        Links already on Dogear are saved to your archive; new ones become personal items that show in your archive
+        and tags but not in feeds or search. Tags from the file become your tags (private unless public_tags is 1).
+        Re-running the same file adds nothing. Files up to 20 MB and 10,000 links.
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                public_tags: { type: string, enum: ["0", "1"], description: "1 creates the file's new tags as public." }
+      responses:
+        "200":
+          description: What the import did.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  format: { type: string }
+                  links: { type: integer, description: Links in the file. }
+                  saved: { type: integer, description: Links already on Dogear, now in your archive. }
+                  created: { type: integer, description: Links new to Dogear, added as personal items and saved. }
+                  already_saved: { type: integer }
+                  skipped: { type: integer }
+                  skip_samples: { type: array, items: { type: string } }
+                  tags_created: { type: integer }
+                  tagged: { type: integer }
+                  stopped: { type: string, description: Set when a limit cut the import short. }
+                  notes: { type: array, items: { type: string } }
+        default: { $ref: "#/components/responses/Error" }
   /me/lists:
     get:
       operationId: listMyLists

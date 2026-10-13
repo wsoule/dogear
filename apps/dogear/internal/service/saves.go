@@ -185,7 +185,7 @@ func decodeArchiveCursor(c string) (*time.Time, int64, error) {
 
 // Archive returns one page of a user's saves, newest first. Owners see every
 // save; everyone else sees only saves whose tags are all public, and only
-// live items with working links.
+// live or personal (imported) items with working links.
 func (s *Service) Archive(ctx context.Context, viewer *Actor, userID int64, cursor string) (ArchiveView, error) {
 	before, beforeID, err := decodeArchiveCursor(cursor)
 	if err != nil {
@@ -209,7 +209,7 @@ func (s *Service) Archive(ctx context.Context, viewer *Actor, userID int64, curs
 	for _, r := range rows {
 		it := r.Item
 		if !owner {
-			if it.Status != "live" || it.LinkStatus == "dead" {
+			if !shareable(it.Status) || it.LinkStatus == "dead" {
 				continue
 			}
 			if ok, err := s.visibleTo(ctx, viewer, it); err != nil || !ok {

@@ -53,7 +53,7 @@ func (st SyncStore) LoadProfile(ctx context.Context, userID int64, includePosted
 		gl := ghsync.List{Title: l.Title, Slug: l.Slug, Description: l.Description}
 		for _, r := range rows {
 			it := r.Item
-			if it.Status != "live" || it.LinkStatus == "dead" {
+			if !shareable(it.Status) || it.LinkStatus == "dead" {
 				continue
 			}
 			gl.Entries = append(gl.Entries, ghsync.Entry{Title: it.Title, URL: it.Url, Note: r.Note, Blurb: it.Blurb})

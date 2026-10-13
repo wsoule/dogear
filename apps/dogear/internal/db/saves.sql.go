@@ -109,7 +109,7 @@ func (q *Queries) ArchivePage(ctx context.Context, arg ArchivePageParams) ([]Arc
 
 const countPublicSaves = `-- name: CountPublicSaves :one
 SELECT count(*) FROM saves s JOIN items i ON i.id = s.item_id
-WHERE s.user_id = $1 AND i.status = 'live' AND i.link_status <> 'dead'
+WHERE s.user_id = $1 AND i.status IN ('live','personal') AND i.link_status <> 'dead'
   AND (i.created_by IS NULL OR EXISTS (
        SELECT 1 FROM users u WHERE u.id = i.created_by
          AND u.shadow_banned_at IS NULL AND u.banned_at IS NULL))
@@ -118,8 +118,9 @@ WHERE s.user_id = $1 AND i.status = 'live' AND i.link_status <> 'dead'
        WHERE l.user_id = s.user_id AND li.item_id = s.item_id AND l.visibility <> 'public')
 `
 
-// How many saves a signed-out visitor sees in a user's archive: live items
-// with working links whose tags are all public (as ArchivePage public_only),
+// How many saves a signed-out visitor sees in a user's archive: live or
+// personal items with working links whose tags are all public (as
+// ArchivePage public_only),
 // posted by no one or by someone not banned or shadow-banned (as visibleTo),
 // so the count never reveals saves the archive hides.
 func (q *Queries) CountPublicSaves(ctx context.Context, userID int64) (int64, error) {
