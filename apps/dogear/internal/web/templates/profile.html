@@ -3,8 +3,9 @@
 <h1>{{if .P.User.DisplayName}}{{deref .P.User.DisplayName}} <span class="muted">@{{.P.User.Username}}</span>{{else}}@{{.P.User.Username}}{{end}}</h1>
 {{if .P.User.Bio}}<p>{{.P.User.Bio}}</p>{{end}}
 {{if .P.User.Website}}<p><a href="{{deref .P.User.Website}}" rel="nofollow ugc noopener">{{deref .P.User.Website}}</a></p>{{end}}
-<p class="small muted">joined {{date .P.User.CreatedAt}}{{if .P.IsOwner}} · <a href="/settings/profile">edit profile</a>{{end}}</p>
+<p class="small muted">joined {{date .P.User.CreatedAt}}{{if .P.IsOwner}} · <a href="/settings/profile">edit profile</a>{{end}} · <a href="/u/{{.P.User.Username}}/feed.xml">rss</a></p>
 {{template "followbox" (followBox .P $.Viewer $.CSRF)}}
+{{if not $.Viewer}}<p class="cta small">Keep an archive of cool stuff you can share like this one. <a href="/signin">Make your own dogear →</a></p>{{end}}
 {{if and .P.IsOwner (eq .P.User.TrustLevel 0)}}<p class="small muted">New accounts' posts are checked by a moderator before they appear. Likes start counting once your account is trusted.</p>{{end}}
 {{if and $.Viewer (not .P.IsOwner)}}
 <form class="inline" method="post" action="/u/{{.P.User.Username}}/block">

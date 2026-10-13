@@ -1147,3 +1147,20 @@ ul.tree a {
 .recent-saves .who {
   color: var(--muted);
 }
+
+/* sharing: the embed snippet on tag pages and the signed-out call to action
+   on archive and tag pages (the iframe page itself uses embed.css) */
+.embed-snippet {
+  margin: 0 0 var(--s4);
+  color: var(--muted);
+}
+.embed-snippet summary {
+  cursor: pointer;
+}
+.cta {
+  margin: 0 0 var(--s4);
+  color: var(--muted);
+}
+.cta a {
+  color: var(--accent);
+}

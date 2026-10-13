@@ -4,6 +4,12 @@
 <h1>{{.L.Title}}</h1>
 {{if .L.Description}}<p class="lede">{{.L.Description}}</p>{{end}}
 {{if ne .L.Visibility "private"}}<p class="share"><span>{{len .L.Entries}} thing{{if ne (len .L.Entries) 1}}s{{end}} · share:</span> <code id="share-tag">{{$.BaseURL}}/u/{{.L.Owner}}/{{.L.Slug}}</code> <button class="link" type="button" data-copy="#share-tag">copy</button></p>{{end}}
+{{if .Embed}}<details class="embed-snippet small"><summary>embed or subscribe</summary>
+<p>Put this tag on your site:</p>
+<pre><code id="embed-code">{{.Embed}}</code></pre>
+<p><button class="link" type="button" data-copy="#embed-code">copy embed code</button> · <a href="/u/{{.L.Owner}}/{{.L.Slug}}/embed" target="_blank" rel="noopener">preview</a> · <a href="/u/{{.L.Owner}}/{{.L.Slug}}/feed.xml">rss feed</a></p>
+</details>{{end}}
+{{if not $.Viewer}}<p class="cta small">Keep tags of cool stuff you can share like this one. <a href="/signin">Make your own dogear →</a></p>{{end}}
 {{if .L.Entries}}
 <nav class="tabs" aria-label="Sort">{{$s := .Sort}}{{range .SortLinks}}<a href="{{.URL}}" {{if eq $s .Key}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}</nav>
 <ol class="feed">

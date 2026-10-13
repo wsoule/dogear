@@ -1,0 +1,101 @@
+/* dogear embed — the iframe-able tag page. Standalone so the site stylesheet
+   can change freely; same paper, ink, and accent, light and dark. */
+:root {
+  --paper: #fbfaf7;
+  --ink: #1b1b1a;
+  --muted: #7a7873;
+  --rule: #e6e3dc;
+  --accent: #c2410c;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --paper: #121211;
+    --ink: #e7e5df;
+    --muted: #8b8984;
+    --rule: #262624;
+    --accent: #fb923c;
+  }
+}
+:root.dark {
+  --paper: #121211;
+  --ink: #e7e5df;
+  --muted: #8b8984;
+  --rule: #262624;
+  --accent: #fb923c;
+  color-scheme: dark;
+}
+:root.light {
+  color-scheme: light;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  padding: 12px 16px;
+  background: var(--paper);
+  color: var(--ink);
+  font:
+    13px/1.5 ui-monospace,
+    'SF Mono',
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    'Liberation Mono',
+    monospace;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule);
+}
+.name {
+  font-weight: 700;
+  font-size: 15px;
+}
+.by,
+.domain,
+footer {
+  color: var(--muted);
+  font-size: 12px;
+}
+ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+}
+li::before {
+  content: '→ ';
+  color: var(--accent);
+}
+li p {
+  margin: 2px 0 0 2ch;
+  color: var(--muted);
+}
+.empty {
+  color: var(--muted);
+}
+footer {
+  padding-top: 8px;
+  text-align: right;
+}
+footer a {
+  color: var(--accent);
+}

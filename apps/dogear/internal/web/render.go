@@ -36,7 +36,18 @@ type Page struct {
 	Page               string       // which static page to show
 	Canonical          string       // absolute canonical URL; set automatically for indexable pages
 	Dogear             *dogearState // on item pages, the corner mark saves the item
+	Share              *shareMeta   // link-preview image and RSS feed for shareable pages
 	Data               any
+}
+
+// shareMeta is the extra head markup for archive and tag pages: a preview
+// card for chat and social unfurls, and an RSS feed. All URLs are absolute.
+type shareMeta struct {
+	Title    string // og:title, e.g. "Wyat's dogear"
+	URL      string // og:url, the page's public address
+	Image    string // 1200×630 PNG
+	ImageAlt string
+	Feed     string // RSS URL, empty when the page has no feed
 }
 
 // rowData is what the "row" partial needs: the item, an optional note from

@@ -54,9 +54,14 @@ func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte("ok\n"))
 }
 
+// robots keeps search engines out of /u/ (profiles are SEO-spam bait), but
+// lets link-preview crawlers read shared archive and tag pages, since some
+// of them (Twitterbot) skip the card for any URL robots.txt disallows.
+// Those pages stay noindex either way.
 func (s *Server) robots(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	fmt.Fprintf(w, "User-agent: *\nDisallow: /settings/\nDisallow: /mod\nDisallow: /submit\nDisallow: /auth/\nDisallow: /search\nDisallow: /view/\nDisallow: /u/\nSitemap: %s/sitemap.xml\n", s.cfg.BaseURL)
+	const private = "Disallow: /settings/\nDisallow: /mod\nDisallow: /submit\nDisallow: /auth/\nDisallow: /search\nDisallow: /view/\n"
+	fmt.Fprintf(w, "User-agent: Twitterbot\nUser-agent: facebookexternalhit\nUser-agent: LinkedInBot\nUser-agent: Slackbot\nUser-agent: Discordbot\n%s\nUser-agent: *\n%sDisallow: /u/\nSitemap: %s/sitemap.xml\n", private, private, s.cfg.BaseURL)
 }
 
 // sitemap lists only items above the indexing bar: imported items and
@@ -147,7 +152,9 @@ func (s *Server) manifest(w http.ResponseWriter, _ *http.Request) {
 			{"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png"},
 			{"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
 		},
-		"share_target": map[string]any{"action": "/submit", "method": "GET",
+		// Shared links go through /share, which opens the item when the link is
+		// already on Dogear and the post form otherwise.
+		"share_target": map[string]any{"action": "/share", "method": "GET", "enctype": "application/x-www-form-urlencoded",
 			"params": map[string]string{"url": "url", "title": "title", "text": "text"}},
 	})
 }

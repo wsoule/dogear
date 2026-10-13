@@ -3,7 +3,7 @@
 <h1>sign in</h1>
 <p class="lede">Anyone can read. Sign in to post, like, and keep lists.{{if .InviteOnly}} New accounts need an invite link for now.{{end}}</p>
 <ul class="plain">
-  {{range .Providers}}<li><a class="btn ghost" href="/auth/{{.}}{{if $.Data.Mobile}}?mobile=1{{end}}">continue with {{.}}</a></li>{{else}}<li class="muted">No sign-in providers are configured yet.</li>{{end}}
+  {{range .Providers}}<li><a class="btn ghost" href="/auth/{{.}}{{if $.Data.Mobile}}?mobile=1{{else if $.Data.Next}}?next={{$.Data.Next}}{{end}}">continue with {{.}}</a></li>{{else}}<li class="muted">No sign-in providers are configured yet.</li>{{end}}
 </ul>
 <p class="small muted">By signing in you agree to the <a href="/terms">terms</a> and <a href="/privacy">privacy</a> notes. No email is stored; accounts are never merged by email.</p>
 {{end}}

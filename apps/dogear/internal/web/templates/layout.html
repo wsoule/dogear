@@ -6,10 +6,22 @@
 <title>{{if .Title}}{{.Title}} · {{end}}dogear</title>
 <meta name="description" content="{{if .Description}}{{.Description}}{{else}}Dogear is a public directory of things people think are cool — sites, tools, apps, books, devices, and videos — each with a one-line reason.{{end}}">
 {{if .Canonical}}<link rel="canonical" href="{{.Canonical}}">{{end}}
-<meta property="og:title" content="{{if .Title}}{{.Title}} · {{end}}dogear">
-<meta property="og:site_name" content="dogear">
-<meta property="og:type" content="website">
+{{with .Share}}<meta property="og:title" content="{{.Title}}">
+<meta property="og:url" content="{{.URL}}">
+<meta property="og:image" content="{{.Image}}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{{.ImageAlt}}">
+<meta property="og:description" content="{{$.Description}}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{.Title}}">
+<meta name="twitter:description" content="{{$.Description}}">
+<meta name="twitter:image" content="{{.Image}}">
+{{if .Feed}}<link rel="alternate" type="application/rss+xml" title="{{.Title}}" href="{{.Feed}}">{{end}}
+{{else}}<meta property="og:title" content="{{if .Title}}{{.Title}} · {{end}}dogear">
 {{if .Canonical}}<meta property="og:url" content="{{.Canonical}}">{{end}}
+{{end}}<meta property="og:site_name" content="dogear">
+<meta property="og:type" content="website">
 <link rel="alternate" type="text/plain" title="llms.txt" href="/llms.txt">
 {{if eq .Nav "top"}}<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Dogear","url":"{{.BaseURL}}/","potentialAction":{"@type":"SearchAction","target":"{{.BaseURL}}/search?q={search_term_string}","query-input":"required name=search_term_string"}}</script>{{end}}
 {{if .NoIndex}}<meta name="robots" content="noindex">{{end}}

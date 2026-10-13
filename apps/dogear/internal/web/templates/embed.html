@@ -1,0 +1,28 @@
+{{/* The embed page is a standalone document for other sites' iframes: no
+site chrome, no scripts, every link opens in a new tab. It has no "content"
+block of its own, so the layout is never rendered with it. */}}
+{{define "content"}}{{end}}
+
+{{define "embed"}}<!doctype html>
+<html lang="en"{{with .Theme}} class="{{.}}"{{end}}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{{.T.Title}} · @{{.T.Owner}} · dogear</title>
+<link rel="stylesheet" href="{{asset "embed.css"}}">
+</head>
+<body>
+<header>
+  <a class="name" href="{{.PageURL}}" target="_blank" rel="noopener">{{.T.Title}}</a>
+  <span class="by">@{{.T.Owner}} · {{len .T.Entries}} thing{{if ne (len .T.Entries) 1}}s{{end}}</span>
+</header>
+{{if .Entries}}<ol>
+{{range .Entries}}<li>
+  <a href="{{.Item.URL}}" target="_blank" rel="nofollow noopener ugc">{{.Item.Title}}</a> <span class="domain">{{.Item.Domain}}</span>
+  {{if .Note}}<p>{{.Note}}</p>{{else if .Item.Blurb}}<p>{{.Item.Blurb}}</p>{{end}}
+</li>
+{{end}}</ol>{{else}}<p class="empty">Nothing tagged yet.</p>{{end}}
+<footer>{{if .More}}<a href="{{.PageURL}}" target="_blank" rel="noopener">+{{.More}} more</a> · {{end}}<a href="{{.PageURL}}" target="_blank" rel="noopener">on dogear ↗</a></footer>
+</body>
+</html>{{end}}

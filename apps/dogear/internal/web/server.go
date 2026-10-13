@@ -31,6 +31,7 @@ type Server struct {
 	providers map[string]auth.Provider
 	app       *ghsync.App
 	mux       *http.ServeMux
+	ogCache   *pngCache // rendered share preview images
 }
 
 type Options struct {
@@ -53,6 +54,7 @@ func New(o Options) (*Server, error) {
 		signer:    auth.Signer{Secret: o.Config.SessionSecret},
 		turnstile: auth.Turnstile{SiteKey: o.Config.TurnstileSiteKey, Secret: o.Config.TurnstileSecretKey},
 		providers: o.Providers, app: o.App, mux: http.NewServeMux(),
+		ogCache: newPNGCache(256),
 	}
 	s.routes(o.API, o.MCP)
 	return s, nil
@@ -108,6 +110,14 @@ func (s *Server) routes(api, mcp http.Handler) {
 	m.HandleFunc("POST /u/{username}/follow", s.csrf(s.follow))
 	m.HandleFunc("GET /following", s.following)
 	m.HandleFunc("GET /u/{username}/{slug}", s.list)
+	// Share surfaces. Tag slugs are [a-z0-9-] only, so "feed.xml" never
+	// names a tag and the literal routes below can't shadow a tag page.
+	m.HandleFunc("GET /u/{username}/feed.xml", s.rssArchive)
+	m.HandleFunc("GET /u/{username}/{slug}/feed.xml", s.rssTag)
+	m.HandleFunc("GET /u/{username}/{slug}/embed", s.embed)
+	m.HandleFunc("GET /og/u/{file}", s.ogArchive)
+	m.HandleFunc("GET /og/u/{username}/{file}", s.ogTag)
+	m.HandleFunc("GET /share", s.share)
 	m.HandleFunc("POST /lists", s.csrf(s.createList))
 	m.HandleFunc("POST /lists/{slug}", s.csrf(s.editList))
 	m.HandleFunc("POST /lists/{slug}/entries/{id}", s.csrf(s.editEntry))

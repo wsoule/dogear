@@ -107,6 +107,23 @@ func (q *Queries) ArchivePage(ctx context.Context, arg ArchivePageParams) ([]Arc
 	return items, nil
 }
 
+const countPublicSaves = `-- name: CountPublicSaves :one
+SELECT count(*) FROM saves s JOIN items i ON i.id = s.item_id
+WHERE s.user_id = $1 AND i.status = 'live' AND i.link_status <> 'dead'
+  AND NOT EXISTS (
+       SELECT 1 FROM list_items li JOIN lists l ON l.id = li.list_id
+       WHERE l.user_id = s.user_id AND li.item_id = s.item_id AND l.visibility <> 'public')
+`
+
+// How many saves a signed-out visitor sees in a user's archive: live items
+// with working links whose tags are all public (as ArchivePage public_only).
+func (q *Queries) CountPublicSaves(ctx context.Context, userID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countPublicSaves, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countSaves = `-- name: CountSaves :one
 SELECT count(*) FROM saves WHERE user_id = $1
 `

@@ -23,18 +23,21 @@ type oauthState struct {
 	State, Nonce, Provider string
 	Mobile                 bool
 	Challenge              string // PKCE S256 challenge from the native app
+	Next                   string // same-site path to return to after signing in
 }
 
 type pendingSignup struct {
 	Ext       service.ExternalIdentity
 	Mobile    bool
 	Challenge string
+	Next      string
 }
 
 type signinPage struct {
 	Providers  []string
 	InviteOnly bool
 	Mobile     bool
+	Next       string // where to go after signing in, e.g. back to /share
 }
 
 func (s *Server) providerNames() []string {
@@ -47,9 +50,19 @@ func (s *Server) providerNames() []string {
 	return out
 }
 
+// returnPath is a safe same-site path to come back to after signing in, or
+// "" when next is missing, the home page, or points off-site.
+func returnPath(next string) string {
+	if p := localPath(next); p != "/" {
+		return p
+	}
+	return ""
+}
+
 func (s *Server) signin(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, http.StatusOK, "signin", &Page{Title: "sign in", Nav: "signin", NoIndex: true,
-		Data: signinPage{Providers: s.providerNames(), InviteOnly: s.cfg.Signups == "invite", Mobile: r.URL.Query().Get("mobile") == "1"}})
+		Data: signinPage{Providers: s.providerNames(), InviteOnly: s.cfg.Signups == "invite", Mobile: r.URL.Query().Get("mobile") == "1",
+			Next: returnPath(r.URL.Query().Get("next"))}})
 }
 
 // invite stores a valid invite code in a cookie so the signup step can use it.
@@ -71,7 +84,8 @@ func (s *Server) authStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	st := oauthState{State: service.RandomToken(24), Nonce: service.RandomToken(24), Provider: p.Name(),
-		Mobile: r.URL.Query().Get("mobile") == "1", Challenge: r.URL.Query().Get("code_challenge")}
+		Mobile: r.URL.Query().Get("mobile") == "1", Challenge: r.URL.Query().Get("code_challenge"),
+		Next: returnPath(r.URL.Query().Get("next"))}
 	// The native app must send a PKCE challenge; without one the one-time
 	// code could be redeemed by any app that registers the dogear:// scheme.
 	if st.Mobile && (!service.ValidChallenge(st.Challenge) || r.URL.Query().Get("code_challenge_method") != "S256") {
@@ -152,11 +166,15 @@ func (s *Server) authCallback(w http.ResponseWriter, r *http.Request) {
 			s.serviceError(w, r, err)
 			return
 		}
-		s.startSession(w, r, u.ID, st.Mobile, st.Challenge, "/")
+		next := st.Next
+		if next == "" {
+			next = "/"
+		}
+		s.startSession(w, r, u.ID, st.Mobile, st.Challenge, next)
 		return
 	}
 	// New identity: confirm a username first.
-	val, err := s.signer.Sign(pendingCookie, pendingSignup{Ext: ext, Mobile: st.Mobile, Challenge: st.Challenge}, 30*time.Minute)
+	val, err := s.signer.Sign(pendingCookie, pendingSignup{Ext: ext, Mobile: st.Mobile, Challenge: st.Challenge, Next: st.Next}, 30*time.Minute)
 	if err != nil {
 		s.serverError(w, r, err)
 		return
@@ -267,7 +285,11 @@ func (s *Server) welcome(w http.ResponseWriter, r *http.Request) {
 	}
 	s.clearCookie(w, pendingCookie)
 	s.clearCookie(w, inviteCookie)
-	s.startSession(w, r, u.ID, p.Mobile, p.Challenge, "/?m=welcome")
+	next := "/?m=welcome"
+	if p.Next != "" {
+		next = p.Next
+	}
+	s.startSession(w, r, u.ID, p.Mobile, p.Challenge, next)
 }
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {

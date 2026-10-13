@@ -189,8 +189,16 @@ func (s *Server) profile(w http.ResponseWriter, r *http.Request) {
 	if p.IsOwner {
 		nav = "me"
 	}
+	name := ownerName(p.User) + "'s dogear"
+	desc := "Things @" + p.User.Username + " thinks are worth your time, each with a note, on Dogear."
+	if p.User.Bio != "" {
+		desc = p.User.Bio
+	}
+	share := &shareMeta{Title: name, URL: s.cfg.BaseURL + archivePath(p.User.Username),
+		Image: s.cfg.BaseURL + ogArchivePath(p.User.Username), ImageAlt: name + ", with the newest things saved in it",
+		Feed: s.cfg.BaseURL + archivePath(p.User.Username) + "/feed.xml"}
 	// Profiles are never indexed: they would otherwise be the main target of SEO spam.
-	s.render(w, r, http.StatusOK, "profile", &Page{Title: "@" + p.User.Username, Nav: nav, NoIndex: true,
+	s.render(w, r, http.StatusOK, "profile", &Page{Title: "@" + p.User.Username, Description: desc, Nav: nav, NoIndex: true, Share: share,
 		Data: profilePage{P: p, NextArchive: archiveNext(p.User.Username, p.Archive),
 			Feed: feedData{Items: p.Posts, CSRF: reqCtx(r).csrf, Viewer: viewer(r), Compact: compactView(r)}}})
 }
@@ -214,6 +222,7 @@ type listPage struct {
 	LoggitLists                    []loggit.List
 	LoggitError                    string
 	Badges                         map[int64]string
+	Embed                          string // iframe snippet, public tags only
 }
 
 var listSortLabels = map[string]string{"owner": "their order", "top": "top", "added": "recently added", "az": "a–z"}
@@ -258,8 +267,19 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 		}
 		lp.SortLinks = append(lp.SortLinks, tabLink{Key: k, Label: listSortLabels[k], URL: u})
 	}
-	s.render(w, r, http.StatusOK, "list", &Page{Title: lv.Title + " · @" + lv.Owner, Description: lv.Description,
-		NoIndex: !lv.Indexable, Data: lp})
+	pg := &Page{Title: lv.Title + " · @" + lv.Owner, Description: lv.Description, NoIndex: !lv.Indexable}
+	// Only public tags get a preview card, feed, and embed: unlisted ones are
+	// link-only and shouldn't be spread further by those surfaces.
+	if lv.Visibility == "public" {
+		if pg.Description == "" {
+			pg.Description = things(len(lv.Entries)) + " @" + lv.Owner + " tagged #" + lv.Slug + " on Dogear."
+		}
+		pg.Share = &shareMeta{Title: lv.Title + " · @" + lv.Owner, URL: s.cfg.BaseURL + base, Image: s.cfg.BaseURL + ogTagPath(lv.Owner, lv.Slug),
+			ImageAlt: lv.Title + " by @" + lv.Owner + ", with the first things in it", Feed: s.cfg.BaseURL + base + "/feed.xml"}
+		lp.Embed = s.embedSnippet(lv)
+	}
+	pg.Data = lp
+	s.render(w, r, http.StatusOK, "list", pg)
 }
 
 func (s *Server) createList(w http.ResponseWriter, r *http.Request) {

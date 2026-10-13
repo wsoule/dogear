@@ -75,3 +75,12 @@ INSERT INTO saves (user_id, item_id, note) VALUES ($1, $2, $3)
 ON CONFLICT (user_id, item_id) DO UPDATE SET
   note = CASE WHEN saves.note = '' THEN EXCLUDED.note ELSE saves.note END
 RETURNING note;
+
+-- name: CountPublicSaves :one
+-- How many saves a signed-out visitor sees in a user's archive: live items
+-- with working links whose tags are all public (as ArchivePage public_only).
+SELECT count(*) FROM saves s JOIN items i ON i.id = s.item_id
+WHERE s.user_id = $1 AND i.status = 'live' AND i.link_status <> 'dead'
+  AND NOT EXISTS (
+       SELECT 1 FROM list_items li JOIN lists l ON l.id = li.list_id
+       WHERE l.user_id = s.user_id AND li.item_id = s.item_id AND l.visibility <> 'public');
