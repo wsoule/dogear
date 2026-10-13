@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 64 64">
-  <!-- Dogear mark: a page with its top-right corner folded over, black ink on
-       white with the fold in Dogear purple. Scaled up to fill the tile so it
-       reads at 16px in a browser toolbar. -->
-  <rect width="64" height="64" fill="#ffffff"/>
-  <g transform="scale(1.5238) translate(-14 -10)">
-    <path d="M19 13H39L49 23V51H19Z" fill="#ffffff" stroke="#000000" stroke-width="2.6" stroke-linejoin="miter" stroke-miterlimit="1.5"/>
-    <path d="M39 13V23H49Z" fill="#8b5cf6" stroke="#000000" stroke-width="2.6" stroke-linejoin="miter" stroke-miterlimit="1.5"/>
+  <!-- Dogear extension icon: a white page with its top-right corner folded
+       over on a Dogear-purple tile, scaled up to read at 16px and drawn
+       without black ink so it shows on dark browser toolbars. -->
+  <rect width="64" height="64" fill="#8b5cf6"/>
+  <g transform="scale(1.45) translate(-12 -10)">
+    <path d="M19 12H39L49 22V52H19Z" fill="#ffffff"/>
+    <path d="M39 12V22H49Z" fill="#c4b5fd"/>
   </g>
 </svg>
