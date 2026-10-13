@@ -21,6 +21,7 @@
     {{template "savemenu" .Save}}
   </details>
   {{else}}<a class="muted small" href="/signin">sign in to dogear this</a>{{end}}
+  <button class="btn ghost share-btn" type="button" data-share="{{$.BaseURL}}/i/{{.Item.ID}}" data-share-title="{{.Item.Title}}" hidden>share</button>
 </div>
 
 {{if .Item.Image}}<a href="{{.Item.URL}}" rel="nofollow noopener ugc" target="_blank" class="hero" tabindex="-1" aria-hidden="true"><img src="{{.Item.Image}}" alt="" decoding="async" width="480" height="240"></a>{{end}}

@@ -3,7 +3,7 @@
   --fg: #000;
   --muted: #666;
   --line: #000;
-  --accent: #c2410c;
+  --accent: #8b5cf6;
   color-scheme: light dark;
 }
 
@@ -13,7 +13,7 @@
     --fg: #fff;
     --muted: #999;
     --line: #fff;
-    --accent: #fb923c;
+    --accent: #8b5cf6;
   }
 }
 

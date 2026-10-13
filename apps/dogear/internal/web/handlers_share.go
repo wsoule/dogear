@@ -267,7 +267,7 @@ func (s *Server) embed(w http.ResponseWriter, r *http.Request) {
 func allowFraming(w http.ResponseWriter) {
 	h := w.Header()
 	h.Del("X-Frame-Options")
-	h.Set("Content-Security-Policy", "default-src 'none'; style-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors *")
+	h.Set("Content-Security-Policy", "default-src 'none'; style-src 'self'; font-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors *")
 }
 
 // embedSnippet is the copyable iframe code shown on a public tag page.

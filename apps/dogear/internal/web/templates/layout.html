@@ -26,8 +26,10 @@
 {{if eq .Nav "top"}}<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Dogear","url":"{{.BaseURL}}/","potentialAction":{"@type":"SearchAction","target":"{{.BaseURL}}/search?q={search_term_string}","query-input":"required name=search_term_string"}}</script>{{end}}
 {{if .NoIndex}}<meta name="robots" content="noindex">{{end}}
 <meta name="htmx-config" content='{"includeIndicatorStyles":false,"historyCacheSize":0}'>
-<meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f0f0f" media="(prefers-color-scheme: dark)">
+<link rel="preload" href="/static/fonts/geist-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/jetbrains-mono-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="icon" href="{{asset "favicon.svg"}}" type="image/svg+xml">
 <link rel="apple-touch-icon" href="{{asset "icon-192.png"}}">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -119,7 +121,7 @@ kind, so the text column never changes width. */}}
 <div class="body">
   <p class="head"><a class="title" href="/i/{{.Item.ID}}">{{.Item.Title}}</a> <span class="domain">{{.Item.Domain}}</span></p>
   {{if .Item.Blurb}}<p class="blurb">{{.Item.Blurb}}</p>{{end}}
-  {{if .Note}}<p class="note">{{.Note}}</p>{{end}}
+  {{if .Note}}<p class="note"><span class="note-label">note</span> {{.Note}}</p>{{end}}
   {{if .Tags}}<p class="mytags">{{range .Tags}}<a href="/u/{{$.TagsOf}}/{{.Slug}}">{{.Slug}}</a>{{if ne .Visibility "public"}}<span class="muted"> ({{.Visibility}})</span>{{end}} {{end}}</p>{{end}}
   <div class="meta">
     <span>{{.Item.Kind}}{{with .Item.Length}} · {{.}}{{end}}{{if .Item.Creator}} · {{if .Item.CreatorID}}<a class="creator" href="/i/{{.Item.CreatorID}}">{{.Item.Creator}}</a>{{else}}{{.Item.Creator}}{{end}}{{else if and .Item.SiteName (ne .Item.SiteName .Item.Domain)}} · {{.Item.SiteName}}{{end}}</span>

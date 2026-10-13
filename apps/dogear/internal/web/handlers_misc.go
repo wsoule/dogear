@@ -145,7 +145,7 @@ func (s *Server) manifest(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/manifest+json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"name": "Dogear", "short_name": "Dogear", "start_url": "/", "scope": "/", "display": "standalone",
-		"background_color": "#fbfaf7", "theme_color": "#fbfaf7",
+		"background_color": "#ffffff", "theme_color": "#ffffff",
 		"description": "Things people think are cool, each with a one-line reason.",
 		"icons": []map[string]string{
 			{"src": "/static/favicon.svg", "sizes": "any", "type": "image/svg+xml"},

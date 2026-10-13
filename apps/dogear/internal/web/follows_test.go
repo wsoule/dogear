@@ -108,7 +108,7 @@ func TestFollowButton(t *testing.T) {
 	// htmx gets the refreshed box: one follower, button now "following".
 	rec = do(t, srv, "POST", path, sid, url.Values{"follow": {"1"}, "csrf": {csrf}}, true)
 	b := rec.Body.String()
-	if rec.Code != http.StatusOK || !strings.Contains(b, `id="follow-box"`) || !strings.Contains(b, "1 follower ") ||
+	if rec.Code != http.StatusOK || !strings.Contains(b, `id="follow-box"`) || !strings.Contains(b, "<b>1</b> <span>follower</span>") ||
 		!strings.Contains(b, `aria-pressed="true"`) || strings.Contains(b, "<html") {
 		t.Fatalf("htmx follow = %d %s", rec.Code, b)
 	}

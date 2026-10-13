@@ -17,8 +17,9 @@
 {{template "row" (archiveRow .Entry .Username $.CSRF $.Viewer)}}{{end}}{{if .Next}}<li class="more" hx-get="{{.Next}}" hx-trigger="revealed once" hx-swap="outerHTML"><a href="{{.NextPage}}">older saves</a></li>{{end}}{{end}}
 
 {{/* followbox is the follower counts and follow toggle on a profile. */}}
-{{define "followbox"}}<div class="follow-box small" id="follow-box">
-  <span class="muted">{{.Followers}} follower{{if ne .Followers 1}}s{{end}} · {{.Following}} following</span>
+{{define "followbox"}}<div class="follow-box" id="follow-box">
+  <p class="stat"><b>{{.Followers}}</b> <span>follower{{if ne .Followers 1}}s{{end}}</span></p>
+  <p class="stat"><b>{{.Following}}</b> <span>following</span></p>
   {{if .CanFollow}}<form class="inline" method="post" action="/u/{{.Username}}/follow" hx-post="/u/{{.Username}}/follow" hx-target="#follow-box" hx-swap="outerHTML">
     <input type="hidden" name="csrf" value="{{.CSRF}}">
     <input type="hidden" name="follow" value="{{if .On}}0{{else}}1{{end}}">

@@ -291,7 +291,7 @@ func TestSharePagesMeta(t *testing.T) {
 	for _, want := range []string{
 		`<meta property="og:image" content="http://test/og/u/` + u + `/open.png">`,
 		`<meta name="twitter:card" content="summary_large_image">`,
-		`<link rel="alternate" type="application/rss+xml" title="Open · @`+u+`" href="http://test/u/` + u + `/open/feed.xml">`,
+		`<link rel="alternate" type="application/rss+xml" title="Open · @` + u + `" href="http://test/u/` + u + `/open/feed.xml">`,
 		`/u/` + u + `/open/embed`,
 		`<a href="/signin">Make your own dogear`,
 	} {

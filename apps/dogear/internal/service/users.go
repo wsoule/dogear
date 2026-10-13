@@ -480,6 +480,9 @@ type Profile struct {
 	// ViewerFollows is true when the signed-in viewer follows this user.
 	FollowerCount, FollowingCount int
 	ViewerFollows                 bool
+	// SaveCount is how many saves this viewer can see: all of them for the
+	// owner, the public archive's count for everyone else.
+	SaveCount int
 }
 
 // GetProfile returns a profile with the archive, tags, and posts as the
@@ -509,5 +512,15 @@ func (s *Service) GetProfile(ctx context.Context, viewer *Actor, username string
 	if p.FollowerCount, p.FollowingCount, err = s.FollowCounts(ctx, u.ID); err != nil {
 		return Profile{}, err
 	}
+	var n int64
+	if p.IsOwner {
+		n, err = s.Q.CountSaves(ctx, u.ID)
+	} else {
+		n, err = s.Q.CountPublicSaves(ctx, u.ID)
+	}
+	if err != nil {
+		return Profile{}, fmt.Errorf("count saves: %w", err)
+	}
+	p.SaveCount = int(n)
 	return p, nil
 }

@@ -28,6 +28,12 @@
     });
   }
 
+  // Share buttons are hidden in the HTML so pages without this script
+  // never show a dead button; reveal them now.
+  for (const el of document.querySelectorAll('[data-share][hidden]')) {
+    el.removeAttribute('hidden');
+  }
+
   document.addEventListener('click', function (e) {
     const target = e.target instanceof Element ? e.target : null;
     if (target === null) return;
@@ -35,6 +41,27 @@
     if (target.closest('[data-cmdk]') !== null && !e.metaKey && !e.ctrlKey) {
       e.preventDefault();
       openSearch();
+      return;
+    }
+    // Share buttons: <button data-share="url" data-share-title="…">.
+    // Inside the installed app there is no browser toolbar to share from,
+    // so pages carry their own button: the system share sheet where the
+    // Web Share API exists (phones), otherwise the link is copied.
+    const share = target.closest('[data-share]');
+    if (share !== null) {
+      const url = share.getAttribute('data-share') ?? window.location.href;
+      const title = share.getAttribute('data-share-title') ?? document.title;
+      if (typeof navigator.share === 'function') {
+        navigator.share({ title: title, url: url }).catch(function () {});
+        return;
+      }
+      void navigator.clipboard.writeText(url).then(function () {
+        const old = share.textContent;
+        share.textContent = 'link copied';
+        setTimeout(function () {
+          share.textContent = old;
+        }, 1400);
+      });
       return;
     }
     // Copy buttons: <button data-copy="#id">copy</button>

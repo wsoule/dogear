@@ -1,29 +1,58 @@
 /* dogear embed — the iframe-able tag page. Standalone so the site stylesheet
-   can change freely; same paper, ink, and accent, light and dark. */
+   can change freely; the same spec-sheet look: black ink on white (near-black
+   and off-white in dark mode), hairlines, square corners, one purple, Geist
+   for reading and JetBrains Mono for labels. */
+@font-face {
+  font-family: Geist;
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('fonts/geist-var.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/jetbrains-mono-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('fonts/jetbrains-mono-800.woff2') format('woff2');
+}
 :root {
-  --paper: #fbfaf7;
-  --ink: #1b1b1a;
-  --muted: #7a7873;
-  --rule: #e6e3dc;
-  --accent: #c2410c;
+  --paper: #fff;
+  --ink: #000;
+  --muted: #595959;
+  --rule: rgb(0 0 0 / 15%);
+  --accent: #8b5cf6;
+  --font-mono:
+    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-sans:
+    Geist, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+
   color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --paper: #121211;
-    --ink: #e7e5df;
-    --muted: #8b8984;
-    --rule: #262624;
-    --accent: #fb923c;
+    --paper: #0f0f0f;
+    --ink: #ededed;
+    --muted: #a3a3a3;
+    --rule: rgb(255 255 255 / 20%);
   }
 }
 :root.dark {
-  --paper: #121211;
-  --ink: #e7e5df;
-  --muted: #8b8984;
-  --rule: #262624;
-  --accent: #fb923c;
+  --paper: #0f0f0f;
+  --ink: #ededed;
+  --muted: #a3a3a3;
+  --rule: rgb(255 255 255 / 20%);
+
   color-scheme: dark;
 }
 :root.light {
@@ -37,14 +66,8 @@ body {
   padding: 12px 16px;
   background: var(--paper);
   color: var(--ink);
-  font:
-    13px/1.5 ui-monospace,
-    'SF Mono',
-    SFMono-Regular,
-    Menlo,
-    Consolas,
-    'Liberation Mono',
-    monospace;
+  font: 300 14px/1.5 var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 a {
   color: inherit;
@@ -60,17 +83,22 @@ header {
   align-items: baseline;
   gap: 4px 12px;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 2px solid var(--ink);
 }
 .name {
-  font-weight: 700;
-  font-size: 15px;
+  font: 800 15px/1.2 var(--font-mono);
+  letter-spacing: -0.01em;
 }
 .by,
 .domain,
 footer {
+  font: 400 11px/1.5 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--muted);
-  font-size: 12px;
+}
+.domain {
+  text-transform: none;
 }
 ol {
   list-style: none;
@@ -80,6 +108,7 @@ ol {
 li {
   padding: 8px 0;
   border-bottom: 1px solid var(--rule);
+  font-weight: 600;
 }
 li::before {
   content: '→ ';
@@ -87,6 +116,7 @@ li::before {
 }
 li p {
   margin: 2px 0 0 2ch;
+  font-weight: 300;
   color: var(--muted);
 }
 .empty {
@@ -97,5 +127,6 @@ footer {
   text-align: right;
 }
 footer a {
+  font-weight: 400;
   color: var(--accent);
 }

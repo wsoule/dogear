@@ -4,7 +4,12 @@
 {{if .P.User.Bio}}<p>{{.P.User.Bio}}</p>{{end}}
 {{if .P.User.Website}}<p><a href="{{deref .P.User.Website}}" rel="nofollow ugc noopener">{{deref .P.User.Website}}</a></p>{{end}}
 <p class="small muted">joined {{date .P.User.CreatedAt}}{{if .P.IsOwner}} · <a href="/settings/profile">edit profile</a>{{end}} · <a href="/u/{{.P.User.Username}}/feed.xml">rss</a></p>
-{{template "followbox" (followBox .P $.Viewer $.CSRF)}}
+<p><button class="btn ghost share-btn" type="button" data-share="{{$.BaseURL}}/u/{{.P.User.Username}}" data-share-title="{{if .P.User.DisplayName}}{{deref .P.User.DisplayName}}{{else}}@{{.P.User.Username}}{{end}}'s dogear" hidden>share {{if .P.IsOwner}}your{{else}}this{{end}} dogear</button></p>
+<div class="stats">
+  <p class="stat lead"><b>{{.P.SaveCount}}</b> <span>save{{if ne .P.SaveCount 1}}s{{end}}</span></p>
+  <p class="stat"><b>{{len .P.Lists}}</b> <span>tag{{if ne (len .P.Lists) 1}}s{{end}}</span></p>
+  {{template "followbox" (followBox .P $.Viewer $.CSRF)}}
+</div>
 {{if not $.Viewer}}<p class="cta small">Keep an archive of cool stuff you can share like this one. <a href="/signin">Make your own dogear →</a></p>{{end}}
 {{if and .P.IsOwner (eq .P.User.TrustLevel 0)}}<p class="small muted">New accounts' posts are checked by a moderator before they appear. Likes start counting once your account is trusted.</p>{{end}}
 {{if and $.Viewer (not .P.IsOwner)}}

@@ -3,7 +3,8 @@
 <nav class="crumbs" aria-label="Breadcrumb"><a href="/u/{{.L.Owner}}">@{{.L.Owner}}'s archive</a> / #{{.L.Slug}}{{if ne .L.Visibility "public"}} · {{.L.Visibility}}{{end}}</nav>
 <h1>{{.L.Title}}</h1>
 {{if .L.Description}}<p class="lede">{{.L.Description}}</p>{{end}}
-{{if ne .L.Visibility "private"}}<p class="share"><span>{{len .L.Entries}} thing{{if ne (len .L.Entries) 1}}s{{end}} · share:</span> <code id="share-tag">{{$.BaseURL}}/u/{{.L.Owner}}/{{.L.Slug}}</code> <button class="link" type="button" data-copy="#share-tag">copy</button></p>{{end}}
+{{if ne .L.Visibility "private"}}<p class="share"><span>{{len .L.Entries}} thing{{if ne (len .L.Entries) 1}}s{{end}} · share:</span> <code id="share-tag">{{$.BaseURL}}/u/{{.L.Owner}}/{{.L.Slug}}</code> <button class="link" type="button" data-copy="#share-tag">copy</button></p>
+<p><button class="btn ghost share-btn" type="button" data-share="{{$.BaseURL}}/u/{{.L.Owner}}/{{.L.Slug}}" data-share-title="{{.L.Title}} · @{{.L.Owner}}'s dogear" hidden>share this tag</button></p>{{end}}
 {{if .Embed}}<details class="embed-snippet small"><summary>embed or subscribe</summary>
 <p>Put this tag on your site:</p>
 <pre><code id="embed-code">{{.Embed}}</code></pre>

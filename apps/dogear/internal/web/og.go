@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"container/list"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/hex"
 	"image"
 	"image/color"
@@ -16,8 +17,6 @@ import (
 	"unicode"
 
 	"golang.org/x/image/font"
-	"golang.org/x/image/font/gofont/gomono"
-	"golang.org/x/image/font/gofont/gomonobold"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
 	"golang.org/x/image/vector"
@@ -47,30 +46,43 @@ func (c ogCard) key() string {
 const ogW, ogH = 1200, 630
 
 var (
-	ogPaper  = color.RGBA{0xfb, 0xfa, 0xf7, 0xff}
-	ogInk    = color.RGBA{0x1b, 0x1b, 0x1a, 0xff}
-	ogMuted  = color.RGBA{0x7a, 0x78, 0x73, 0xff}
-	ogRule   = color.RGBA{0xe6, 0xe3, 0xdc, 0xff}
-	ogDesk   = color.RGBA{0xef, 0xec, 0xe5, 0xff}
-	ogAccent = color.RGBA{0xc2, 0x41, 0x0c, 0xff}
+	ogPaper  = color.RGBA{0xff, 0xff, 0xff, 0xff}
+	ogInk    = color.RGBA{0x00, 0x00, 0x00, 0xff}
+	ogMuted  = color.RGBA{0x59, 0x59, 0x59, 0xff}
+	ogDesk   = color.RGBA{0xef, 0xef, 0xef, 0xff}
+	ogAccent = color.RGBA{0x8b, 0x5c, 0xf6, 0xff}
 )
 
-// The preview uses Go Mono (embedded in x/image), since the site itself is
-// monospace; the fonts are parsed once, on first use.
+// The card speaks the site's voices: Geist for the title and item titles,
+// JetBrains Mono for the tracked uppercase labels. Both are SIL OFL fonts
+// (licenses in ogfonts/), embedded as TTF because x/image can't read woff2,
+// and parsed once, on first use.
 var (
+	//go:embed ogfonts/Geist-Bold.ttf
+	geistBoldTTF []byte
+	//go:embed ogfonts/Geist-Regular.ttf
+	geistRegularTTF []byte
+	//go:embed ogfonts/JetBrainsMono-Regular.ttf
+	monoTTF []byte
+
 	ogFontsOnce   sync.Once
-	ogRegular     *opentype.Font
-	ogBold        *opentype.Font
+	ogSans        *opentype.Font
+	ogSansBold    *opentype.Font
+	ogMono        *opentype.Font
 	errOGFontLoad error
 )
 
-func ogFonts() (regular, bold *opentype.Font, err error) {
+func ogFonts() (sans, sansBold, mono *opentype.Font, err error) {
 	ogFontsOnce.Do(func() {
-		if ogRegular, errOGFontLoad = opentype.Parse(gomono.TTF); errOGFontLoad == nil {
-			ogBold, errOGFontLoad = opentype.Parse(gomonobold.TTF)
+		if ogSans, errOGFontLoad = opentype.Parse(geistRegularTTF); errOGFontLoad != nil {
+			return
 		}
+		if ogSansBold, errOGFontLoad = opentype.Parse(geistBoldTTF); errOGFontLoad != nil {
+			return
+		}
+		ogMono, errOGFontLoad = opentype.Parse(monoTTF)
 	})
-	return ogRegular, ogBold, errOGFontLoad
+	return ogSans, ogSansBold, ogMono, errOGFontLoad
 }
 
 func ogFace(f *opentype.Font, size float64) font.Face {
@@ -81,10 +93,12 @@ func ogFace(f *opentype.Font, size float64) font.Face {
 	return face
 }
 
-// renderOG draws a 1200×630 preview card as PNG: paper background, the
-// folded corner mark top right, the title, byline, and a few item titles.
+// renderOG draws a 1200×630 preview card as PNG, laid out like the site's
+// spec-sheet pages: the folded corner mark top right, a tracked DOGEAR
+// label, the title in bold Geist, a tracked byline, a heavy rule with purple
+// registration marks at its ends, then a few item titles.
 func renderOG(c ogCard) ([]byte, error) {
-	regular, bold, err := ogFonts()
+	sans, sansBold, mono, err := ogFonts()
 	if err != nil {
 		return nil, err
 	}
@@ -94,16 +108,15 @@ func renderOG(c ogCard) ([]byte, error) {
 
 	const left = 80
 	textW := ogW - left - 180 // keep clear of the fold
-	small := ogFace(bold, 28)
-	drawText(img, small, ogAccent, left, 96, "dogear")
+	drawTracked(img, ogFace(mono, 22), ogAccent, left, 96, "DOGEAR", 0.16)
 
 	// The title takes one line at full size, or two lines at a smaller size.
-	y := 200
-	big := ogFace(bold, 64)
+	y := 196
+	big := ogFace(sansBold, 72)
 	if title := fitText(big, c.Title, textW); title == c.Title {
 		drawText(img, big, ogInk, left, y, title)
 	} else {
-		mid := ogFace(bold, 52)
+		mid := ogFace(sansBold, 56)
 		lines := wrapText(mid, c.Title, textW, 2)
 		for i, l := range lines {
 			if i > 0 {
@@ -112,15 +125,18 @@ func renderOG(c ogCard) ([]byte, error) {
 			drawText(img, mid, ogInk, left, y, l)
 		}
 	}
-	y += 56
-	drawText(img, ogFace(regular, 28), ogMuted, left, y, fitText(ogFace(regular, 28), c.Byline, ogW-2*left))
+	y += 52
+	byline := ogFace(mono, 20)
+	drawTracked(img, byline, ogMuted, left, y, fitText(byline, strings.ToUpper(c.Byline), ogW-2*left-120), 0.1)
 
-	y += 36
-	fillRect(img, image.Rect(left, y, ogW-left, y+2), ogRule)
+	y += 34
+	fillRect(img, image.Rect(left, y, ogW-left, y+3), ogInk)
+	drawCross(img, left, y+1)
+	drawCross(img, ogW-left, y+1)
 
-	row := ogFace(regular, 30)
-	arrow := ogFace(bold, 30)
-	y += 66
+	row := ogFace(sans, 30)
+	arrow := ogFace(sansBold, 30)
+	y += 68
 	more := c.More
 	for i, t := range c.Items {
 		// A two-line title leaves room for fewer rows above the footer;
@@ -137,12 +153,12 @@ func renderOG(c ogCard) ([]byte, error) {
 		drawText(img, row, ogMuted, left, y, "nothing here yet")
 	}
 
-	foot := ogFace(regular, 24)
+	foot := ogFace(mono, 18)
 	footer := c.Footer
 	if more > 0 {
 		footer = "+" + strconv.Itoa(more) + " more · " + footer
 	}
-	drawText(img, foot, ogMuted, left, ogH-52, fitText(foot, footer, ogW-2*left))
+	drawTracked(img, foot, ogMuted, left, ogH-52, fitText(foot, strings.ToUpper(footer), ogW-2*left-120), 0.08)
 
 	var buf bytes.Buffer
 	enc := png.Encoder{CompressionLevel: png.BestSpeed}
@@ -150,6 +166,24 @@ func renderOG(c ogCard) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// drawTracked draws s with extra space after each character (tracking, as a
+// fraction of the font size), the way the site sets its small mono labels.
+func drawTracked(img *image.RGBA, face font.Face, c color.Color, x, y int, s string, tracking float64) {
+	extra := fixed.Int26_6(tracking * float64(face.Metrics().Height) * 0.8)
+	d := font.Drawer{Dst: img, Src: image.NewUniform(c), Face: face, Dot: fixed.P(x, y)}
+	for _, r := range s {
+		d.DrawString(string(r))
+		d.Dot.X += extra
+	}
+}
+
+// drawCross draws an 11px purple registration mark centered on (x, y), the
+// print-production crosshair the site puts on its header's corners.
+func drawCross(img *image.RGBA, x, y int) {
+	fillRect(img, image.Rect(x-8, y-1, x+9, y+1), ogAccent)
+	fillRect(img, image.Rect(x-1, y-8, x+1, y+9), ogAccent)
 }
 
 // drawFold draws the brand's dog-ear in the top right corner: the cut-away

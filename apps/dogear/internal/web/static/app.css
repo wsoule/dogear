@@ -1,21 +1,71 @@
-/* dogear — one hand-written stylesheet. Monospace, one accent, light and dark.
+/* dogear — one hand-written stylesheet, drawn like a spec sheet.
 
-   Order: tokens, base, page layout, the corner mark, shared text and
-   controls, feed rows, feed toolbar, item page, archive and tags, forms,
-   dialogs and menus, tables, utilities, then one phone block. Each selector
-   is defined once; the phone block only changes what differs on small
-   screens. Spacing uses --s1..--s6 (4 8 12 16 24 32) and type uses
-   --t1..--t4 (12 14 16 20). */
+   Black ink on white paper (near-black and off-white in dark mode), 1px
+   hairlines, square corners, no shadows, and one purple that stays the
+   same in both themes. Three type voices: JetBrains Mono for the machine
+   voice (nav, labels, meta, section heads), Geist for display (titles,
+   numbers), and light Geist for reading (reasons and notes).
 
-/* ---------- tokens ---------- */
+   Order: fonts, tokens, base, page layout, the corner mark, shared text
+   and controls, feed rows, feed toolbar, item page, archive and tags,
+   forms, menus and dialogs, tables, utilities, then one phone block.
+   Each selector is defined once. Spacing uses --s1..--s6 (4 8 12 16 24
+   32) and type --t0..--t5 (11 12 14 16 20 and a display size). */
+
+/* ---------- fonts (self-hosted, SIL Open Font License) ---------- */
+@font-face {
+  font-family: Geist;
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('fonts/geist-var.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/jetbrains-mono-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('fonts/jetbrains-mono-700.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('fonts/jetbrains-mono-800.woff2') format('woff2');
+}
+
+/* ---------- tokens ----------
+   Colors are named by job, not lightness; dark mode swaps this block. */
 :root {
-  --paper: #fbfaf7;
-  --ink: #1b1b1a;
-  --muted: #7a7873;
-  --rule: #e6e3dc;
-  --accent: #c2410c;
-  --desk: #efece5;
-  --fold: #1b1b1a;
+  --paper: #fff;
+  --ink: #000;
+  --ink-soft: #1a1a1a; /* reading copy, one step off full ink */
+  --muted: #595959; /* secondary text */
+  --grey-2: #8f8f8f; /* dim notes; mid-grey in both themes */
+  --grey-3: #b3b3b3; /* faint furniture: idle marks */
+  --hairline-faint: rgb(0 0 0 / 15%); /* sub-structure rules: between rows */
+  --hatch: rgb(0 0 0 / 6%); /* the diagonal blueprint hatch */
+  --tint: rgb(0 0 0 / 4%); /* hover wash on flat surfaces */
+  --desk: #efefef; /* what shows behind the dog-eared corner */
+  --accent: #8b5cf6; /* the one purple, unchanged in dark mode */
+  --accent-hover: #7c3aed;
+  --on-accent: #fff; /* text on a purple fill, both themes */
+
+  --font-mono:
+    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-sans:
+    Geist, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
 
   --s1: 4px;
   --s2: 8px;
@@ -24,14 +74,15 @@
   --s5: 24px;
   --s6: 32px;
 
+  --t0: 11px; /* micro labels: mono, uppercase, tracked */
   --t1: 12px;
   --t2: 14px;
   --t3: 16px;
   --t4: 20px;
+  --t5: clamp(26px, 4.4vw, 38px); /* page and item headlines */
 
-  --radius: 2px;
   --mark: 48px; /* the corner dog-ear */
-  --vote-w: 44px; /* like column on rows */
+  --vote-w: 40px; /* like column on rows */
   --thumb-w: 120px; /* image column on rows */
   --thumb-h: 68px;
   --tap: 44px; /* minimum height of form controls */
@@ -39,15 +90,20 @@
   color-scheme: light dark;
 }
 
+/* the same system printed in negative: off-white ink on near-black paper
+   (full inversions glare), with the faint values stepped up because light
+   lines on dark ground read weaker */
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #121211;
-    --ink: #e7e5df;
-    --muted: #8b8984;
-    --rule: #262624;
-    --accent: #fb923c;
-    --desk: #1c1c1a;
-    --fold: #e7e5df;
+    --paper: #0f0f0f;
+    --ink: #ededed;
+    --ink-soft: #d2d2d2;
+    --muted: #a3a3a3;
+    --grey-3: #565656;
+    --hairline-faint: rgb(255 255 255 / 20%);
+    --hatch: rgb(255 255 255 / 8%);
+    --tint: rgb(255 255 255 / 6%);
+    --desk: #1f1f1f;
   }
 }
 
@@ -60,18 +116,23 @@
 html {
   -webkit-text-size-adjust: 100%;
 }
+html,
+body {
+  /* clip, not hidden: hidden makes the root a scroll container and breaks
+     the sticky header */
+  overflow-x: clip;
+}
 body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font:
-    var(--t2) / 1.6 ui-monospace,
-    'SF Mono',
-    SFMono-Regular,
-    Menlo,
-    Consolas,
-    'Liberation Mono',
-    monospace;
+  font: 300 var(--t3) / 1.55 var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+::selection {
+  background: var(--accent);
+  color: var(--on-accent);
 }
 a {
   color: inherit;
@@ -85,55 +146,70 @@ a:hover {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-h1 {
-  font-size: var(--t3);
-  font-weight: 700;
-  margin: 0 0 var(--s1);
+strong,
+b {
+  font-weight: 600;
 }
+h1 {
+  margin: 0 0 var(--s2);
+  font: 800 var(--t5) / 1.05 var(--font-mono);
+  letter-spacing: -0.03em;
+}
+
+/* section heads read like a spec sheet's: a heavy rule, then a small
+   tracked label */
 h2 {
-  font-size: var(--t2);
-  font-weight: 700;
-  margin: var(--s6) 0 var(--s2);
+  margin: var(--s6) 0 var(--s3);
+  padding-top: var(--s2);
+  border-top: 2px solid var(--ink);
+  font: 700 var(--t0) / 1.4 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 p {
   margin: 0 0 var(--s3);
 }
 hr {
-  border: 0;
-  border-top: 1px solid var(--rule);
   margin: var(--s5) 0;
+  border: 0;
+  border-top: 1px solid var(--ink);
 }
 code,
 pre,
 kbd {
-  font: inherit;
+  font-family: var(--font-mono);
+  font-weight: 400;
+}
+code {
+  font-size: 0.9em;
 }
 pre {
-  background: var(--desk);
   padding: var(--s3);
   overflow-x: auto;
-  border-radius: var(--radius);
+  border: 1px solid var(--hairline-faint);
+  background: var(--tint);
   white-space: pre-wrap;
   word-break: break-all;
   font-size: var(--t1);
 }
 kbd {
-  font-size: var(--t1);
-  line-height: 1.2;
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
   padding: 0 var(--s1);
+  border: 1px solid var(--grey-3);
+  font-size: 10px;
+  line-height: 1.4;
   color: var(--muted);
 }
 
 /* ---------- page layout ---------- */
 .wrap {
-  max-width: 680px;
+  max-width: 720px;
   margin: 0 auto;
   padding: 0 var(--s5);
 }
-/* the header stays reachable on long feeds; its right padding leaves room
-   for the corner mark */
+
+/* The header stays reachable on long feeds. It wears the blueprint hatch
+   and a purple registration mark on each bottom corner, centered on the
+   rule; its right padding leaves room for the corner dog-ear. */
 header.top {
   position: sticky;
   top: 0;
@@ -144,12 +220,43 @@ header.top {
   justify-content: space-between;
   gap: var(--s1) var(--s5);
   padding: var(--s4) calc(var(--mark) + var(--s2)) var(--s3) 0;
-  border-bottom: 1px solid var(--rule);
-  background: var(--paper);
+  border-bottom: 1px solid var(--ink);
+  background:
+    repeating-linear-gradient(
+      45deg,
+      var(--hatch) 0,
+      var(--hatch) 1px,
+      transparent 1px,
+      transparent 9px
+    ),
+    var(--paper);
+}
+header.top::before,
+header.top::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  width: 11px;
+  height: 11px;
+  background:
+    linear-gradient(var(--accent), var(--accent)) center / 1px 100% no-repeat,
+    linear-gradient(var(--accent), var(--accent)) center / 100% 1px no-repeat;
+  pointer-events: none;
+}
+header.top::before {
+  left: -5px;
+}
+header.top::after {
+  right: -5px;
 }
 .wordmark {
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font: 800 var(--t2) / 1 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.wordmark:hover {
+  text-decoration: none;
+  color: var(--accent);
 }
 nav.main {
   display: flex;
@@ -157,13 +264,27 @@ nav.main {
   align-items: baseline;
   gap: var(--s1) var(--s4);
   margin-left: auto;
+  font: 400 var(--t1) / 1.4 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--muted);
+}
+nav.main a:hover {
+  color: var(--ink);
 }
 nav.main a[aria-current='page'] {
   color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
 }
 nav.main .post {
+  font-weight: 700;
   color: var(--accent);
+}
+nav.main kbd {
+  text-transform: none;
+  letter-spacing: 0;
 }
 main {
   min-height: 60vh;
@@ -173,16 +294,22 @@ footer {
   display: flex;
   flex-wrap: wrap;
   gap: var(--s1) var(--s4);
-  padding: var(--s5) 0 var(--s6);
-  border-top: 1px solid var(--rule);
+  padding: var(--s3) 0 var(--s6);
+  border-top: 1px solid var(--ink);
+  font: 400 var(--t0) / 1.6 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--muted);
-  font-size: var(--t1);
+}
+footer a:hover,
+footer button.link:hover {
+  color: var(--ink);
 }
 
 /* ---------- the corner mark ----------
    A single-line dog-ear pinned to the page's top right. The cut-away corner
    shows the desk behind the page; the flap is one stroke. On item pages it
-   is a button that dogears the item (.on when saved). */
+   is a button that dogears the item (.on when saved, filled purple). */
 .dogear {
   position: absolute;
   top: 0;
@@ -191,7 +318,7 @@ footer {
   display: block;
   width: var(--mark);
   height: var(--mark);
-  color: var(--fold);
+  color: var(--ink);
   transition:
     width 150ms ease,
     height 150ms ease;
@@ -243,7 +370,9 @@ button.dogear {
 
 @media (prefers-reduced-motion: reduce) {
   .dogear,
-  .dogear .flap {
+  .dogear .flap,
+  .btn,
+  .row {
     transition: none;
   }
 }
@@ -254,82 +383,116 @@ button.dogear {
   color: var(--muted);
 }
 .small {
-  font-size: var(--t1);
+  font-size: var(--t2);
 }
 .lede {
-  color: var(--muted);
+  max-width: 60ch;
   margin-bottom: var(--s5);
+  font-size: var(--t4);
+  line-height: 1.45;
+  color: var(--ink-soft);
 }
 .intro {
-  margin: 0 0 var(--s3);
-  color: var(--muted);
+  max-width: 60ch;
+  margin: 0 0 var(--s4);
+  font-size: var(--t4);
+  line-height: 1.45;
+  color: var(--ink-soft);
 }
 .intro em {
   font-style: normal;
-  color: var(--ink);
+  font-weight: 600;
+  color: var(--accent);
 }
 .crumbs {
   margin: 0 0 var(--s2);
-  font-size: var(--t1);
+  font: 400 var(--t0) / 1.6 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--muted);
 }
+/* the claim box: a hairline border with a purple left rule */
 .flash {
   margin: 0 0 var(--s4);
-  padding: var(--s2) var(--s3);
-  border: 1px solid var(--rule);
-  border-left: 2px solid var(--accent);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--ink);
+  border-left: 3px solid var(--accent);
 }
 .error,
 .saved {
   color: var(--accent);
 }
+/* square badge in the machine voice; .warn is the filled purple badge */
 .label {
-  padding: 0 var(--s1);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
-  font-size: var(--t1);
-  line-height: 1.6;
-  color: var(--muted);
+  padding: 0 5px;
+  border: 1px solid var(--ink);
+  font: 700 10px / 1.6 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
 }
 .label.warn {
-  color: var(--accent);
   border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
 }
 p.quote {
-  padding-left: var(--s2);
-  border-left: 2px solid var(--rule);
+  padding-left: var(--s3);
+  border-left: 2px solid var(--ink);
 }
 
 /* ---------- shared controls: link rows ----------
    Chips (topics, sub-lists), tabs and segments (sort, layout, settings) and
-   menu summaries all look alike: muted text links, the current one in ink
-   and underlined. */
+   menu summaries all speak the machine voice: small tracked uppercase mono.
+   Idle ones are muted; the current tab is underlined in ink, the current
+   chip is a filled purple badge. */
 .chips,
 .tabs,
 .seg {
   display: flex;
   flex-wrap: wrap;
+  align-items: baseline;
   gap: var(--s1) var(--s4);
+  font: 400 var(--t1) / 1.6 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--muted);
+}
+.chips a:hover,
+.tabs a:hover,
+.seg a:hover {
+  color: var(--ink);
 }
 .chips,
 .tabs {
   margin: 0 0 var(--s4);
 }
-.chips a[aria-current='page'],
 .tabs a[aria-current='page'],
 .seg a[aria-current='page'] {
   color: var(--ink);
   text-decoration: underline;
-  text-underline-offset: 4px;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
+}
+.chips a {
+  padding: 0 5px;
+}
+.chips a[aria-current='page'] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.chips a[aria-current='page']:hover {
+  text-decoration: none;
 }
 .chips .more-link {
-  font-size: var(--t1);
+  color: var(--grey-2);
 }
 
 /* ---------- feed rows ----------
    Rows layout: like column | text | image column. Every row has the image
-   column (a thumbnail, or a tile naming the kind) so the text lines up. */
+   column (a thumbnail, or a hatched tile naming the kind) so the text
+   lines up. Rows are split by faint rules and washed on hover; the heavy
+   rules belong to structure (header, toolbar, section heads). */
 .feed {
   list-style: none;
   margin: 0;
@@ -339,8 +502,13 @@ p.quote {
   display: grid;
   grid-template-columns: var(--vote-w) minmax(0, 1fr) var(--thumb-w);
   gap: var(--s3);
-  padding: var(--s3) 0;
-  border-bottom: 1px solid var(--rule);
+  margin: 0 calc(-1 * var(--s2));
+  padding: var(--s4) var(--s2);
+  border-bottom: 1px solid var(--hairline-faint);
+  transition: background 150ms ease;
+}
+.row:hover {
+  background: var(--tint);
 }
 .row:last-child {
   border-bottom: 0;
@@ -351,26 +519,49 @@ p.quote {
 }
 .title {
   font-weight: 600;
+  font-size: 17px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
 }
 .row .domain {
-  font-size: var(--t1);
+  font: 400 var(--t0) / 1.4 var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--grey-2);
 }
 .blurb {
   margin: var(--s1) 0 0;
   overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-soft);
 }
+
+/* the saver's note, set off like a decision in a brief: a purple left rule
+   and a tracked NOTE label */
 .note {
   margin: var(--s2) 0 0;
-  padding-left: var(--s2);
+  padding-left: var(--s3);
   border-left: 2px solid var(--accent);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.note-label {
+  margin-right: var(--s1);
+  font: 700 10px / 1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
 .meta {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0 var(--s3);
-  margin-top: var(--s1);
-  font-size: var(--t1);
+  margin-top: var(--s2);
+  font: 400 var(--t0) / 1.4 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 /* row links are tall enough to tap */
@@ -380,11 +571,19 @@ p.quote {
   min-height: 24px;
   line-height: 24px;
 }
+.meta a:hover {
+  color: var(--ink);
+}
 .meta .label {
-  line-height: 22px;
+  min-height: 0;
+  line-height: 1.6;
 }
 .meta a.out {
+  font-weight: 700;
   color: var(--accent);
+}
+.meta a.out:hover {
+  color: var(--accent-hover);
 }
 .thumb {
   display: block;
@@ -400,21 +599,29 @@ p.quote {
   display: block;
   width: 100%;
   height: 100%;
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
+  border: 1px solid var(--hairline-faint);
   background: var(--desk);
 }
 .thumb img {
   object-fit: cover;
 }
-/* placeholder tile: the kind word on the desk color */
+
+/* placeholder tile: the kind word on a hatched blueprint ground */
 .thumb .ph {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--t1);
-  letter-spacing: 0.08em;
-  color: var(--muted);
+  background: repeating-linear-gradient(
+    45deg,
+    var(--hatch) 0,
+    var(--hatch) 1px,
+    transparent 1px,
+    transparent 9px
+  );
+  font: 400 10px / 1 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--grey-2);
 }
 
 /* like column: one like button (dislike lives on the item page) */
@@ -433,9 +640,8 @@ p.quote {
   padding: 0;
   border: 0;
   background: none;
-  font: inherit;
-  line-height: 1;
-  color: var(--muted);
+  font: 400 var(--t1) / 1 var(--font-mono);
+  color: var(--grey-2);
   cursor: pointer;
 }
 .vote button:hover {
@@ -446,7 +652,7 @@ p.quote {
 }
 .vote .count {
   min-height: 18px;
-  font-size: var(--t1);
+  font: 700 var(--t0) / 1.4 var(--font-mono);
 }
 .vote.like button {
   display: flex;
@@ -469,9 +675,17 @@ p.quote {
   align-items: center;
   gap: var(--s1);
   min-height: 24px;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
   color: var(--muted);
 }
+.dogear-inline button.dg:hover {
+  color: var(--ink);
+  text-decoration: none;
+}
 .dogear-inline button.dg.on {
+  font-weight: 700;
   color: var(--accent);
 }
 .dg-icon {
@@ -484,7 +698,7 @@ p.quote {
   grid-template-columns: 64px minmax(0, 1fr);
   align-items: baseline;
   gap: var(--s2);
-  padding: var(--s1) 0;
+  padding: var(--s1) var(--s2);
 }
 .feed.compact .thumb,
 .feed.compact .blurb,
@@ -510,6 +724,9 @@ p.quote {
 .feed.compact .head {
   min-width: 30%;
 }
+.feed.compact .title {
+  font-size: var(--t2);
+}
 .feed.compact .meta {
   flex-wrap: nowrap;
   margin: 0;
@@ -519,7 +736,7 @@ p.quote {
   gap: var(--s1);
   width: auto;
   min-height: 24px;
-  font-size: var(--t1);
+  font-size: var(--t0);
 }
 
 /* infinite scroll: an invisible trigger a dozen rows before the end, and a
@@ -529,33 +746,36 @@ p.quote {
 }
 .feed .more {
   padding: var(--s4) 0;
+  font: 400 var(--t1) / 1.6 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 .feed .more:not(:last-child) {
   display: none;
 }
+
 /* channels and people above search results */
 .creators {
   margin: 0 0 var(--s5);
-  padding-bottom: var(--s2);
-  border-bottom: 1px solid var(--rule);
 }
 .creators h2 {
-  margin: 0 0 var(--s1);
-  font-weight: 400;
+  margin: 0 0 var(--s2);
 }
 
 /* ---------- feed toolbar ----------
-   Topic chips on one scrolling line, then sort, kind, and layout. */
+   Topic chips on one scrolling line, then sort, kind, and layout, closed
+   by a full-ink rule. */
 .toolbar {
   display: grid;
+
   /* minmax(0, …) lets the one-line chips scroll instead of widening the
      page to fit every topic */
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--s2);
-  margin: var(--s2) 0 var(--s1);
-  padding-bottom: var(--s2);
-  border-bottom: 1px solid var(--rule);
+  gap: var(--s3);
+  margin: var(--s4) 0 var(--s1);
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--ink);
 }
 .toolbar .chips {
   /* positioned, so the absolutely positioned sr-only labels inside stay in
@@ -579,27 +799,35 @@ p.quote {
 }
 .seg.view {
   margin-left: auto;
-  font-size: var(--t1);
+  font-size: var(--t0);
 }
 
 /* ---------- item page ---------- */
 .item-title {
-  margin: var(--s1) 0 var(--s2);
-  font-size: var(--t4);
-  line-height: 1.3;
+  margin: var(--s1) 0 var(--s3);
+  font: 700 var(--t5) / 1.08 var(--font-sans);
+  letter-spacing: -0.03em;
   overflow-wrap: anywhere;
 }
 .item-meta {
   display: flex;
   flex-wrap: wrap;
   gap: var(--s1) var(--s4);
-  margin: 0 0 var(--s3);
-  font-size: var(--t1);
+  margin: 0 0 var(--s4);
+  font: 400 var(--t0) / 1.6 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--muted);
 }
+.item-meta a:hover {
+  color: var(--ink);
+}
 .item-blurb {
-  margin: 0 0 var(--s4);
-  font-size: var(--t3);
+  max-width: 60ch;
+  margin: 0 0 var(--s5);
+  font-size: var(--t4);
+  line-height: 1.45;
+  color: var(--ink-soft);
 }
 .item-actions {
   display: flex;
@@ -607,6 +835,9 @@ p.quote {
   align-items: center;
   gap: var(--s2) var(--s4);
   margin: 0 0 var(--s5);
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
 }
 .item-actions .vote form {
   display: flex;
@@ -617,7 +848,9 @@ p.quote {
   height: 32px;
 }
 .item-actions .dogear-inline button.dg {
-  font-size: var(--t2);
+  font: 700 var(--t1) / 1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--ink);
 }
 .item-actions .dogear-inline button.dg.on {
@@ -626,6 +859,7 @@ p.quote {
 .item-actions details.save[open] {
   flex-basis: 100%;
 }
+
 /* a fixed 2:1 box (GitHub cards are 2:1) so the image can't shift layout */
 a.hero {
   display: block;
@@ -639,8 +873,7 @@ a.hero {
   aspect-ratio: 2 / 1;
   margin: 0 0 var(--s4);
   object-fit: cover;
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
+  border: 1px solid var(--ink);
   background: var(--desk);
 }
 details.transcript {
@@ -648,21 +881,25 @@ details.transcript {
 }
 details.transcript summary,
 details.more > summary {
-  cursor: pointer;
+  font: 400 var(--t0) / 1.6 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--muted);
+  cursor: pointer;
+}
+details.transcript summary:hover,
+details.more > summary:hover {
+  color: var(--ink);
 }
 details.transcript p {
   max-height: 360px;
   overflow-y: auto;
-  padding-left: var(--s2);
-  border-left: 2px solid var(--rule);
-  font-size: var(--t1);
+  padding-left: var(--s3);
+  border-left: 1px solid var(--ink);
+  font-size: var(--t2);
 }
 details.more {
   margin: var(--s5) 0 0;
-}
-details.more > summary {
-  font-size: var(--t1);
 }
 details.more[open] > summary {
   margin-bottom: var(--s3);
@@ -675,8 +912,7 @@ details.more[open] > summary {
   max-width: 420px;
   margin: var(--s2) 0 0;
   padding: var(--s3) var(--s4);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
+  border: 1px solid var(--ink);
   background: var(--paper);
 }
 .save-menu .actions .saved {
@@ -692,6 +928,9 @@ details.more[open] > summary {
 .list-choices legend {
   padding: 0;
   margin-bottom: var(--s1);
+  font: 700 var(--t0) / 1.6 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 .choice {
   display: flex;
@@ -704,40 +943,103 @@ details.more[open] > summary {
   width: var(--t3);
   height: var(--t3);
   margin: 0;
-  accent-color: var(--ink);
+  accent-color: var(--accent);
 }
 .choice.new {
   margin-top: var(--s1);
 }
 
 /* ---------- archive and tags ---------- */
-/* the archive owner's tags on a row, and the profile tag bar */
-.mytags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 var(--s2);
-  margin: var(--s1) 0 0;
-  font-size: var(--t1);
+
+/* profile figures: a heavy rule over each, a display numeral, a tracked
+   label; the first (saves) is purple */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: var(--s4) var(--s5);
+  align-items: end;
+  margin: var(--s5) 0;
 }
+.stat {
+  margin: 0;
+  padding-top: var(--s2);
+  border-top: 2px solid var(--ink);
+}
+.stat b {
+  display: block;
+  font: 700 30px / 1.05 var(--font-sans);
+  letter-spacing: -0.03em;
+}
+.stat span {
+  display: block;
+  margin-top: var(--s1);
+  font: 400 10px / 1.4 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.stat.lead {
+  border-top-color: var(--accent);
+}
+.stat.lead b {
+  color: var(--accent);
+}
+
+/* the follow box sits inside the stats grid: its two figures become grid
+   cells and the follow button takes the next one */
+.follow-box {
+  display: contents;
+}
+.follow-box form {
+  align-self: end;
+}
+
+/* the archive owner's tags on a row, and the profile tag bar: square
+   bordered badges that flood purple on hover */
+.mytags,
 .tagbar {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s1) var(--s4);
+  gap: var(--s1) var(--s2);
+}
+.mytags {
+  margin: var(--s2) 0 0;
+}
+.tagbar {
   margin: 0 0 var(--s4);
 }
 .mytags a,
 .tagbar a {
-  color: var(--accent);
+  padding: 0 6px;
+  border: 1px solid var(--ink);
+  font: 400 var(--t0) / 1.8 var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+.tagbar a {
+  font-size: var(--t1);
+}
+.mytags a:hover,
+.tagbar a:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  text-decoration: none;
 }
 .mytags a::before,
 .tagbar a::before {
   content: '#';
-  opacity: 0.6;
+  opacity: 0.5;
+}
+.mytags .muted {
+  font: 400 var(--t0) / 1.8 var(--font-mono);
 }
 .tagbar .count {
   margin-left: var(--s1);
-  font-size: var(--t1);
-  color: var(--muted);
+  color: var(--grey-2);
+}
+.tagbar a:hover .count {
+  color: inherit;
 }
 .share {
   display: flex;
@@ -745,22 +1047,32 @@ details.more[open] > summary {
   align-items: baseline;
   gap: var(--s1) var(--s2);
   margin: 0 0 var(--s4);
-  font-size: var(--t1);
+  font: 400 var(--t0) / 1.6 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 .share code {
-  color: var(--ink);
+  padding: 0 var(--s1);
+  border: 1px solid var(--ink);
   overflow-wrap: anywhere;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink);
 }
 details.newlist > summary {
   margin: var(--s2) 0;
   list-style: none;
-  color: var(--muted);
+  font: 700 var(--t1) / 1.6 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
   cursor: pointer;
 }
 details.newlist > summary::before {
   content: '+ ';
 }
+
 /* a tag owner's controls under each entry: note editor, reorder, untag */
 .entry-tools {
   display: flex;
@@ -768,6 +1080,9 @@ details.newlist > summary::before {
   align-items: baseline;
   gap: var(--s1) var(--s4);
   margin-top: var(--s2);
+  font: 400 var(--t0) / 1.6 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 .entry-tools button.link {
@@ -794,6 +1109,8 @@ details.note-edit[open] {
   gap: var(--s2);
   max-width: 480px;
   margin-top: var(--s2);
+  text-transform: none;
+  letter-spacing: 0;
 }
 .note-form textarea {
   min-height: 60px;
@@ -805,7 +1122,7 @@ details.note-edit[open] {
 /* ---------- forms and buttons ---------- */
 form.stack {
   display: grid;
-  gap: var(--s3);
+  gap: var(--s4);
   max-width: 520px;
 }
 label {
@@ -813,22 +1130,25 @@ label {
   gap: var(--s1);
 }
 label > span {
-  font-size: var(--t1);
+  font: 400 var(--t0) / 1.6 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 input[type='text'],
 input[type='url'],
 input[type='search'],
+input[type='file'],
 select,
 textarea {
   width: 100%;
   min-height: var(--tap);
   padding: var(--s2) var(--s3);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
-  background: transparent;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: var(--paper);
   color: var(--ink);
-  font: inherit;
+  font: 400 var(--t2) / 1.5 var(--font-sans);
 }
 textarea {
   min-height: 76px;
@@ -837,29 +1157,50 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: var(--ink);
-  outline: none;
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
+  outline-offset: 0;
 }
+input[type='checkbox'] {
+  accent-color: var(--accent);
+}
+
+/* Buttons are square slabs in the machine voice. Hover floods them purple,
+   the one verb every control shares. */
 .btn {
   appearance: none;
   display: inline-block;
   min-height: var(--tap);
   padding: var(--s2) var(--s4);
-  border: 1px solid var(--ink);
-  border-radius: var(--radius);
+  border: 2px solid var(--ink);
+  border-radius: 0;
   background: var(--ink);
   color: var(--paper);
-  font: inherit;
-  line-height: 26px;
+  font: 700 var(--t1) / 24px var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   cursor: pointer;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
 }
-.btn:hover {
+.btn:hover,
+.btn.ghost:hover,
+.btn[aria-pressed='true']:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
   text-decoration: none;
-  opacity: 0.9;
 }
 .btn.ghost {
   background: transparent;
   color: var(--ink);
+}
+.btn[aria-pressed='true'] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
 }
 .btn.danger {
   border-color: var(--accent);
@@ -872,6 +1213,8 @@ button.link {
   border: 0;
   background: none;
   font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
   color: inherit;
   cursor: pointer;
 }
@@ -887,18 +1230,25 @@ button.link:hover {
 }
 
 /* ---------- menus and dialogs ---------- */
+
 /* small disclosure menus (kind filter, tag & note) that work without JS */
 details.menu {
   position: relative;
 }
 details.menu > summary {
   list-style: none;
+  font: 400 var(--t1) / 1.6 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--muted);
   cursor: pointer;
 }
+details.menu > summary:hover {
+  color: var(--ink);
+}
 details.menu > summary::after {
   content: ' ▾';
-  font-size: var(--t1);
+  font-size: 10px;
 }
 details.menu[open] > summary,
 details.menu.set > summary {
@@ -906,7 +1256,8 @@ details.menu.set > summary {
 }
 details.menu.set > summary {
   text-decoration: underline;
-  text-underline-offset: 4px;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
 }
 details.menu > nav {
   position: absolute;
@@ -914,15 +1265,27 @@ details.menu > nav {
   left: 0;
   z-index: 15;
   display: grid;
-  gap: var(--s1);
-  min-width: 160px;
-  padding: var(--s2) var(--s3);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
+  min-width: 180px;
+  border: 1px solid var(--ink);
   background: var(--paper);
+  font: 400 var(--t1) / 1.6 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+details.menu > nav a {
+  padding: var(--s1) var(--s3);
+}
+details.menu > nav a:hover {
+  background: var(--accent);
+  color: var(--on-accent);
+  text-decoration: none;
 }
 details.menu > nav a[aria-current='page'] {
+  font-weight: 700;
   color: var(--accent);
+}
+details.menu > nav a[aria-current='page']:hover {
+  color: var(--on-accent);
 }
 details.menu > summary::-webkit-details-marker,
 details.newlist > summary::-webkit-details-marker,
@@ -936,13 +1299,13 @@ dialog.cmdk {
   max-height: 80vh;
   margin: 12vh auto auto;
   padding: var(--s4);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
+  border: 1px solid var(--ink);
+  border-top: 3px solid var(--accent);
   background: var(--paper);
   color: var(--ink);
 }
 dialog.cmdk::backdrop {
-  background: rgb(0 0 0 / 35%);
+  background: rgb(0 0 0 / 45%);
 }
 dialog.cmdk input[type='search'] {
   font-size: var(--t3);
@@ -956,38 +1319,48 @@ dialog.cmdk .small {
   margin: var(--s2) 0 0;
 }
 
-/* ---------- tables and lists ---------- */
+/* ---------- tables and lists ----------
+   Tables are ruled like a brief's: heavy top and bottom, an ink rule under
+   the tracked header row, faint rules between rows. */
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--t1);
+  border-top: 2px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
+  font-size: var(--t2);
 }
 th,
 td {
-  padding: var(--s1) var(--s2) var(--s1) 0;
-  border-bottom: 1px solid var(--rule);
+  padding: var(--s2) var(--s3) var(--s2) 0;
+  border-bottom: 1px solid var(--hairline-faint);
   text-align: left;
   vertical-align: top;
 }
 th {
-  font-weight: 400;
-  color: var(--muted);
+  border-bottom: 1px solid var(--ink);
+  font: 700 var(--t0) / 1.6 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 table.index td.num {
   width: 4em;
   text-align: right;
+  font: 400 var(--t1) / 1.6 var(--font-mono);
   color: var(--muted);
 }
 h2.group {
-  margin-top: var(--s5);
+  margin-top: var(--s6);
 }
 dl.kv {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: var(--s1) var(--s4);
+  gap: var(--s2) var(--s4);
   margin: var(--s2) 0 var(--s3);
 }
 dl.kv dt {
+  font: 400 var(--t0) / 1.9 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 dl.kv dd {
@@ -1003,7 +1376,7 @@ ul.plain li {
 }
 ul.index li {
   padding: var(--s2) 0;
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--hairline-faint);
 }
 ul.tree {
   margin: var(--s1) 0 var(--s3);
@@ -1018,6 +1391,13 @@ ul.tree a {
 .inline {
   display: inline;
 }
+
+/* share buttons stay hidden until app.js reveals them (.btn would
+   otherwise override the hidden attribute's display: none) */
+.btn[hidden] {
+  display: none;
+}
+
 /* htmx indicator styles (includeIndicatorStyles is off for the CSP) */
 .htmx-indicator {
   opacity: 0;
@@ -1043,25 +1423,27 @@ ul.tree a {
 @media (width <= 520px) {
   :root {
     --mark: 40px;
-    --vote-w: 36px;
+    --vote-w: 32px;
     --thumb-w: 72px;
     --thumb-h: 48px;
   }
   .wrap {
     padding: 0 var(--s4);
   }
+
   /* the header stays on one line beside a smaller corner mark */
   header.top {
     flex-wrap: nowrap;
     gap: var(--s3);
     padding-right: calc(var(--mark) + var(--s1));
   }
+
   /* on a narrow screen the nav scrolls sideways rather than pushing the
      page wider (signed in, it gains following and your name) */
   nav.main {
+    position: relative;
     flex-wrap: nowrap;
     gap: var(--s1) var(--s3);
-    position: relative;
     min-width: 0;
     overflow-x: auto;
     white-space: nowrap;
@@ -1078,6 +1460,7 @@ ul.tree a {
     width: calc(var(--mark) + var(--s2));
     height: calc(var(--mark) + var(--s2));
   }
+
   /* comfortable tap targets for nav, tabs, chips, menus, and footer links */
   nav.main a,
   .chips a,
@@ -1087,13 +1470,18 @@ ul.tree a {
   footer button.link,
   details.menu > summary {
     display: inline-block;
-    padding: var(--s2) 0;
+    padding-top: var(--s2);
+    padding-bottom: var(--s2);
+  }
+  .chips a {
+    padding-top: var(--s1);
+    padding-bottom: var(--s1);
   }
   details.menu > nav {
     max-width: calc(100vw - var(--s6));
   }
   details.menu > nav a {
-    padding: var(--s2) 0;
+    padding: var(--s2) var(--s3);
   }
   .controls {
     gap: var(--s1) var(--s4);
@@ -1101,9 +1489,13 @@ ul.tree a {
   .row {
     gap: var(--s2);
   }
+  .title {
+    font-size: var(--t3);
+  }
   .vote button {
     height: 30px;
   }
+
   /* iOS zooms into inputs under 16px */
   input[type='text'],
   input[type='url'],
@@ -1125,17 +1517,14 @@ ul.tree a {
   }
 }
 
-/* follows: profile follow button, /following, and the home strip */
-.follow-box {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s1) var(--s3);
-  margin: 0 0 var(--s4);
-}
+/* follows: /following and the home strip (the follow box is in the stats) */
 .follow-by {
   list-style: none;
-  padding-top: var(--s3);
+  padding-top: var(--s4);
+  font: 400 var(--t0) / 1.6 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 .follow-people {
   padding-left: 0;
@@ -1143,12 +1532,9 @@ ul.tree a {
 }
 .recent-saves {
   margin: 0 0 var(--s4);
-  padding-bottom: var(--s2);
-  border-bottom: 1px solid var(--rule);
 }
 .recent-saves h2 {
-  margin: 0 0 var(--s1);
-  font-weight: normal;
+  margin: 0 0 var(--s2);
 }
 .recent-saves ul {
   margin: 0;
@@ -1157,11 +1543,15 @@ ul.tree a {
 }
 .recent-saves li {
   overflow: hidden;
+  padding: 2px 0;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: var(--t2);
 }
 .recent-saves .who {
-  color: var(--muted);
+  font: 400 var(--t0) / 1.6 var(--font-mono);
+  letter-spacing: 0.06em;
+  color: var(--accent);
 }
 
 /* sharing: the embed snippet on tag pages and the signed-out call to action
@@ -1171,6 +1561,9 @@ ul.tree a {
   color: var(--muted);
 }
 .embed-snippet summary {
+  font: 400 var(--t0) / 1.6 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   cursor: pointer;
 }
 .cta {
@@ -1178,6 +1571,7 @@ ul.tree a {
   color: var(--muted);
 }
 .cta a {
+  font-weight: 600;
   color: var(--accent);
 }
 
@@ -1191,7 +1585,7 @@ dl.import-help {
   gap: 0;
 }
 dl.import-help dt {
-  margin-top: var(--s2);
+  margin-top: var(--s3);
   color: var(--ink);
 }
 .personal-note {
