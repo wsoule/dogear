@@ -23,7 +23,6 @@ const blurbCount = $<HTMLSpanElement>('blurb-count');
 const categorySelect = $<HTMLSelectElement>('category');
 const kindSelect = $<HTMLSelectElement>('kind');
 const listSelect = $<HTMLSelectElement>('list');
-const noteLabel = $<HTMLLabelElement>('note-label');
 const noteInput = $<HTMLInputElement>('note');
 const submitButton = $<HTMLButtonElement>('submit');
 const statusBox = $<HTMLDivElement>('status');
@@ -107,29 +106,43 @@ function describeError(res: ApiResult<unknown>): string {
   return msg;
 }
 
-// Saves an existing item to the selected list, used after a 409 duplicate.
-async function saveToList(
+// Saves an existing item to the user's archive (with their note), and to
+// the selected tag when one is picked. Used after a 409 duplicate, since
+// the link is already on Dogear and only needs dogearing.
+async function saveExisting(
   settings: Settings,
   itemId: number,
   button: HTMLButtonElement
 ): Promise<void> {
-  const slug = listSelect.value === '' ? 'favorites' : listSelect.value;
   button.disabled = true;
+  const note = noteInput.value.trim();
   const res = await api<unknown>(
     settings,
     'PUT',
-    `/me/lists/${encodeURIComponent(slug)}/items/${itemId}`,
-    { note: noteInput.value.trim() }
+    `/me/saves/${itemId}`,
+    note === '' ? {} : { note }
   );
-  if (res.ok) {
+  const slug = listSelect.value;
+  const tagged =
+    res.ok && slug !== ''
+      ? await api<unknown>(
+          settings,
+          'PUT',
+          `/me/lists/${encodeURIComponent(slug)}/items/${itemId}`,
+          {}
+        )
+      : res;
+  if (res.ok && tagged.ok) {
     showStatus(
       'ok',
-      `Saved to list "${slug}".`,
+      slug === ''
+        ? 'Saved to your dogear.'
+        : `Saved to your dogear, tagged #${slug}.`,
       link(`${settings.base}/i/${itemId}`, 'view item')
     );
   } else {
     button.disabled = false;
-    showStatus('error', describeError(res));
+    showStatus('error', describeError(res.ok ? tagged : res));
   }
 }
 
@@ -141,10 +154,8 @@ async function submit(settings: Settings): Promise<void> {
   };
   if (categorySelect.value !== '') body.category = categorySelect.value;
   if (kindSelect.value !== '') body.kind = kindSelect.value;
-  if (listSelect.value !== '') {
-    body.list = listSelect.value;
-    if (noteInput.value.trim() !== '') body.note = noteInput.value.trim();
-  }
+  if (listSelect.value !== '') body.list = listSelect.value;
+  if (noteInput.value.trim() !== '') body.note = noteInput.value.trim();
 
   submitButton.disabled = true;
   showStatus('ok', 'posting…');
@@ -171,8 +182,8 @@ async function submit(settings: Settings): Promise<void> {
     const id = dupId;
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.textContent = `Save to a list instead (${listSelect.value === '' ? 'favorites' : listSelect.value})`;
-    btn.addEventListener('click', () => void saveToList(settings, id, btn));
+    btn.textContent = 'Already here: save it to your dogear';
+    btn.addEventListener('click', () => void saveExisting(settings, id, btn));
     showStatus(
       'error',
       describeError(res),
@@ -199,9 +210,6 @@ async function main(): Promise<void> {
 
   blurbInput.addEventListener('input', () => {
     blurbCount.textContent = `${blurbInput.value.trim().length}/280`;
-  });
-  listSelect.addEventListener('change', () => {
-    noteLabel.hidden = listSelect.value === '';
   });
 
   const settings = await loadSettings();

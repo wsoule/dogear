@@ -78,6 +78,8 @@ const api = createServer((req, res) => {
       u.pathname === '/api/v1/me/lists/favorites/items/7'
     )
       return send(200, { list: 'favorites', item, note: 'mine' });
+    if (req.method === 'PUT' && u.pathname === '/api/v1/me/saves/7')
+      return send(200, { ok: true });
     return send(404, { error: { code: 'not_found', message: 'nope' } });
   });
 });
@@ -154,6 +156,7 @@ await check('tools/list', async () => {
     'get_item',
     'list_categories',
     'list_my_lists',
+    'save_item',
     'search_items',
   ]);
   const byName = Object.fromEntries(r.result.tools.map((t) => [t.name, t]));
@@ -192,7 +195,7 @@ await check(
     assert.equal(r.result.isError, true);
     assert.equal(r.result.structuredContent.error.code, 'duplicate');
     assert.equal(r.result.structuredContent.error.item_id, 7);
-    assert.match(r.result.structuredContent.hint, /add_to_list/);
+    assert.match(r.result.structuredContent.hint, /save_item/);
     assert.equal(seen.at(-1).headers.authorization, `Bearer ${TOKEN}`);
   }
 );
@@ -206,6 +209,17 @@ await check('tools/call add_to_list', async () => {
   assert.equal(r.result.structuredContent.note, NOTE);
   assert.deepEqual(seen.at(-1).body, { note: 'mine' });
   assert.equal(seen.at(-1).method, 'PUT');
+});
+
+await check('tools/call save_item', async () => {
+  const r = await rpc('tools/call', {
+    name: 'save_item',
+    arguments: { item_id: 7, note: 'mine' },
+  });
+  assert.notEqual(r.result.isError, true, JSON.stringify(r.result));
+  assert.deepEqual(seen.at(-1).body, { note: 'mine' });
+  assert.equal(seen.at(-1).method, 'PUT');
+  assert.equal(seen.at(-1).url, '/api/v1/me/saves/7');
 });
 
 await check('unknown tool -> JSON-RPC error', async () => {

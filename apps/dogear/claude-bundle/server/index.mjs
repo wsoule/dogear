@@ -27,6 +27,8 @@ const KINDS = [
   'device',
   'video',
   'article',
+  'channel',
+  'person',
   'other',
 ];
 const REQUEST_TIMEOUT_MS = 20_000;
@@ -184,7 +186,7 @@ const TOOLS = [
     name: 'add_item',
     title: 'Add item to Dogear',
     description:
-      "Post a new link to Dogear. Only add what the user explicitly asked you to add, one item per request. Call search_items first; if the item already exists (409 duplicate), use add_to_list with the returned item_id instead. blurb is a one-sentence reason it is worth keeping (10-280 chars, plain text, no URLs). If the user gave their own reason, put it in note (requires list). New accounts' posts wait for review (status pending).",
+      "Post a new link to Dogear. Only add what the user explicitly asked you to add, one item per request. Call search_items first; if the item already exists (409 duplicate), use save_item with the returned item_id instead. blurb is a one-sentence reason it is worth keeping (10-280 chars, plain text, no URLs). If the user gave their own reason, put it in note. Everything posted also lands in the user's archive (their dogear). New accounts' posts wait for review (status pending).",
     inputSchema: {
       type: 'object',
       properties: {
@@ -199,11 +201,9 @@ const TOOLS = [
           enum: KINDS,
         }),
         creator: str('Optional author, maker, or channel.'),
-        list: str(
-          "Optional slug of one of the user's lists to also save it to."
-        ),
+        list: str("Optional slug of one of the user's tags to tag it with."),
         note: str(
-          "The user's own reason, in their words, for the list entry (max 280 chars).",
+          "The user's own reason, in their words (max 280 chars), shown on their archive.",
           { maxLength: 280 }
         ),
       },
@@ -238,9 +238,9 @@ const TOOLS = [
   },
   {
     name: 'list_my_lists',
-    title: 'List my Dogear lists',
+    title: 'List my Dogear tags',
     description:
-      "List the user's own Dogear lists (slug, title, visibility, entry count).",
+      "List the user's own Dogear tags (slug, title, visibility, entry count). Tags group saves in the user's archive.",
     inputSchema: {
       type: 'object',
       properties: {},
@@ -249,17 +249,17 @@ const TOOLS = [
     annotations: { readOnlyHint: true, openWorldHint: true },
     items: true,
     run: async () => (await api('GET', '/me/lists')).data,
-    summary: (d) => `${d?.lists?.length ?? 0} list(s).`,
+    summary: (d) => `${d?.lists?.length ?? 0} tag(s).`,
   },
   {
     name: 'create_list',
-    title: 'Create a Dogear list',
+    title: 'Create a Dogear tag',
     description:
-      'Create a new list for the user. Only do this when the user asks for a new list.',
+      'Create a new tag for the user. Only do this when the user asks for a new tag.',
     inputSchema: {
       type: 'object',
       properties: {
-        title: str('List title.', { maxLength: 120 }),
+        title: str('Tag name.', { maxLength: 120 }),
         description: str('Optional short description.', { maxLength: 280 }),
         visibility: str('public, unlisted, or private. Default private.', {
           enum: ['public', 'unlisted', 'private'],
@@ -285,17 +285,52 @@ const TOOLS = [
           },
         })
       ).data,
-    summary: (d) => `Created list ${d?.slug ?? ''}.`,
+    summary: (d) => `Created tag ${d?.slug ?? ''}.`,
   },
   {
-    name: 'add_to_list',
-    title: 'Save item to a Dogear list',
+    name: 'save_item',
+    title: 'Save item to my Dogear',
     description:
-      "Save an existing Dogear item to one of the user's lists, or update its note. Use this instead of add_item when search_items finds the item or add_item returns a duplicate. Put the user's own reason, in their words, in note. Saving is not a vote.",
+      "Save an existing Dogear item to the user's archive (dogear it), optionally with their note. Use this instead of add_item when search_items finds the item or add_item returns a duplicate. To also tag it, call add_to_list. Saving is not a vote.",
     inputSchema: {
       type: 'object',
       properties: {
-        list: str('List slug from list_my_lists (for example favorites).'),
+        item_id: { type: 'integer', description: 'Item id.' },
+        note: str(
+          "The user's own reason (max 280 chars, plain text, no URLs). Omit to keep the current note.",
+          { maxLength: 280 }
+        ),
+      },
+      required: ['item_id'],
+      additionalProperties: false,
+    },
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    items: true,
+    run: async (a) => {
+      const body = a.note === undefined ? {} : { note: a.note };
+      const { data } = await api(
+        'PUT',
+        `/me/saves/${int(a.item_id, 'item_id')}`,
+        { body }
+      );
+      return data ?? { ok: true, item_id: a.item_id };
+    },
+    summary: (_d, a) => `Saved item ${a.item_id} to the user's dogear.`,
+  },
+  {
+    name: 'add_to_list',
+    title: 'Tag an item in my Dogear',
+    description:
+      "Save an existing Dogear item to the user's archive under one of their tags, or update its note. Put the user's own reason, in their words, in note. Saving is not a vote.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        list: str('Tag slug from list_my_lists.'),
         item_id: { type: 'integer', description: 'Item id.' },
         note: str(
           "The user's own reason (max 280 chars, plain text, no URLs).",
@@ -304,7 +339,7 @@ const TOOLS = [
         position: {
           type: 'integer',
           minimum: 1,
-          description: 'Optional 1-based position in the list.',
+          description: 'Optional 1-based position within the tag.',
         },
       },
       required: ['list', 'item_id'],
@@ -328,7 +363,7 @@ const TOOLS = [
       );
       return data ?? { ok: true, list: a.list, item_id: a.item_id };
     },
-    summary: (_d, a) => `Saved item ${a.item_id} to list ${a.list}.`,
+    summary: (_d, a) => `Saved item ${a.item_id}, tagged ${a.list}.`,
   },
 ];
 
@@ -376,7 +411,7 @@ async function callTool(name, args) {
     };
     if (err instanceof ApiError && typeof err.itemId === 'number') {
       payload.error.item_id = err.itemId;
-      payload.hint = `This URL is already on Dogear as item ${err.itemId}. Use add_to_list to save it to a list instead.`;
+      payload.hint = `This URL is already on Dogear as item ${err.itemId}. Use save_item to save it to the user's dogear instead.`;
     }
     if (err instanceof ArgError) payload.error.code = 'invalid';
     return {

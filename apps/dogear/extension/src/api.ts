@@ -10,6 +10,8 @@ export const KINDS = [
   'device',
   'video',
   'article',
+  'channel',
+  'person',
   'other',
 ] as const;
 

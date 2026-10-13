@@ -3,8 +3,8 @@
   "name": "dogear",
   "display_name": "Dogear",
   "version": "1.0.0",
-  "description": "Search Dogear, post links with a one-line reason, and save items to your lists.",
-  "long_description": "Dogear is a ranked catalog of recommended links. This extension lets Claude search the catalog, add links you ask it to add, and save items to your lists with your own notes. It calls the Dogear REST API with an afk_ token that needs only the read and post scopes.",
+  "description": "Search Dogear, post links with a one-line reason, and save things to your dogear with tags.",
+  "long_description": "Dogear is a ranked catalog of recommended links. This extension lets Claude search the catalog, add links you ask it to add, and save items to your archive (your dogear) with tags and your own notes. It calls the Dogear REST API with an afk_ token that needs only the read and post scopes.",
   "author": {
     "name": "Dogear",
     "url": "https://dogear.fyi"
@@ -41,11 +41,15 @@
       "name": "add_item",
       "description": "Post a link the user asked to add, with a one-line reason."
     },
-    { "name": "list_my_lists", "description": "List the user's lists." },
-    { "name": "create_list", "description": "Create a new list." },
+    { "name": "list_my_lists", "description": "List the user's tags." },
+    { "name": "create_list", "description": "Create a new tag." },
+    {
+      "name": "save_item",
+      "description": "Save an existing item to the user's dogear with their note."
+    },
     {
       "name": "add_to_list",
-      "description": "Save an existing item to a list with the user's note."
+      "description": "Tag an existing item in the user's dogear."
     }
   ],
   "tools_generated": false,

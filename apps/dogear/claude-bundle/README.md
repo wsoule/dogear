@@ -7,15 +7,16 @@ apply. Requests send the user agent `dogear-claude/1.0`.
 
 ## Tools
 
-| Tool              | Annotations                 | REST call                                                                       |
-| ----------------- | --------------------------- | ------------------------------------------------------------------------------- |
-| `search_items`    | readOnly                    | `GET /items`                                                                    |
-| `get_item`        | readOnly                    | `GET /items/{id}`                                                               |
-| `list_categories` | readOnly                    | `GET /categories`                                                               |
-| `add_item`        | not destructive             | `POST /items` (409 duplicate returns `item_id` and a hint to use `add_to_list`) |
-| `list_my_lists`   | readOnly                    | `GET /me/lists`                                                                 |
-| `create_list`     | not destructive             | `POST /me/lists`                                                                |
-| `add_to_list`     | not destructive, idempotent | `PUT /me/lists/{slug}/items/{item_id}`                                          |
+| Tool              | Annotations                 | REST call                                                                     |
+| ----------------- | --------------------------- | ----------------------------------------------------------------------------- |
+| `search_items`    | readOnly                    | `GET /items`                                                                  |
+| `get_item`        | readOnly                    | `GET /items/{id}`                                                             |
+| `list_categories` | readOnly                    | `GET /categories`                                                             |
+| `add_item`        | not destructive             | `POST /items` (409 duplicate returns `item_id` and a hint to use `save_item`) |
+| `list_my_lists`   | readOnly                    | `GET /me/lists`                                                               |
+| `create_list`     | not destructive             | `POST /me/lists`                                                              |
+| `save_item`       | not destructive, idempotent | `PUT /me/saves/{item_id}`                                                     |
+| `add_to_list`     | not destructive, idempotent | `PUT /me/lists/{slug}/items/{item_id}`                                        |
 
 The tool descriptions tell Claude to search before adding, to add only what the
 user asked for, and to put the user's own reason in `note`. Every result that
