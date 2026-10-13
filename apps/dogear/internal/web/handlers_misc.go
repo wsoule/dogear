@@ -141,6 +141,23 @@ Reading needs no account. Writing (posting, voting, saving to lists) needs a per
 `, s.cfg.BaseURL)
 }
 
+// saveShortcut serves the signed "Save to Dogear" Apple Shortcut as a
+// download. iOS opens a downloaded .shortcut in the Shortcuts app with an
+// "Add Shortcut" button, so iPhone users get the share-sheet action without
+// building it by hand. The file was signed with `shortcuts sign --mode
+// anyone` on macOS; it opens https://dogear.fyi/share?url=<the shared link>.
+func (s *Server) saveShortcut(w http.ResponseWriter, _ *http.Request) {
+	b, err := staticFS.ReadFile("static/save-to-dogear.shortcut")
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", `attachment; filename="Save to Dogear.shortcut"`)
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	_, _ = w.Write(b)
+}
+
 func (s *Server) manifest(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/manifest+json")
 	_ = json.NewEncoder(w).Encode(map[string]any{

@@ -66,13 +66,17 @@
 <h1>save from your phone</h1>
 <p class="lede">Put Dogear in your phone's share menu, so any page in Safari, YouTube, or a newsletter app is one tap from your archive.</p>
 <h2>iPhone and iPad</h2>
-<p>iOS doesn't let web apps join the share menu, but a Shortcut can. It takes about a minute:</p>
+<p>iOS doesn't let web apps join the share menu, but a Shortcut can, and there's one ready to add:</p>
+<p><a class="btn" href="/save/shortcut" download>add “save to dogear” to shortcuts</a></p>
+<p class="muted small">Open this page in Safari on your iPhone and tap the button. Then tap the download (or open it from <strong>Files → Downloads</strong>) and tap <strong>Add Shortcut</strong>.</p>
+<details class="more"><summary>or build it yourself</summary>
 <ol>
 <li>Open the <strong>Shortcuts</strong> app, tap <strong>+</strong>, and name the shortcut <strong>Save to Dogear</strong>.</li>
 <li>Tap the <strong>ⓘ</strong> (details) button, turn on <strong>Show in Share Sheet</strong>, and set it to accept <strong>URLs</strong> and <strong>Safari web pages</strong>.</li>
 <li>Add the action <strong>URL Encode</strong> and give it the <strong>Shortcut Input</strong>.</li>
 <li>Add the action <strong>Open URLs</strong> and type <code>{{.BaseURL}}/share?url=</code>, then insert the <strong>URL Encoded Text</strong> right after it.</li>
 </ol>
+</details>
 <p>Now tap <strong>Share</strong> on any page and pick <strong>Save to Dogear</strong>. It opens Dogear in Safari: if the link is already here you can dogear and tag it, otherwise you can post it with a one-line reason.</p>
 <p class="muted small">Sign in to Dogear in Safari itself. An app added to your home screen keeps its own separate sign-in.</p>
 <h2>Android</h2>
