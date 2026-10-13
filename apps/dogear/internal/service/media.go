@@ -191,6 +191,10 @@ func (s *Service) ensureCreator(ctx context.Context, ref creatorRef, create bool
 		// Someone imported the creator's page: a trusted work may make it
 		// the creator page, as it could have added a new one.
 		if it.Status == "personal" && create {
+			// The domain may have been blocked since it was imported.
+			if blocked, err := s.Q.DomainBlocked(ctx, safety.Domain(norm)); err != nil || blocked {
+				return 0, errNoNewCreator
+			}
 			name := creatorName(ref.Name, norm)
 			if err := s.Q.PromotePersonalCreator(ctx, db.PromotePersonalCreatorParams{ID: it.ID, Kind: ref.Kind, Title: name}); err != nil {
 				return 0, fmt.Errorf("promote creator: %w", err)

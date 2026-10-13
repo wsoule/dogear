@@ -9,7 +9,15 @@ SELECT d::text AS domain FROM unnest(@domains::text[]) AS d
 WHERE EXISTS (SELECT 1 FROM blocked_domains b WHERE d = b.domain OR d LIKE '%.' || b.domain);
 
 -- name: ItemsByNorms :many
-SELECT id, url_norm, status FROM items WHERE url_norm = ANY(@norms::text[]);
+-- The items behind an import's links, with whether the importer may save
+-- each one: the same rule as visibleTo (their own item, or a live or
+-- personal one whose poster is not banned, shadow-banned, or blocked by
+-- them), so an import cannot reach posts a normal save could not.
+SELECT i.id, i.url_norm, i.status,
+  (i.created_by = @user_id::bigint OR (i.status IN ('live','personal') AND (i.created_by IS NULL OR EXISTS (
+     SELECT 1 FROM users u WHERE u.id = i.created_by AND u.shadow_banned_at IS NULL AND u.banned_at IS NULL
+       AND NOT EXISTS (SELECT 1 FROM user_blocks b WHERE b.blocker_id = @user_id::bigint AND b.blocked_id = u.id)))))::bool AS visible
+FROM items i WHERE i.url_norm = ANY(@norms::text[]);
 
 -- name: BulkInsertPersonalItems :many
 -- Adds an import's links that are not on Dogear yet as the importer's

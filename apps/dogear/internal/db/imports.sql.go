@@ -182,17 +182,31 @@ func (q *Queries) DeleteUnsharedPersonalItems(ctx context.Context, createdBy *in
 }
 
 const itemsByNorms = `-- name: ItemsByNorms :many
-SELECT id, url_norm, status FROM items WHERE url_norm = ANY($1::text[])
+SELECT i.id, i.url_norm, i.status,
+  (i.created_by = $1::bigint OR (i.status IN ('live','personal') AND (i.created_by IS NULL OR EXISTS (
+     SELECT 1 FROM users u WHERE u.id = i.created_by AND u.shadow_banned_at IS NULL AND u.banned_at IS NULL
+       AND NOT EXISTS (SELECT 1 FROM user_blocks b WHERE b.blocker_id = $1::bigint AND b.blocked_id = u.id)))))::bool AS visible
+FROM items i WHERE i.url_norm = ANY($2::text[])
 `
+
+type ItemsByNormsParams struct {
+	UserID int64
+	Norms  []string
+}
 
 type ItemsByNormsRow struct {
 	ID      int64
 	UrlNorm string
 	Status  string
+	Visible bool
 }
 
-func (q *Queries) ItemsByNorms(ctx context.Context, norms []string) ([]ItemsByNormsRow, error) {
-	rows, err := q.db.Query(ctx, itemsByNorms, norms)
+// The items behind an import's links, with whether the importer may save
+// each one: the same rule as visibleTo (their own item, or a live or
+// personal one whose poster is not banned, shadow-banned, or blocked by
+// them), so an import cannot reach posts a normal save could not.
+func (q *Queries) ItemsByNorms(ctx context.Context, arg ItemsByNormsParams) ([]ItemsByNormsRow, error) {
+	rows, err := q.db.Query(ctx, itemsByNorms, arg.UserID, arg.Norms)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +214,12 @@ func (q *Queries) ItemsByNorms(ctx context.Context, norms []string) ([]ItemsByNo
 	var items []ItemsByNormsRow
 	for rows.Next() {
 		var i ItemsByNormsRow
-		if err := rows.Scan(&i.ID, &i.UrlNorm, &i.Status); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.UrlNorm,
+			&i.Status,
+			&i.Visible,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

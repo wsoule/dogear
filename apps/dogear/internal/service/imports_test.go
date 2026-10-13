@@ -317,3 +317,53 @@ func TestUntitledImportsGetBackfilled(t *testing.T) {
 		t.Fatalf("after backfill: %q %v, %q", untitled.Title, untitled.Flags, named.Title)
 	}
 }
+
+// An import reaches only what a normal save could: someone else's pending
+// post, a shadow-banned poster's item, and a blocked poster's item are
+// skipped, not saved.
+func TestImportSkipsHiddenItems(t *testing.T) {
+	s := newTestService(t)
+	ctx := context.Background()
+	me := newUser(t, s, 0)
+	urlOf := func(id int64) string {
+		it, err := s.Q.GetItem(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return it.Url
+	}
+	pending := liveItem(t, s, newUser(t, s, 1))
+	shadowed := newUser(t, s, 1)
+	byShadowed := liveItem(t, s, shadowed)
+	blockedUser := newUser(t, s, 1)
+	byBlocked := liveItem(t, s, blockedUser)
+	visible := liveItem(t, s, newUser(t, s, 1))
+	for _, q := range []struct {
+		sql string
+		arg any
+	}{
+		{`UPDATE items SET status = 'pending' WHERE id = $1`, pending},
+		{`UPDATE users SET shadow_banned_at = now() WHERE id = $1`, shadowed.ID()},
+	} {
+		if _, err := s.Pool.Exec(ctx, q.sql, q.arg); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.Pool.Exec(ctx, `INSERT INTO user_blocks (blocker_id, blocked_id) VALUES ($1, $2)`, me.ID(), blockedUser.ID()); err != nil {
+		t.Fatal(err)
+	}
+	res := runImport(t, s, me, ImportOptions{},
+		importfile.Entry{URL: urlOf(pending)},
+		importfile.Entry{URL: urlOf(byShadowed)},
+		importfile.Entry{URL: urlOf(byBlocked)},
+		importfile.Entry{URL: urlOf(visible)},
+	)
+	if res.Saved != 1 || res.Created != 0 || res.Skipped != 3 {
+		t.Fatalf("result = %+v", res)
+	}
+	for _, id := range []int64{pending, byShadowed, byBlocked} {
+		if _, err := s.Q.GetSave(ctx, db.GetSaveParams{UserID: me.ID(), ItemID: id}); err == nil {
+			t.Fatalf("hidden item %d was saved", id)
+		}
+	}
+}

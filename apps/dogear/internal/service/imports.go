@@ -277,18 +277,19 @@ func importItems(ctx context.Context, q *db.Queries, a *Actor, via string, links
 	for i, l := range links {
 		norms[i] = l.norm
 	}
-	existing, err := q.ItemsByNorms(ctx, norms)
+	existing, err := q.ItemsByNorms(ctx, db.ItemsByNormsParams{UserID: a.ID(), Norms: norms})
 	if err != nil {
 		return nil, nil, fmt.Errorf("find items: %w", err)
 	}
 	type found struct {
-		id     int64
-		status string
+		id      int64
+		status  string
+		visible bool
 	}
 	byNorm := make(map[string]found, len(existing))
 	ids := make([]int64, 0, len(existing))
 	for _, it := range existing {
-		byNorm[it.UrlNorm] = found{it.ID, it.Status}
+		byNorm[it.UrlNorm] = found{it.ID, it.Status, it.Visible}
 		ids = append(ids, it.ID)
 	}
 	saved := map[int64]bool{}
@@ -312,6 +313,11 @@ func importItems(ctx context.Context, q *db.Queries, a *Actor, via string, links
 		switch {
 		case ok && f.status == "removed":
 			res.skip(l.norm, "removed from Dogear")
+			continue
+		case ok && !f.visible:
+			// Waiting for review, or posted by someone hidden from you:
+			// a normal save would 404 too.
+			res.skip(l.norm, "not available on Dogear")
 			continue
 		case ok && saved[f.id]:
 			l.itemID, l.saved = f.id, true
@@ -363,11 +369,14 @@ func importItems(ctx context.Context, q *db.Queries, a *Actor, via string, links
 			}
 		}
 		if len(raced) > 0 {
-			rows, err := q.ItemsByNorms(ctx, raced)
+			rows, err := q.ItemsByNorms(ctx, db.ItemsByNormsParams{UserID: a.ID(), Norms: raced})
 			if err != nil {
 				return nil, nil, fmt.Errorf("find items: %w", err)
 			}
 			for _, r := range rows {
+				if !r.Visible {
+					continue // dropped below, like any link it could not save
+				}
 				for _, l := range keep {
 					if l.norm == r.UrlNorm && l.itemID == 0 {
 						l.itemID = r.ID
