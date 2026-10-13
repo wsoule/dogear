@@ -3,6 +3,7 @@
 package api
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -222,6 +223,12 @@ func statusFor(code string) int {
 // writeErr renders {"error": {"code", "message", "item_id"}}; unknown errors
 // become a generic 500 without leaking details.
 func writeErr(w http.ResponseWriter, err error) {
+	// A canceled request means the client hung up; answer 499 (nginx's
+	// "client closed request") so logs don't count it as a server error.
+	if errors.Is(err, context.Canceled) {
+		w.WriteHeader(499)
+		return
+	}
 	var e *service.Error
 	if !errors.As(err, &e) {
 		e = &service.Error{Code: "internal", Message: "internal error"}

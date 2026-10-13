@@ -4,13 +4,14 @@
 {{if .Intro}}{{if not $.Viewer}}<p class="intro">Things people think are cool — sites, tools, books, videos — each with a one-line reason. <a href="/signin">Sign in</a> to like things and <em>dogear</em> the ones you want to keep.</p>{{end}}{{end}}
 {{if .Heading}}<h1>{{.Heading}}</h1>{{end}}
 {{if .Sub}}<p class="lede">{{.Sub}}{{if .Source}} from <a href="https://github.com/{{.Source.Repo}}" rel="noopener">{{.Source.Repo}}</a>{{if .Source.Stars}} ★{{commas32 .Source.Stars}}{{end}}{{end}}</p>{{end}}
-{{if .Topics}}<nav class="chips scroll" aria-label="Topics">{{range .Topics}}{{if .Count}}<a href="/t/{{.Slug}}" {{if eq $.Data.TopicHere .Slug}}aria-current="page"{{end}}><span class="sr-only">topic </span>{{lower .Name}}</a>{{end}}{{end}}<a class="all" href="/categories">all categories</a></nav>{{end}}
-{{if .Chips}}<nav class="chips scroll" aria-label="Categories">{{range .Chips}}<a href="/c/{{.Slug}}"><span class="sr-only">category </span>{{lower .Name}}</a>{{end}}<a class="all" href="/categories">all categories</a></nav>{{end}}
-{{if .Children}}<nav class="chips scroll" aria-label="Lists in this category">{{range .Children}}{{if not .Hidden}}<a href="/c/{{.Slug}}"><span class="sr-only">list </span>{{lower .Name}}</a>{{end}}{{end}}</nav>{{end}}
+{{/* One toolbar for every feed: a scrolling row of topic (or sub-list)
+chips, then sort, kind, and layout, all plain links so it works without JS. */}}
 <div class="toolbar">
-  {{if .Tabs}}<nav class="seg" aria-label="Sort">{{$s := .Sort}}{{range .SortLinks}}<a href="{{.URL}}" {{if eq $s .Key}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}</nav>{{else}}<span></span>{{end}}
-  <div class="toolbar-end">
-    {{if .Tabs}}<details class="menu">
+  {{if .Topics}}<nav class="chips" aria-label="Topics"><a href="/" {{if not $.Data.TopicHere}}aria-current="page"{{end}}>everything</a>{{range .Topics}}{{if .Count}}<a href="/t/{{.Slug}}" {{if eq $.Data.TopicHere .Slug}}aria-current="page"{{end}}><span class="sr-only">topic </span>{{lower .Name}}</a>{{end}}{{end}}<a class="more-link" href="/categories">all categories →</a></nav>
+  {{else if .Children}}<nav class="chips" aria-label="Lists in this category">{{range .Children}}{{if not .Hidden}}<a href="/c/{{.Slug}}"><span class="sr-only">list </span>{{lower .Name}}</a>{{end}}{{end}}</nav>{{end}}
+  <div class="controls">
+    {{if .Tabs}}<nav class="seg" aria-label="Sort">{{$s := .Sort}}{{range .SortLinks}}<a href="{{.URL}}" {{if eq $s .Key}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}</nav>
+    <details class="menu{{if .Kind}} set{{end}}">
       <summary>{{if .Kind}}{{.Kind}}s{{else}}all kinds{{end}}</summary>
       <nav aria-label="Kind">{{$k := .Kind}}{{range .KindLinks}}<a href="{{.URL}}" {{if eq $k .Key}}aria-current="page"{{end}}>{{if .Key}}{{.Label}}s{{else}}all kinds{{end}}</a>{{end}}</nav>
     </details>{{end}}
