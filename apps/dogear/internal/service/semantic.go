@@ -86,8 +86,40 @@ func (s *Service) BackfillEmbeddings(ctx context.Context, n int) (int, error) {
 			s.Vectors.Put(r.ID, vecs[i])
 			done++
 		}
+		s.fileByMeaning(ctx, batch, vecs)
 	}
 	return done, nil
+}
+
+// fileByMeaning files newly embedded items into every topic whose
+// description their vector is close to, so a new post gets its topics within
+// minutes. (FileTopics' hourly pass only takes each topic's best matches
+// across the whole catalog, which a new item may never be among.)
+func (s *Service) fileByMeaning(ctx context.Context, rows []db.ItemsNeedingEmbeddingRow, vecs [][]int8) {
+	topics, err := s.Q.TopicPatterns(ctx)
+	if err != nil {
+		s.Log.Warn("topic patterns", "err", err)
+		return
+	}
+	for _, t := range topics {
+		tv, err := s.topicVector(ctx, t.Slug, t.Description)
+		if err != nil {
+			s.Log.Warn("topic vector", "topic", t.Slug, "err", err)
+			return
+		}
+		var ids []int64
+		for i, r := range rows {
+			if embed.Cosine(tv, vecs[i]) >= minTopicSim {
+				ids = append(ids, r.ID)
+			}
+		}
+		if len(ids) == 0 {
+			continue
+		}
+		if _, err := s.Q.FileTopicByMeaning(ctx, db.FileTopicByMeaningParams{TopicID: t.ID, Ids: ids}); err != nil {
+			s.Log.Warn("file by meaning", "topic", t.Slug, "err", err)
+		}
+	}
 }
 
 // RunEmbeddings loads the index, then keeps embedding new items: quickly

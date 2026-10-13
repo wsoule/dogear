@@ -47,6 +47,11 @@ type Result struct {
 
 	PromoConf, MismatchConf, InjectionConf, UnsafeConf float64
 
+	// PageKind is the kind the page itself declares ("article" for
+	// og:type=article), set by the caller from the fetched page. KindFor uses
+	// it when the classifier is unsure or says only "site" or "other".
+	PageKind string
+
 	Model string
 }
 

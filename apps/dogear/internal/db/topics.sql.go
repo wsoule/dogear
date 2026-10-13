@@ -9,6 +9,21 @@ import (
 	"context"
 )
 
+const fileItemTopicsByKeyword = `-- name: FileItemTopicsByKeyword :exec
+INSERT INTO item_topics (item_id, topic_id, source)
+SELECT i.id, t.id, 'keyword'
+FROM items i JOIN topics t ON (i.title || ' ' || i.blurb || ' ' || i.creator) ~* t.pattern
+WHERE i.id = $1 AND i.status = 'live'
+ON CONFLICT DO NOTHING
+`
+
+// Files one item into every topic whose pattern matches it, right after it
+// is posted, so it doesn't wait for the hourly pass.
+func (q *Queries) FileItemTopicsByKeyword(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, fileItemTopicsByKeyword, id)
+	return err
+}
+
 const fileTopicByMeaning = `-- name: FileTopicByMeaning :execrows
 INSERT INTO item_topics (item_id, topic_id, source)
 SELECT x, $1::int, 'meaning' FROM unnest($2::bigint[]) AS x

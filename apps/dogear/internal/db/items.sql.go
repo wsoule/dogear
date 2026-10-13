@@ -1165,6 +1165,7 @@ FROM items i
 WHERE i.status IN ('live','personal') AND i.via <> 'auto'
   AND (i.media_checked_at IS NULL OR (NOT i.media_ok AND i.media_checked_at < now() - interval '7 days'))
   AND (i.kind IN ('video','article') OR i.domain LIKE '%.substack.com' OR i.domain = 'medium.com'
+       OR (i.kind = 'other' AND i.via IN ('web','api','mcp'))
        OR i.status = 'personal')
 ORDER BY (i.media_checked_at IS NULL) DESC, (i.status = 'live') DESC, (i.via IN ('web','api','mcp')) DESC, i.score DESC
 LIMIT $1
@@ -1177,7 +1178,8 @@ type ItemsNeedingMediaRow struct {
 	Trusted bool
 }
 
-// Videos, articles, and newsletter posts not yet looked at, plus every
+// Videos, articles, newsletter posts, and people's posts of kind 'other'
+// (which may turn out to be articles) not yet looked at, plus every
 // personal (imported) item, whose title should come from the page itself; live items first, then people's
 // own posts, then by rank. trusted is true for imports and for live posts
 // by trusted, unflagged users: only their works may add new creator pages.
@@ -1612,9 +1614,11 @@ UPDATE items SET
   published_at = COALESCE($5::timestamptz, published_at),
   reading_minutes = COALESCE($6::smallint, reading_minutes),
   site_name = CASE WHEN $7::text <> '' THEN $7::text ELSE site_name END,
+  -- a post filed as 'other' whose page declares itself an article becomes one
+  kind = CASE WHEN $8::bool AND kind = 'other' THEN 'article' ELSE kind END,
   media_checked_at = now(),
-  media_ok = $8::bool
-WHERE id = $9
+  media_ok = $9::bool
+WHERE id = $10
 `
 
 type SetItemDetailsParams struct {
@@ -1625,6 +1629,7 @@ type SetItemDetailsParams struct {
 	PublishedAt     *time.Time
 	ReadingMinutes  *int16
 	SiteName        string
+	Article         bool
 	Ok              bool
 	ID              int64
 }
@@ -1643,6 +1648,7 @@ func (q *Queries) SetItemDetails(ctx context.Context, arg SetItemDetailsParams) 
 		arg.PublishedAt,
 		arg.ReadingMinutes,
 		arg.SiteName,
+		arg.Article,
 		arg.Ok,
 		arg.ID,
 	)

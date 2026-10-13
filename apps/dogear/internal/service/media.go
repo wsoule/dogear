@@ -34,6 +34,7 @@ type mediaDetails struct {
 	Duration       int    // seconds, videos only
 	Published      *time.Time
 	ReadingMinutes int // articles only
+	IsArticle      bool // the page declares itself an article (og:type)
 	SiteName       string
 }
 
@@ -112,7 +113,8 @@ func (s *Service) lookupMedia(ctx context.Context, norm, kind string) (mediaDeta
 	d.SiteName = truncateRunes(safety.SanitizeText(page.SiteName), 80)
 	d.CreatorName = page.Author
 	d.Published = parsePublished(page.Published)
-	if kind == "article" || strings.EqualFold(page.OGType, "article") {
+	d.IsArticle = strings.EqualFold(page.OGType, "article")
+	if kind == "article" || d.IsArticle {
 		d.ReadingMinutes = readingMinutes(page.Words)
 	}
 	if d.Creator != nil {
@@ -255,7 +257,8 @@ func (s *Service) refreshMedia(ctx context.Context, id int64, norm, kind string,
 		d.CreatorName = d.Creator.Name
 	}
 	p := db.SetItemDetailsParams{ID: id, Creator: truncateRunes(safety.SanitizeText(d.CreatorName), 120),
-		SiteName: d.SiteName, PublishedAt: d.Published, Ok: lookupErr == nil, Title: lookupTitle(d.Title)}
+		SiteName: d.SiteName, PublishedAt: d.Published, Ok: lookupErr == nil, Title: lookupTitle(d.Title),
+		Article: d.IsArticle}
 	if d.Duration > 0 {
 		p.DurationSeconds = ptr(int32(d.Duration))
 	}

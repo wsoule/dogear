@@ -270,6 +270,11 @@ func (s *Service) CreateItem(ctx context.Context, a *Actor, in NewItem) (Item, e
 		}
 		return Item{}, err
 	}
+	// File it into topics by keyword now; meaning follows once its
+	// embedding is made (BackfillEmbeddings).
+	if err := s.Q.FileItemTopicsByKeyword(ctx, created.ID); err != nil {
+		s.Log.Warn("file item topics", "item", created.ID, "err", err)
+	}
 	items, err := s.decorate(ctx, a, []db.Item{created})
 	if err != nil {
 		return Item{}, err
@@ -323,6 +328,9 @@ func (s *Service) classifyURL(ctx context.Context, a *Actor, norm, title, blurb 
 	// a near-certain injection so the policy always holds the item.
 	if safety.LooksLikeInjection(page.Title+" "+page.Description+" "+page.Text) && r.InjectionConf < 0.99 {
 		r.InjectionConf = 0.99
+	}
+	if strings.EqualFold(page.OGType, "article") {
+		r.PageKind = "article"
 	}
 	s.classifyCache.Set(norm+"\x00"+title+"\x00"+blurb, r)
 	return r, nil

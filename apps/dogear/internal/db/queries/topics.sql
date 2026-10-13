@@ -26,6 +26,15 @@ WITH batch AS (
 )
 UPDATE items SET topics_filed_at = now() WHERE id IN (SELECT id FROM batch);
 
+-- name: FileItemTopicsByKeyword :exec
+-- Files one item into every topic whose pattern matches it, right after it
+-- is posted, so it doesn't wait for the hourly pass.
+INSERT INTO item_topics (item_id, topic_id, source)
+SELECT i.id, t.id, 'keyword'
+FROM items i JOIN topics t ON (i.title || ' ' || i.blurb || ' ' || i.creator) ~* t.pattern
+WHERE i.id = @id AND i.status = 'live'
+ON CONFLICT DO NOTHING;
+
 -- name: FileTopicByMeaning :execrows
 INSERT INTO item_topics (item_id, topic_id, source)
 SELECT x, @topic_id::int, 'meaning' FROM unnest(@ids::bigint[]) AS x

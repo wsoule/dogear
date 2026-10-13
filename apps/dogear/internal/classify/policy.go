@@ -106,7 +106,9 @@ const minKindConf = 0.6
 
 // KindFor implements "Assigning a kind": the poster's choice wins, then domain
 // rules (YouTube -> video, a GitHub repo -> tool, app stores -> app), then the
-// classifier's kind when its confidence is at least 0.6, else "other".
+// classifier's kind when its confidence is at least 0.6, unless it only says
+// "site" or "other" for a page that declares its own kind (an article), then
+// that page kind, else "other".
 // normURL is the normalized item URL.
 func KindFor(posterKind, normURL string, r Result) string {
 	if pk := strings.ToLower(strings.TrimSpace(posterKind)); IsKind(pk) {
@@ -114,6 +116,12 @@ func KindFor(posterKind, normURL string, r Result) string {
 	}
 	if k := kindFromDomain(normURL); k != "" {
 		return k
+	}
+	if IsKind(r.Kind) && r.KindConf >= minKindConf && (r.PageKind == "" || (r.Kind != "site" && r.Kind != "other")) {
+		return r.Kind
+	}
+	if IsKind(r.PageKind) {
+		return r.PageKind
 	}
 	if IsKind(r.Kind) && r.KindConf >= minKindConf {
 		return r.Kind

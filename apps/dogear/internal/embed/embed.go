@@ -143,6 +143,20 @@ func norm(v []int8) float32 {
 	return float32(math.Sqrt(float64(s)))
 }
 
+// Cosine is the cosine similarity of two vectors, the score Nearest ranks
+// by; 0 when either is all zeros.
+func Cosine(a, b []int8) float32 {
+	na, nb := norm(a), norm(b)
+	if na == 0 || nb == 0 || len(a) != len(b) {
+		return 0
+	}
+	var dot int32
+	for i := range a {
+		dot += int32(a[i]) * int32(b[i])
+	}
+	return float32(dot) / (na * nb)
+}
+
 // Put adds or replaces an item's vector.
 func (ix *Index) Put(id int64, v []int8) {
 	if len(v) != Dims {

@@ -254,12 +254,15 @@ UPDATE items SET
   published_at = COALESCE(sqlc.narg(published_at)::timestamptz, published_at),
   reading_minutes = COALESCE(sqlc.narg(reading_minutes)::smallint, reading_minutes),
   site_name = CASE WHEN @site_name::text <> '' THEN @site_name::text ELSE site_name END,
+  -- a post filed as 'other' whose page declares itself an article becomes one
+  kind = CASE WHEN @article::bool AND kind = 'other' THEN 'article' ELSE kind END,
   media_checked_at = now(),
   media_ok = @ok::bool
 WHERE id = @id;
 
 -- name: ItemsNeedingMedia :many
--- Videos, articles, and newsletter posts not yet looked at, plus every
+-- Videos, articles, newsletter posts, and people's posts of kind 'other'
+-- (which may turn out to be articles) not yet looked at, plus every
 -- personal (imported) item, whose title should come from the page itself; live items first, then people's
 -- own posts, then by rank. trusted is true for imports and for live posts
 -- by trusted, unflagged users: only their works may add new creator pages.
@@ -272,6 +275,7 @@ FROM items i
 WHERE i.status IN ('live','personal') AND i.via <> 'auto'
   AND (i.media_checked_at IS NULL OR (NOT i.media_ok AND i.media_checked_at < now() - interval '7 days'))
   AND (i.kind IN ('video','article') OR i.domain LIKE '%.substack.com' OR i.domain = 'medium.com'
+       OR (i.kind = 'other' AND i.via IN ('web','api','mcp'))
        OR i.status = 'personal')
 ORDER BY (i.media_checked_at IS NULL) DESC, (i.status = 'live') DESC, (i.via IN ('web','api','mcp')) DESC, i.score DESC
 LIMIT $1;

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
 	"testing"
 
 	"dogear/internal/db"
@@ -47,5 +48,20 @@ func TestFileTopicsByKeywordAndFeed(t *testing.T) {
 	}
 	if _, err := s.Feed(ctx, nil, FeedQuery{Topic: "nope"}); err != ErrNotFound {
 		t.Fatalf("unknown topic: %v", err)
+	}
+}
+
+// A post is filed into topics as soon as it exists, without waiting for the
+// hourly pass; source control counts as programming.
+func TestFileItemTopicsOnPost(t *testing.T) {
+	s := newTestService(t)
+	ctx := context.Background()
+	id := liveItemTitled(t, s, newUser(t, s, 1), "Redesigning source control at Anthropic")
+	if err := s.Q.FileItemTopicsByKeyword(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	got := s.ItemTopics(ctx, id)
+	if !slices.ContainsFunc(got, func(tp Topic) bool { return tp.Slug == "programming" }) {
+		t.Fatalf("topics = %+v, want programming", got)
 	}
 }

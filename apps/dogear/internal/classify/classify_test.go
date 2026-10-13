@@ -94,6 +94,11 @@ func TestKindFor(t *testing.T) {
 		{"", "https://example.com/post", conf("bogus", 0.99), "other"},
 		{"nonsense", "https://example.com/", conf("device", 0.8), "device"},
 		{"", "not a url", Result{}, "other"},
+		// A page that declares itself an article wins over an unsure or
+		// "site"/"other" guess, but not over a confident specific kind.
+		{"", "https://example.com/blog/post", Result{PageKind: "article"}, "article"},
+		{"", "https://example.com/blog/post", Result{Kind: "site", KindConf: 0.9, PageKind: "article"}, "article"},
+		{"", "https://example.com/blog/post", Result{Kind: "book", KindConf: 0.9, PageKind: "article"}, "book"},
 	}
 	for _, tc := range tests {
 		if got := KindFor(tc.poster, tc.url, tc.r); got != tc.want {
