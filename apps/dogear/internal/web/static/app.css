@@ -549,12 +549,18 @@ p.quote {
    Topic chips on one scrolling line, then sort, kind, and layout. */
 .toolbar {
   display: grid;
+  /* minmax(0, …) lets the one-line chips scroll instead of widening the
+     page to fit every topic */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s2);
   margin: var(--s2) 0 var(--s1);
   padding-bottom: var(--s2);
   border-bottom: 1px solid var(--rule);
 }
 .toolbar .chips {
+  /* positioned, so the absolutely positioned sr-only labels inside stay in
+     this scroller instead of widening the whole page */
+  position: relative;
   flex-wrap: nowrap;
   margin: 0;
   overflow-x: auto;
@@ -1050,9 +1056,19 @@ ul.tree a {
     gap: var(--s3);
     padding-right: calc(var(--mark) + var(--s1));
   }
+  /* on a narrow screen the nav scrolls sideways rather than pushing the
+     page wider (signed in, it gains following and your name) */
   nav.main {
     flex-wrap: nowrap;
     gap: var(--s1) var(--s3);
+    position: relative;
+    min-width: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;
+  }
+  nav.main::-webkit-scrollbar {
+    display: none;
   }
   nav.main kbd {
     display: none;
