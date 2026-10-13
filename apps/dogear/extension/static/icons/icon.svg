@@ -1,6 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 64 64">
-  <!-- Dogear mark: a page whose top-right corner is folded over, drawn in single strokes. -->
-  <rect width="64" height="64" rx="12" fill="#fbfaf7"/>
-  <path d="M14 8H39L52 21V56H14Z" fill="#fbfaf7" stroke="#1b1b1a" stroke-width="3.5" stroke-linejoin="round"/>
-  <path d="M39 8V21H52" fill="none" stroke="#c2410c" stroke-width="3.5" stroke-linejoin="round"/>
+  <!-- Dogear mark: a page with its top-right corner folded over, black ink on
+       white with the fold in Dogear purple. Scaled up to fill the tile so it
+       reads at 16px in a browser toolbar. -->
+  <rect width="64" height="64" fill="#ffffff"/>
+  <g transform="scale(1.5238) translate(-14 -10)">
+    <path d="M19 13H39L49 23V51H19Z" fill="#ffffff" stroke="#000000" stroke-width="2.6" stroke-linejoin="miter" stroke-miterlimit="1.5"/>
+    <path d="M39 13V23H49Z" fill="#8b5cf6" stroke="#000000" stroke-width="2.6" stroke-linejoin="miter" stroke-miterlimit="1.5"/>
+  </g>
 </svg>
